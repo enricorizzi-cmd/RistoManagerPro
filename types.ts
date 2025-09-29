@@ -17,7 +17,13 @@ export enum TableStatus {
 export type TabKey = 'plan' | 'stats' | 'causali';
 
 export interface PlanOverrides {
-  [key: string]: number;
+  [macroCategory: string]: {
+    [category: string]: {
+      [detail: string]: {
+        [monthKey: string]: number;
+      };
+    };
+  };
 }
 
 export interface StatsOverrides {

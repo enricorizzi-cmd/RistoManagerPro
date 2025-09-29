@@ -226,52 +226,45 @@ const buildDetailMeta = (causaliCatalog: FinancialCausaleGroup[]) => {
 };
 
 const computePlanData = (
-  detailMeta: Map<string, { macro: string; category: string }>,
+  causaliCatalog: FinancialCausaleGroup[],
 ): Map<number, PlanYearData> => {
   const yearMap = new Map<number, Map<string, Map<string, PlanDetailRow>>>();
 
-  financialPlanRows.forEach((row) => {
-    const meta = detailMeta.get(normalizeLabel(row.detail)) ?? {
-      macro: row.macroCategory,
-      category: 'Altro',
-    };
+  // Use causaliCatalog as the source of truth instead of financialPlanRows
+  causaliCatalog.forEach((group) => {
+    group.categories.forEach((category) => {
+      category.items.forEach((item) => {
+        // Create entries for current year and next year
+        const currentYear = new Date().getFullYear();
+        const years = [currentYear, currentYear + 1];
+        
+        years.forEach((year) => {
+          if (!yearMap.has(year)) {
+            yearMap.set(year, new Map());
+          }
+          const macroMap = yearMap.get(year)!;
 
-    row.months.forEach((monthValue) => {
-      const parsed = parsePlanMonthLabel(monthValue.month);
-      if (!parsed) {
-        return;
-      }
-      const { year, monthIndex } = parsed;
+          if (!macroMap.has(group.macroCategory)) {
+            macroMap.set(group.macroCategory, new Map());
+          }
+          
+          const detailKey = `${category.name}__${item}`;
+          const detailMap = macroMap.get(group.macroCategory)!;
 
-      if (!yearMap.has(year)) {
-        yearMap.set(year, new Map());
-      }
-      const macroMap = yearMap.get(year)!;
-
-      if (!macroMap.has(meta.macro)) {
-        macroMap.set(meta.macro, new Map());
-      }
-        const detailKey = `${meta.category}__${row.detail}`;
-      const detailMap = macroMap.get(meta.macro)!;
-
-      if (!detailMap.has(detailKey)) {
-        detailMap.set(detailKey, {
-          macro: meta.macro,
-          category: meta.category,
-          detail: row.detail,
-          months: new Array<PlanMonthEntry>(12).fill(null).map((_, idx) => ({
-            monthIndex: idx,
-            consuntivo: 0,
-            preventivo: 0,
-          })),
+          if (!detailMap.has(detailKey)) {
+            detailMap.set(detailKey, {
+              macro: group.macroCategory,
+              category: category.name,
+              detail: item,
+              months: new Array<PlanMonthEntry>(12).fill(null).map((_, idx) => ({
+                monthIndex: idx,
+                consuntivo: 0,
+                preventivo: 0,
+              })),
+            });
+          }
         });
-      }
-      const detailEntry = detailMap.get(detailKey)!;
-      detailEntry.months[monthIndex] = {
-        monthIndex,
-        consuntivo: monthValue.consuntivo ?? 0,
-        preventivo: monthValue.preventivo ?? monthValue.consuntivo ?? 0,
-      };
+      });
     });
   });
 
@@ -427,25 +420,28 @@ const createBusinessPlanFormFromDraft = (
 
 const FinancialPlan: React.FC = () => {
   const { showNotification } = useAppContext();
-  const detailMeta = useMemo(() => buildDetailMeta(financialCausali as any), []);
-  const basePlanByYear = useMemo(() => computePlanData(detailMeta), [detailMeta]);
-  const yearMetrics = useMemo(
-    () => computeYearMetrics(basePlanByYear),
-    [basePlanByYear],
-  );
   const [planOverrides, setPlanOverrides] = useState<PlanOverrides>({});
   const [consuntivoOverrides, setConsuntivoOverrides] = useState<PlanOverrides>({});
   const [statsOverrides, setStatsOverrides] = useState<StatsOverrides>({});
   const [loadingState, setLoadingState] = useState<boolean>(false);
   const [savingState, setSavingState] = useState<boolean>(false);
   const [editMode, setEditMode] = useState<boolean>(false);
-  const [onlyValued, setOnlyValued] = useState<boolean>(false);
+  const [onlyValued, setOnlyValued] = useState<boolean>(true);
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
+
+  const basePlanByYear = useMemo(() => {
+    const source = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+    return computePlanData(source);
+  }, [causaliCatalog]);
+  const yearMetrics = useMemo(
+    () => computeYearMetrics(basePlanByYear),
+    [basePlanByYear],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -477,22 +473,19 @@ const FinancialPlan: React.FC = () => {
     window.localStorage.setItem('financialPlan.businessPlanDrafts', JSON.stringify(businessPlanDrafts));
   }, [businessPlanDrafts]);
 
+  const currentYear = new Date().getFullYear();
   const availableYears = useMemo(
-    () => Array.from(basePlanByYear.keys()).sort((a: number, b: number) => a - b),
-    [basePlanByYear],
+    () => Array.from({ length: 7 }, (_, i) => currentYear + 1 - i).sort((a: number, b: number) => a - b),
+    [currentYear],
   );
 
-  const latestYear =
-    availableYears.length > 0
-      ? availableYears[availableYears.length - 1]
-      : new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(latestYear);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   useEffect(() => {
     if (!basePlanByYear.has(selectedYear)) {
-      setSelectedYear(latestYear);
+      setSelectedYear(currentYear);
     }
-  }, [basePlanByYear, selectedYear, latestYear]);
+  }, [basePlanByYear, selectedYear, currentYear]);
 
   const completeYears = useMemo(() => {
     const years: number[] = [];
@@ -803,7 +796,7 @@ const FinancialPlan: React.FC = () => {
     const defaultBaseYear =
       completeYears.length > 0
         ? completeYears[completeYears.length - 1]
-        : latestYear;
+        : currentYear;
     const defaultTarget = defaultBaseYear + 1;
     const stored = businessPlanDrafts[String(defaultTarget)];
     const form = stored
@@ -818,7 +811,7 @@ const FinancialPlan: React.FC = () => {
     businessPlanForm,
     businessPlanDrafts,
     completeYears,
-    latestYear,
+    currentYear,
     recalcBusinessPlan,
     yearMetrics,
   ]);
@@ -1076,13 +1069,13 @@ const FinancialPlan: React.FC = () => {
               return;
             }
             if (!result[macro]) {
-              result[macro] = {};
+              result[macro] = {} as any;
             }
             if (!result[macro][category]) {
-              result[macro][category] = {};
+              result[macro][category] = {} as any;
             }
             if (!result[macro][category][detail]) {
-              result[macro][category][detail] = {};
+              result[macro][category][detail] = {} as any;
             }
             result[macro][category][detail][monthKey] = value as number;
           });
@@ -1177,13 +1170,13 @@ const FinancialPlan: React.FC = () => {
         (detailRatios ?? new Array(12).fill(1 / 12)).forEach((ratio, monthIndex) => {
           const monthValue = round2(annualTarget * ratio);
           if (!nextPlanOverrides[detail.macro]) {
-            nextPlanOverrides[detail.macro] = {};
+            nextPlanOverrides[detail.macro] = {} as any;
           }
           if (!nextPlanOverrides[detail.macro][detail.category]) {
-            nextPlanOverrides[detail.macro][detail.category] = {};
+            nextPlanOverrides[detail.macro][detail.category] = {} as any;
           }
           if (!nextPlanOverrides[detail.macro][detail.category][detail.detail]) {
-            nextPlanOverrides[detail.macro][detail.category][detail.detail] = {};
+            nextPlanOverrides[detail.macro][detail.category][detail.detail] = {} as any;
           }
           const monthKey = buildMonthKey(new Date().getFullYear(), monthIndex);
           nextPlanOverrides[detail.macro][detail.category][detail.detail][monthKey] = monthValue;
@@ -1365,7 +1358,7 @@ const FinancialPlan: React.FC = () => {
             onClick={() => setEditMode(true)}
             className="ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600"
           >
-            Blocca modifiche
+            Modifica
           </button>
         ) : (
           <div className="ml-auto flex gap-2">
@@ -1421,7 +1414,7 @@ const FinancialPlan: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {financialCausali.map((group) => (
+              {(causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any).map((group) => (
                 <React.Fragment key={group.macroCategory}>
                   <tr className="bg-slate-100 text-xs uppercase text-gray-600">
                     <td className="px-3 py-2" colSpan={1 + MONTH_NAMES.length * 2}>
@@ -1493,6 +1486,48 @@ const FinancialPlan: React.FC = () => {
                   })}
                 </React.Fragment>
               ))}
+              
+              {/* UTILE DI CASSA - Calcolato automaticamente */}
+              <tr className="bg-emerald-50 text-xs uppercase text-gray-600">
+                <td className="px-3 py-2" colSpan={1 + MONTH_NAMES.length * 2}>
+                  UTILE DI CASSA
+                </td>
+              </tr>
+              <tr className="bg-emerald-100 font-semibold">
+                <td className="px-3 py-2 text-sm text-gray-700">Utile di cassa</td>
+                {MONTH_NAMES.map((_, monthIndex) => {
+                  const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                  const costiFissi = (causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any)
+                    .find(g => g.macroCategory === 'COSTI FISSI')?.categories
+                    .reduce((acc, cat) => {
+                      const planYear = basePlanByYear.get(selectedYear);
+                      const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
+                      const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                      return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                    }, 0) ?? 0;
+                  const costiVariabili = (causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any)
+                    .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
+                    .reduce((acc, cat) => {
+                      const planYear = basePlanByYear.get(selectedYear);
+                      const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
+                      const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                      return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                    }, 0) ?? 0;
+                  
+                  const utileCassa = incassato - costiFissi - costiVariabili;
+                  
+                  return (
+                    <React.Fragment key={`utile-cassa-${monthIndex}`}>
+                      <td className="px-3 py-2 text-right text-sm">
+                        <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassa)}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-sm">
+                        <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassa)}</div>
+                      </td>
+                    </React.Fragment>
+                  );
+                })}
+              </tr>
             </tbody>
           </table>
         )}
