@@ -72,6 +72,7 @@ function saveState(payload) {
 function buildPayload(body) {
   const fallback = {
     preventivoOverrides: {},
+    consuntivoOverrides: {},
     manualLog: [],
     monthlyMetrics: [],
     statsOverrides: {},
@@ -87,6 +88,9 @@ function buildPayload(body) {
 
   if (body.preventivoOverrides && typeof body.preventivoOverrides === 'object') {
     payload.preventivoOverrides = body.preventivoOverrides;
+  }
+  if (body.consuntivoOverrides && typeof body.consuntivoOverrides === 'object') {
+    payload.consuntivoOverrides = body.consuntivoOverrides;
   }
   if (Array.isArray(body.manualLog)) {
     payload.manualLog = body.manualLog;
@@ -117,6 +121,7 @@ app.get('/api/financial-plan/state', async (req, res) => {
     if (!state) {
       res.json({
         preventivoOverrides: {},
+        consuntivoOverrides: {},
         manualLog: [],
         monthlyMetrics: [],
         statsOverrides: {},

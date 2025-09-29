@@ -17,6 +17,8 @@ import {
   FinancialCausaleGroup,
   FinancialStatsRow,
 } from '../data/financialPlanData';
+import { fetchFinancialPlanState, persistFinancialPlanState, type FinancialPlanStatePayload } from '../services/financialPlanApi';
+import { useAppContext } from '../contexts/AppContext';
 
 const MONTH_NAMES = [
   'Gennaio',
@@ -423,6 +425,7 @@ const createBusinessPlanFormFromDraft = (
 };
 
 const FinancialPlan: React.FC = () => {
+  const { showNotification } = useAppContext();
   const detailMeta = useMemo(() => buildDetailMeta(), []);
   const basePlanByYear = useMemo(() => computePlanData(detailMeta), [detailMeta]);
   const yearMetrics = useMemo(
@@ -430,47 +433,41 @@ const FinancialPlan: React.FC = () => {
     [basePlanByYear],
   );
   const [planOverrides, setPlanOverrides] = useState<PlanOverrides>({});
+  const [consuntivoOverrides, setConsuntivoOverrides] = useState<PlanOverrides>({});
   const [statsOverrides, setStatsOverrides] = useState<StatsOverrides>({});
+  const [loadingState, setLoadingState] = useState<boolean>(false);
+  const [savingState, setSavingState] = useState<boolean>(false);
+  const [editMode, setEditMode] = useState<boolean>(false);
+  const [onlyValued, setOnlyValued] = useState<boolean>(false);
+  const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
+  const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const storedPlan = window.localStorage.getItem('financialPlan.preventivoOverrides');
-      const storedStats = window.localStorage.getItem('financialPlan.statsForecastOverrides');
-      const storedBusiness = window.localStorage.getItem('financialPlan.businessPlanDrafts');
-      if (storedPlan) {
-        setPlanOverrides(JSON.parse(storedPlan));
+    let mounted = true;
+    setLoadingState(true);
+    fetchFinancialPlanState().then((payload) => {
+      if (!mounted || !payload) {
+        setLoadingState(false);
+        return;
       }
-      if (storedStats) {
-        setStatsOverrides(JSON.parse(storedStats));
-      }
-      if (storedBusiness) {
-        setBusinessPlanDrafts(JSON.parse(storedBusiness));
-      }
-    } catch (error) {
-      console.error('Impossibile leggere i dati salvati', error);
-    }
+      setPlanOverrides(payload.preventivoOverrides ?? {});
+      setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
+      setStatsOverrides(payload.statsOverrides ?? {});
+      setCausaliCatalog(
+        payload.causaliCatalog && payload.causaliCatalog.length > 0
+          ? (payload.causaliCatalog as FinancialCausaleGroup[])
+          : (financialCausali as unknown as FinancialCausaleGroup[]),
+      );
+      setLoadingState(false);
+    }).catch(() => setLoadingState(false));
+    return () => { mounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem('financialPlan.preventivoOverrides', JSON.stringify(planOverrides));
-  }, [planOverrides]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem('financialPlan.statsForecastOverrides', JSON.stringify(statsOverrides));
-  }, [statsOverrides]);
+  // Persist handled explicitly on Save; keep localStorage sync for drafts only
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -533,6 +530,131 @@ const FinancialPlan: React.FC = () => {
     },
     [planOverrides, basePlanByYear],
   );
+
+  const getPlanConsuntivoValue = useCallback(
+    (
+      macro: string,
+      category: string,
+      detail: string,
+      year: number,
+      monthIndex: number,
+    ): number => {
+      const monthKey = buildMonthKey(year, monthIndex);
+      const override = consuntivoOverrides[macro]?.[category]?.[detail]?.[monthKey];
+      if (override !== undefined) {
+        return override;
+      }
+      const planYear = basePlanByYear.get(year);
+      const macroBlock = planYear?.macros.find(
+        (item) => normalizeLabel(item.macro) === normalizeLabel(macro),
+      );
+      const detailRow = macroBlock?.details.find(
+        (item) => normalizeLabel(item.detail) === normalizeLabel(detail),
+      );
+      return detailRow?.months[monthIndex].consuntivo ?? 0;
+    },
+    [consuntivoOverrides, basePlanByYear],
+  );
+
+  const setOverride = (
+    target: 'preventivo' | 'consuntivo',
+    macro: string,
+    category: string,
+    detail: string,
+    year: number,
+    monthIndex: number,
+    value: number | null,
+  ) => {
+    const monthKey = buildMonthKey(year, monthIndex);
+    const setter = target === 'preventivo' ? setPlanOverrides : setConsuntivoOverrides;
+    setter((prev) => {
+      const next = { ...prev } as PlanOverrides;
+      if (!next[macro]) next[macro] = {} as any;
+      if (!next[macro][category]) next[macro][category] = {} as any;
+      if (!next[macro][category][detail]) next[macro][category][detail] = {} as any;
+      if (value === null) {
+        delete next[macro][category][detail][monthKey];
+      } else {
+        next[macro][category][detail][monthKey] = value;
+      }
+      return { ...next };
+    });
+    if (!editMode) {
+      setEditMode(true);
+    }
+    setDirtyKeys((prev) => {
+      const next = new Set(prev);
+      next.add(`${target}|${macro}|${category}|${detail}|${monthKey}`);
+      return next;
+    });
+  };
+
+  const handleSavePlan = async () => {
+    setSavingState(true);
+    try {
+      // Build audit log entries for changed overrides in the selected year only
+      const buildAudit = (target: 'preventivo' | 'consuntivo'): { id: string; createdAt: string; year: number; month: number; macroCategory: string; category: string; causale: string; value: number }[] => {
+        const out: any[] = [];
+        const source = target === 'preventivo' ? planOverrides : consuntivoOverrides;
+        Object.entries(source).forEach(([macro, categories]) => {
+          Object.entries(categories).forEach(([category, details]) => {
+            Object.entries(details).forEach(([detail, months]) => {
+              Object.entries(months).forEach(([monthKey, value]) => {
+                const parsed = parseMonthKey(monthKey);
+                if (!parsed) return;
+                if (parsed.year !== selectedYear) return;
+                out.push({
+                  id: `${target}-${macro}-${category}-${detail}-${monthKey}`,
+                  createdAt: new Date().toISOString(),
+                  year: parsed.year,
+                  month: parsed.monthIndex + 1,
+                  macroCategory: macro,
+                  category,
+                  causale: detail,
+                  value,
+                });
+              });
+            });
+          });
+        });
+        return out;
+      };
+
+      const payload: FinancialPlanStatePayload = {
+        preventivoOverrides: planOverrides,
+        consuntivoOverrides: consuntivoOverrides,
+        manualLog: [...buildAudit('preventivo'), ...buildAudit('consuntivo')],
+        monthlyMetrics: [],
+        statsOverrides,
+        causaliCatalog: causaliCatalog,
+        causaliVersion: null,
+      };
+      await persistFinancialPlanState(payload);
+      setEditMode(false);
+      showNotification('Piano mensile salvato con successo.', 'success');
+      setDirtyKeys(new Set());
+    } finally {
+      setSavingState(false);
+    }
+  };
+
+  const handleCancelPlan = () => {
+    // Reload from backend
+    setLoadingState(true);
+    fetchFinancialPlanState().then((payload) => {
+      setPlanOverrides(payload?.preventivoOverrides ?? {});
+      setConsuntivoOverrides((payload as FinancialPlanStatePayload | null)?.consuntivoOverrides ?? {});
+      setStatsOverrides(payload?.statsOverrides ?? {});
+      setCausaliCatalog(
+        payload && payload.causaliCatalog && payload.causaliCatalog.length > 0
+          ? (payload.causaliCatalog as FinancialCausaleGroup[])
+          : (financialCausali as unknown as FinancialCausaleGroup[]),
+      );
+      setEditMode(false);
+      setLoadingState(false);
+      setDirtyKeys(new Set());
+    }).catch(() => setLoadingState(false));
+  };
 
   const recalcBusinessPlan = useCallback(
     (
@@ -1197,6 +1319,20 @@ const FinancialPlan: React.FC = () => {
     </div>
   );
 
+  const rowHasAnyValue = (
+    macro: string,
+    category: string,
+    detail: string,
+    year: number,
+  ): boolean => {
+    for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+      const p = getPlanPreventivoValue(macro, category, detail, year, monthIndex);
+      const c = getPlanConsuntivoValue(macro, category, detail, year, monthIndex);
+      if ((p ?? 0) !== 0 || (c ?? 0) !== 0) return true;
+    }
+    return false;
+  };
+
   const renderPlan = () => (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -1214,9 +1350,51 @@ const FinancialPlan: React.FC = () => {
             </option>
           ))}
         </select>
+        <label className="ml-4 flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={onlyValued}
+            onChange={(e) => setOnlyValued(e.target.checked)}
+          />
+          Solo valorizzati
+        </label>
+        {!editMode ? (
+          <button
+            type="button"
+            onClick={() => setEditMode(true)}
+            className="ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600"
+          >
+            Modifica
+          </button>
+        ) : (
+          <div className="ml-auto flex gap-2">
+            {dirtyKeys.size > 0 && (
+              <span className="self-center rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1">
+                Modifiche non salvate • {dirtyKeys.size}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleSavePlan}
+              disabled={savingState}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {savingState ? 'Salvataggio…' : 'Salva'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelPlan}
+              className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-slate-300"
+            >
+              Annulla
+            </button>
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto rounded-2xl bg-white p-5 shadow-sm">
-        {!planYear ? (
+        {loadingState ? (
+          <p className="text-sm text-gray-500">Caricamento…</p>
+        ) : !planYear ? (
           <p className="text-sm text-gray-500">
             Nessun dato disponibile per la selezione corrente.
           </p>
@@ -1242,32 +1420,65 @@ const FinancialPlan: React.FC = () => {
                       {macro.macro}
                     </td>
                   </tr>
-                  {macro.details.map((detail) => (
-                    <tr key={`${detail.category}-${detail.detail}`} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-sm text-gray-600">{macro.macro}</td>
-                      <td className="px-3 py-2 text-sm text-gray-600">{detail.category}</td>
-                      <td className="px-3 py-2 text-sm text-gray-700">{detail.detail}</td>
-                      {detail.months.map((month) => (
-                        <td
-                          key={month.monthIndex}
-                          className="px-3 py-2 text-right text-sm text-gray-700"
-                        >
-                          <div>{formatCurrencyValue(month.consuntivo)}</div>
-                          <div className="text-xs text-gray-400">
-                            {formatCurrencyValue(
-                              getPlanPreventivoValue(
-                                macro.macro,
-                                detail.category,
-                                detail.detail,
-                                selectedYear,
-                                month.monthIndex,
-                              ),
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {(() => {
+                    const byCategory = new Map<string, typeof macro.details>();
+                    macro.details.forEach((d) => {
+                      const arr = byCategory.get(d.category) ?? [];
+                      arr.push(d);
+                      byCategory.set(d.category, arr);
+                    });
+                    const nodes: React.ReactNode[] = [];
+                    Array.from(byCategory.entries()).forEach(([categoryName, details]) => {
+                      const hasAny = details.some((detail) =>
+                        rowHasAnyValue(macro.macro, detail.category, detail.detail, selectedYear),
+                      );
+                      if (onlyValued && !hasAny) return;
+                      nodes.push(
+                        <tr key={`subtotal-${macro.macro}-${categoryName}`} className="bg-slate-50">
+                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-600">{macro.macro}</td>
+                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">{categoryName}</td>
+                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">Subtotale</td>
+                          {MONTH_NAMES.map((_, monthIndex) => {
+                            const p = details.reduce((acc, d) => acc + getPlanPreventivoValue(macro.macro, d.category, d.detail, selectedYear, monthIndex), 0);
+                            const c = details.reduce((acc, d) => acc + getPlanConsuntivoValue(macro.macro, d.category, d.detail, selectedYear, monthIndex), 0);
+                            return (
+                              <td key={`subtotal-${monthIndex}`} className="px-3 py-2 text-right text-sm">
+                                <div className="font-semibold text-gray-800">{formatCurrencyValue(c)}</div>
+                                <div className="text-xs text-sky-700">{formatCurrencyValue(p)}</div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                      details
+                        .filter((detail) => (onlyValued ? rowHasAnyValue(macro.macro, detail.category, detail.detail, selectedYear) : true))
+                        .forEach((detail) => {
+                          nodes.push(
+                            <tr key={`${detail.category}-${detail.detail}`} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 text-sm text-gray-600">{macro.macro}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600">{detail.category}</td>
+                              <td className="px-3 py-2 text-sm text-gray-700">{detail.detail}</td>
+                              {detail.months.map((month) => (
+                                <td key={month.monthIndex} className="px-3 py-2 text-right text-sm text-gray-700">
+                                  {!editMode ? (
+                                    <div className="space-y-1">
+                                      <div>{formatCurrencyValue(getPlanConsuntivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex))}</div>
+                                      <div className="text-xs text-gray-400">{formatCurrencyValue(getPlanPreventivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex))}</div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <input type="number" step="0.01" className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`consuntivo|${macro.macro}|${detail.category}|${detail.detail}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} value={getPlanConsuntivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex)} onChange={(e) => setOverride('consuntivo', macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex, Number(e.target.value))} />
+                                      <input type="number" step="0.01" className={`w-28 rounded border px-2 py-1 text-right text-xs text-sky-700 ${dirtyKeys.has(`preventivo|${macro.macro}|${detail.category}|${detail.detail}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} value={getPlanPreventivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex)} onChange={(e) => setOverride('preventivo', macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex, Number(e.target.value))} />
+                                    </div>
+                                  )}
+                                </td>
+                              ))}
+                            </tr>,
+                          );
+                        });
+                    });
+                    return nodes;
+                  })()}
                 </React.Fragment>
               ))}
             </tbody>
@@ -1540,12 +1751,178 @@ const FinancialPlan: React.FC = () => {
     </div>
   );
 
+  const handleCausaliPersist = async (next: FinancialCausaleGroup[]) => {
+    setSavingState(true);
+    try {
+      const payload: FinancialPlanStatePayload = {
+        preventivoOverrides: planOverrides,
+        consuntivoOverrides: consuntivoOverrides,
+        manualLog: [],
+        monthlyMetrics: [],
+        statsOverrides,
+        causaliCatalog: next,
+        causaliVersion: String(Date.now()),
+      };
+      await persistFinancialPlanState(payload);
+      setCausaliCatalog(next);
+      showNotification('Catalogo causali aggiornato.', 'success');
+    } finally {
+      setSavingState(false);
+    }
+  };
+
+  const renderCausali = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-gray-800">Catalogo causali</h3>
+        <button
+          type="button"
+          onClick={() => {
+            const macro = window.prompt('Nome macro (es. COSTI FISSI)');
+            if (!macro) return;
+            handleCausaliPersist([...causaliCatalog, { macroCategory: macro, categories: [] }]);
+          }}
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+        >
+          Aggiungi tipologia
+        </button>
+      </div>
+      <div className="space-y-6">
+        {causaliCatalog.map((group, gi) => (
+          <div key={`${group.macroCategory}-${gi}`} className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="font-semibold text-gray-800 flex-1">{group.macroCategory}</h4>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = window.prompt('Rinomina macro', group.macroCategory) ?? group.macroCategory;
+                  const next = [...causaliCatalog];
+                  next[gi] = { ...next[gi], macroCategory: name };
+                  handleCausaliPersist(next);
+                }}
+                className="text-xs px-2 py-1 rounded bg-slate-100"
+              >
+                Rinomina
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm('Eliminare tipologia e tutte le categorie?')) return;
+                  const next = causaliCatalog.filter((_, idx) => idx !== gi);
+                  handleCausaliPersist(next);
+                }}
+                className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
+              >
+                Elimina
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = window.prompt('Nome nuova categoria');
+                  if (!name) return;
+                  const next = [...causaliCatalog];
+                  next[gi] = { ...next[gi], categories: [...next[gi].categories, { name, items: [] }] };
+                  handleCausaliPersist(next);
+                }}
+                className="text-xs px-2 py-1 rounded bg-primary text-white"
+              >
+                + Categoria
+              </button>
+            </div>
+            <div className="space-y-3">
+              {group.categories.map((cat, ci) => (
+                <div key={`${cat.name}-${ci}`} className="rounded border border-slate-200">
+                  <div className="flex items-center gap-2 p-2 bg-slate-50">
+                    <div className="font-medium text-gray-800 flex-1">{cat.name}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = window.prompt('Rinomina categoria', cat.name) ?? cat.name;
+                        const next = [...causaliCatalog];
+                        next[gi].categories[ci] = { ...cat, name };
+                        handleCausaliPersist(next);
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-slate-100"
+                    >
+                      Rinomina
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!window.confirm('Eliminare categoria?')) return;
+                        const next = [...causaliCatalog];
+                        next[gi].categories.splice(ci, 1);
+                        handleCausaliPersist(next);
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
+                    >
+                      Elimina
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = window.prompt('Nome causale');
+                        if (!name) return;
+                        const next = [...causaliCatalog];
+                        next[gi].categories[ci] = { ...cat, items: [...cat.items, name] };
+                        handleCausaliPersist(next);
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-primary text-white"
+                    >
+                      + Causale
+                    </button>
+                  </div>
+                  <div className="p-2 flex flex-wrap gap-2">
+                    {cat.items.map((it, ii) => (
+                      <div key={`${it}-${ii}`} className="flex items-center gap-2 rounded bg-white border px-2 py-1">
+                        <span className="text-sm text-gray-700">{it}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = window.prompt('Rinomina causale', it) ?? it;
+                            const next = [...causaliCatalog];
+                            const items = [...next[gi].categories[ci].items];
+                            items[ii] = name;
+                            next[gi].categories[ci] = { ...next[gi].categories[ci], items };
+                            handleCausaliPersist(next);
+                          }}
+                          className="text-xs px-2 py-0.5 rounded bg-slate-100"
+                        >
+                          Modifica
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!window.confirm('Eliminare causale?')) return;
+                            const next = [...causaliCatalog];
+                            const items = [...next[gi].categories[ci].items];
+                            items.splice(ii, 1);
+                            next[gi].categories[ci] = { ...next[gi].categories[ci], items };
+                            handleCausaliPersist(next);
+                          }}
+                          className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700"
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
         {[
           { key: 'overview', label: 'Panoramica' },
           { key: 'plan', label: 'Piano Mensile' },
+          { key: 'causali', label: 'Causali' },
           { key: 'business-plan', label: 'Business Plan' },
           { key: 'stats', label: 'Statistiche' },
         ].map((tab) => (
@@ -1566,6 +1943,7 @@ const FinancialPlan: React.FC = () => {
 
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'plan' && renderPlan()}
+      {activeTab === 'causali' && renderCausali()}
       {activeTab === 'business-plan' && renderBusinessPlan()}
       {activeTab === 'stats' && renderStats()}
     </div>

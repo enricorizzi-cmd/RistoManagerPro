@@ -285,7 +285,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return (
-    <AppContext.Provider value={{ locations, currentLocation, reservations, waitlist, tables, customers, kpis, menuItems, sales, loading, error, notifications, setCurrentLocation, addReservation, updateReservationStatus, updateLocationSettings, updateTableStatus, saveTableLayout, addWaitlistEntry, removeWaitlistEntry, seatFromWaitlist, markWaitlistNoShow, assignReservationToTable, seatWalkIn, clearTable }}>
+    <AppContext.Provider value={{ locations, currentLocation, reservations, waitlist, tables, customers, kpis, menuItems, sales, loading, error, notifications, showNotification, setCurrentLocation, addReservation, updateReservationStatus, updateLocationSettings, updateTableStatus, saveTableLayout, addWaitlistEntry, removeWaitlistEntry, seatFromWaitlist, markWaitlistNoShow, assignReservationToTable, seatWalkIn, clearTable }}>
       {children}
     </AppContext.Provider>
   );

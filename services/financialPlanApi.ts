@@ -24,6 +24,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000
 
 export type FinancialPlanStatePayload = {
   preventivoOverrides: Record<string, Record<string, Record<string, Record<string, number>>>>;
+  consuntivoOverrides: Record<string, Record<string, Record<string, Record<string, number>>>>;
   manualLog: ManualLogSnapshot[];
   monthlyMetrics: MonthlyMetricsSnapshot[];
   statsOverrides: Record<string, Partial<Record<string, number | null>>>;
@@ -33,6 +34,7 @@ export type FinancialPlanStatePayload = {
 
 const DEFAULT_STATE: FinancialPlanStatePayload = {
   preventivoOverrides: {},
+  consuntivoOverrides: {},
   manualLog: [],
   monthlyMetrics: [],
   statsOverrides: {},
@@ -85,6 +87,10 @@ function normalisePayload(input: unknown): FinancialPlanStatePayload {
     ? (source.preventivoOverrides as FinancialPlanStatePayload['preventivoOverrides'])
     : DEFAULT_STATE.preventivoOverrides;
 
+  const consuntivoOverrides = isObject(source.consuntivoOverrides)
+    ? (source.consuntivoOverrides as FinancialPlanStatePayload['consuntivoOverrides'])
+    : DEFAULT_STATE.consuntivoOverrides;
+
   const statsOverrides = isObject(source.statsOverrides)
     ? (source.statsOverrides as FinancialPlanStatePayload['statsOverrides'])
     : DEFAULT_STATE.statsOverrides;
@@ -106,6 +112,7 @@ function normalisePayload(input: unknown): FinancialPlanStatePayload {
 
   return {
     preventivoOverrides,
+    consuntivoOverrides,
     statsOverrides,
     manualLog,
     monthlyMetrics,

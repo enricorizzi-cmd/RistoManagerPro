@@ -123,6 +123,7 @@ export interface AppContextType {
     loading: boolean;
     error: string | null;
     notifications: Notification[];
+    showNotification: (message: string, type: NotificationType) => void;
     setCurrentLocation: (locationId: string) => Promise<void>;
     addReservation: (reservation: Omit<Reservation, 'id' | 'locationId'>) => Promise<void>;
     updateReservationStatus: (id: string, status: ReservationStatus) => Promise<void>;
