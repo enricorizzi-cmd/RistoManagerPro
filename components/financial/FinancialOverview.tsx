@@ -17,11 +17,15 @@ import type { PlanYearData } from '../../utils/financialCalculations';
 interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
   selectedYear: number;
+  availableYears: number[];
+  onYearChange: (year: number) => void;
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
   planYear, 
-  selectedYear 
+  selectedYear,
+  availableYears,
+  onYearChange
 }) => {
   const overviewTotals = useMemo(() => {
     if (!planYear) {
@@ -72,6 +76,22 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-3 mb-4">
+        <label className="text-xs font-semibold uppercase text-gray-500">
+          Anno
+        </label>
+        <select
+          value={selectedYear}
+          onChange={(event) => onYearChange(Number(event.target.value))}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          {availableYears.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="flex flex-wrap gap-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-500">

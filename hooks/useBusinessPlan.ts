@@ -20,10 +20,26 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
 
   const currentYear = new Date().getFullYear();
-  const availableYears = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => currentYear + 1 - i).sort((a: number, b: number) => a - b),
-    [currentYear],
-  );
+  const availableYears = useMemo(() => {
+    // Base range: current year - 5 to current year + 1
+    const baseYears = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+    
+    // Find the minimum year that has data
+    let minYearWithData = currentYear - 5;
+    yearMetrics.forEach((_, year) => {
+      if (year < minYearWithData) {
+        minYearWithData = year;
+      }
+    });
+    
+    // Extend range backwards if there are data before current-5
+    const extendedYears = Array.from(
+      { length: currentYear + 1 - minYearWithData + 1 }, 
+      (_, i) => minYearWithData + i
+    );
+    
+    return extendedYears.sort((a: number, b: number) => a - b);
+  }, [currentYear, yearMetrics]);
 
   const completeYears = useMemo(() => {
     const years: number[] = [];

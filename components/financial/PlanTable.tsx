@@ -225,6 +225,10 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                       const detail = categoryDetails.find(d => d.detail === causale);
                       if (!detail) return null;
                       
+                      // Check if this specific causal row has any values
+                      const hasCausaleValue = rowHasAnyValue(group.macroCategory, category.name, causale, selectedYear);
+                      if (onlyValued && !hasCausaleValue) return null;
+                      
                       return (
                         <tr key={`${category.name}-${causale}`} className="hover:bg-slate-50">
                           <td className="px-3 py-2 text-sm text-gray-700 pl-6 sticky left-0 bg-white z-10 w-48 hover:bg-slate-50">{causale}</td>
@@ -324,33 +328,51 @@ export const PlanTable: React.FC<PlanTableProps> = ({
               );
             })()}
             {MONTH_NAMES.map((_, monthIndex) => {
-              const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
-              const costiFissi = causaliCatalog
+              // Calcolo per PREVENTIVO
+              const incassatoPreventivo = getPlanPreventivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+              const costiFissiPreventivo = causaliCatalog
+                .find(g => g.macroCategory === 'COSTI FISSI')?.categories
+                .reduce((acc, cat) => {
+                  const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
+                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                }, 0) ?? 0;
+              const costiVariabiliPreventivo = causaliCatalog
+                .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
+                .reduce((acc, cat) => {
+                  const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
+                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                }, 0) ?? 0;
+              const utileCassaPreventivo = incassatoPreventivo - costiFissiPreventivo - costiVariabiliPreventivo;
+
+              // Calcolo per CONSUNTIVO
+              const incassatoConsuntivo = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+              const costiFissiConsuntivo = causaliCatalog
                 .find(g => g.macroCategory === 'COSTI FISSI')?.categories
                 .reduce((acc, cat) => {
                   const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
                   const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
                   return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
                 }, 0) ?? 0;
-              const costiVariabili = causaliCatalog
+              const costiVariabiliConsuntivo = causaliCatalog
                 .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
                 .reduce((acc, cat) => {
                   const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
                   const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
                   return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
                 }, 0) ?? 0;
-              
-              const utileCassa = incassato - costiFissi - costiVariabili;
+              const utileCassaConsuntivo = incassatoConsuntivo - costiFissiConsuntivo - costiVariabiliConsuntivo;
               
               return (
                 <React.Fragment key={`utile-cassa-${monthIndex}`}>
                   {!onlyConsuntivo && (
                     <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
-                      <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassa)}</div>
+                      <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassaPreventivo)}</div>
                     </td>
                   )}
                   <td className="px-3 py-2 text-right text-sm">
-                    <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassa)}</div>
+                    <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassaConsuntivo)}</div>
                   </td>
                 </React.Fragment>
               );

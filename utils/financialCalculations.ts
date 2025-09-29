@@ -68,9 +68,10 @@ export const computePlanData = (
   causaliCatalog.forEach((group) => {
     group.categories.forEach((category) => {
       category.items.forEach((item) => {
-        // Create entries for current year and next year
+        // Create entries for a range of years (current year - 5 to current year + 1)
+        // This will be extended by the availableYears calculation in useBusinessPlan
         const currentYear = new Date().getFullYear();
-        const years = [currentYear, currentYear + 1];
+        const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
         
         years.forEach((year) => {
           if (!yearMap.has(year)) {

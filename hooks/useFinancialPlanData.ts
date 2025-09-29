@@ -226,6 +226,7 @@ export const useFinancialPlanData = () => {
     
     // Actions
     setOverride,
+    setStatsOverrides,
     handleSavePlan,
     handleCancelPlan,
     handleCausaliPersist,

@@ -1,7 +1,7 @@
 // Causali Manager Component
 // Manages financial causali catalog
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
 
 interface CausaliManagerProps {
@@ -13,6 +13,7 @@ export const CausaliManager: React.FC<CausaliManagerProps> = ({
   causaliCatalog,
   onCausaliPersist,
 }) => {
+  const [isEditMode, setIsEditMode] = useState(false);
   const handleAddMacro = () => {
     const macro = window.prompt('Nome macro (es. COSTI FISSI)');
     if (!macro) return;
@@ -90,86 +91,113 @@ export const CausaliManager: React.FC<CausaliManagerProps> = ({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-800">Catalogo causali</h3>
-        <button
-          type="button"
-          onClick={handleAddMacro}
-          className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
-        >
-          Aggiungi tipologia
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+              isEditMode 
+                ? 'bg-gray-500 text-white' 
+                : 'bg-blue-500 text-white'
+            }`}
+          >
+            {isEditMode ? 'Chiudi modifica' : 'Modifica'}
+          </button>
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={handleAddMacro}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
+            >
+              Aggiungi tipologia
+            </button>
+          )}
+        </div>
       </div>
       <div className="space-y-6">
         {causaliCatalog.map((group, gi) => (
           <div key={`${group.macroCategory}-${gi}`} className="rounded-xl bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="font-semibold text-gray-800 flex-1">{group.macroCategory}</h4>
-              <button
-                type="button"
-                onClick={() => handleRenameMacro(gi, group.macroCategory)}
-                className="text-xs px-2 py-1 rounded bg-slate-100"
-              >
-                Rinomina
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteMacro(gi)}
-                className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
-              >
-                Elimina
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddCategory(gi)}
-                className="text-xs px-2 py-1 rounded bg-primary text-white"
-              >
-                + Categoria
-              </button>
+              {isEditMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleRenameMacro(gi, group.macroCategory)}
+                    className="text-xs px-2 py-1 rounded bg-slate-100"
+                  >
+                    Rinomina
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteMacro(gi)}
+                    className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
+                  >
+                    Elimina
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCategory(gi)}
+                    className="text-xs px-2 py-1 rounded bg-primary text-white"
+                  >
+                    + Categoria
+                  </button>
+                </>
+              )}
             </div>
             <div className="space-y-3">
               {group.categories.map((cat, ci) => (
                 <div key={`${cat.name}-${ci}`} className="rounded border border-slate-200">
                   <div className="flex items-center gap-2 p-2 bg-slate-50">
                     <div className="font-medium text-gray-800 flex-1">{cat.name}</div>
-                    <button
-                      type="button"
-                      onClick={() => handleRenameCategory(gi, ci, cat.name)}
-                      className="text-xs px-2 py-1 rounded bg-slate-100"
-                    >
-                      Rinomina
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCategory(gi, ci)}
-                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
-                    >
-                      Elimina
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAddCausale(gi, ci)}
-                      className="text-xs px-2 py-1 rounded bg-primary text-white"
-                    >
-                      + Causale
-                    </button>
+                    {isEditMode && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleRenameCategory(gi, ci, cat.name)}
+                          className="text-xs px-2 py-1 rounded bg-slate-100"
+                        >
+                          Rinomina
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(gi, ci)}
+                          className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
+                        >
+                          Elimina
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddCausale(gi, ci)}
+                          className="text-xs px-2 py-1 rounded bg-primary text-white"
+                        >
+                          + Causale
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div className="p-2 flex flex-wrap gap-2">
                     {cat.items.map((item, ii) => (
                       <div key={`${item}-${ii}`} className="flex items-center gap-2 rounded bg-white border px-2 py-1">
                         <span className="text-sm text-gray-700">{item}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRenameCausale(gi, ci, ii, item)}
-                          className="text-xs px-2 py-0.5 rounded bg-slate-100"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCausale(gi, ci, ii)}
-                          className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700"
-                        >
-                          Elimina
-                        </button>
+                        {isEditMode && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleRenameCausale(gi, ci, ii, item)}
+                              className="text-xs px-2 py-0.5 rounded bg-slate-100"
+                            >
+                              Modifica
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCausale(gi, ci, ii)}
+                              className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700"
+                            >
+                              Elimina
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -19,6 +19,12 @@ const FinancialPlan: React.FC = () => {
   const { showNotification } = useAppContext();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  
+  // Statistics year range state
+  const currentYear = new Date().getFullYear();
+  const [statsFromYear, setStatsFromYear] = useState<number>(currentYear - 2);
+  const [statsToYear, setStatsToYear] = useState<number>(currentYear);
+  const [statsEditMode, setStatsEditMode] = useState<boolean>(false);
 
   // Custom hooks for data management
   const {
@@ -31,6 +37,7 @@ const FinancialPlan: React.FC = () => {
     basePlanByYear,
     yearMetrics,
     setOverride,
+    setStatsOverrides,
     handleSavePlan,
     handleCancelPlan,
     handleCausaliPersist,
@@ -62,14 +69,14 @@ const FinancialPlan: React.FC = () => {
     toggleOnlyConsuntivo,
   } = usePlanEditor();
 
-  const currentYear = new Date().getFullYear();
-
   // Update selected year if not available
   useEffect(() => {
-    if (!basePlanByYear.has(selectedYear)) {
-      setSelectedYear(currentYear);
+    if (!basePlanByYear.has(selectedYear) && availableYears.length > 0) {
+      // If selected year is not available, try to find the closest available year
+      const closestYear = availableYears.find(year => basePlanByYear.has(year)) || availableYears[0];
+      setSelectedYear(closestYear);
     }
-  }, [basePlanByYear, selectedYear, currentYear]);
+  }, [basePlanByYear, selectedYear, availableYears]);
 
   const planYear = basePlanByYear.get(selectedYear);
 
@@ -224,6 +231,15 @@ const FinancialPlan: React.FC = () => {
     }
   };
 
+  // Statistics override handler
+  const handleStatsOverride = (monthKey: string, field: string, value: number | null) => {
+    const overrideKey = `${monthKey}|${field}`;
+    setStatsOverrides(prev => ({
+      ...prev,
+      [overrideKey]: value
+    }));
+  };
+
   const tabs = [
     { key: 'overview', label: 'Panoramica' },
     { key: 'plan', label: 'Piano Mensile' },
@@ -252,7 +268,12 @@ const FinancialPlan: React.FC = () => {
       </div>
 
       {activeTab === 'overview' && (
-        <FinancialOverview planYear={planYear} selectedYear={selectedYear} />
+        <FinancialOverview 
+          planYear={planYear} 
+          selectedYear={selectedYear}
+          availableYears={availableYears}
+          onYearChange={setSelectedYear}
+        />
       )}
 
       {activeTab === 'plan' && (
@@ -360,11 +381,75 @@ const FinancialPlan: React.FC = () => {
       )}
 
       {activeTab === 'stats' && (
-        <StatsTable
-          availableYears={availableYears}
-          statsOverrides={statsOverrides}
-          financialStatsRows={financialStatsRows}
-        />
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-semibold uppercase text-gray-500">
+              DA ANNO
+            </label>
+            <select
+              value={statsFromYear}
+              onChange={(event) => setStatsFromYear(Number(event.target.value))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <label className="text-xs font-semibold uppercase text-gray-500">
+              A ANNO
+            </label>
+            <select
+              value={statsToYear}
+              onChange={(event) => setStatsToYear(Number(event.target.value))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            {!statsEditMode ? (
+              <button
+                type="button"
+                onClick={() => setStatsEditMode(true)}
+                className="ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600"
+              >
+                Modifica
+              </button>
+            ) : (
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatsEditMode(false)}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                >
+                  Salva
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatsEditMode(false)}
+                  className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-slate-300"
+                >
+                  Annulla
+                </button>
+              </div>
+            )}
+          </div>
+          <StatsTable
+            availableYears={Array.from({ length: statsToYear - statsFromYear + 1 }, (_, i) => statsFromYear + i)}
+            statsOverrides={statsOverrides}
+            financialStatsRows={financialStatsRows}
+            editMode={statsEditMode}
+            getPlanPreventivoValue={getPlanPreventivoValue}
+            getPlanConsuntivoValue={getPlanConsuntivoValue}
+            onStatsOverride={handleStatsOverride}
+            causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
+            planYear={planYear}
+          />
+        </div>
       )}
     </div>
   );
