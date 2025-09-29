@@ -1,20 +1,110 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# RistoManager Pro
 
-# Run and deploy your AI Studio app
+Sistema di gestione completo per ristoranti con prenotazioni, tavoli, analisi finanziarie e CRM.
 
-This contains everything you need to run your app locally.
+## 🚀 Avvio Rapido
 
-View your app in AI Studio: https://ai.studio/apps/drive/1r9nlWOWDtFlGu1XDB2Cmwg30F1j27HhX
+**Prerequisiti:** Node.js 18+ installato
 
-## Run Locally
+### 1. Installazione
+```bash
+# Clona il repository
+git clone <repository-url>
+cd RistoManagerPro
 
-**Prerequisites:**  Node.js
+# Installa le dipendenze del frontend
+npm install
 
+# Installa le dipendenze del backend
+cd server
+npm install
+cd ..
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 2. Avvio dell'applicazione
+```bash
+# Avvia frontend + backend automaticamente
+npm run dev
+```
+
+Questo comando avvierà:
+- **Backend** su `http://localhost:4000` (API + Database SQLite)
+- **Frontend** su `http://localhost:5173` (interfaccia React)
+
+### 3. Accesso all'applicazione
+Apri il browser e vai su: **http://localhost:5173**
+
+## 📁 Struttura del Progetto
+
+```
+RistoManagerPro/
+├── components/          # Componenti React
+├── server/             # Backend Node.js + SQLite
+│   ├── data/          # Database SQLite
+│   └── index.js       # Server Express
+├── services/          # API e servizi
+├── hooks/            # Custom React hooks
+└── utils/            # Utility functions
+```
+
+## 🗄️ Database
+
+L'applicazione usa **SQLite** per la persistenza dei dati:
+- **File database:** `server/data/ristomanager.db`
+- **Dati salvati:** Piano finanziario, configurazioni, override
+- **Backup automatico:** I dati vengono salvati automaticamente ad ogni modifica
+
+## 🔧 Comandi Disponibili
+
+```bash
+# Sviluppo (frontend + backend)
+npm run dev
+
+# Solo frontend
+npm run dev:frontend
+
+# Solo backend
+npm run start:backend
+
+# Build per produzione
+npm run build
+
+# Test
+npm run test
+
+# Linting e formattazione
+npm run lint
+npm run format
+```
+
+## 🐛 Risoluzione Problemi
+
+### Backend non si avvia
+```bash
+cd server
+npm install
+npm start
+```
+
+### Database non trovato
+Il database SQLite viene creato automaticamente al primo avvio del backend.
+
+### Porta già in uso
+- Frontend: Cambia la porta in `vite.config.ts`
+- Backend: Cambia la porta in `server/index.js` (variabile PORT)
+
+## 📊 Funzionalità
+
+- ✅ **Dashboard** - Panoramica prenotazioni e KPI
+- ✅ **Prenotazioni** - Gestione completa prenotazioni
+- ✅ **Tavoli** - Layout tavoli drag & drop
+- ✅ **Analytics** - Statistiche e grafici
+- ✅ **CRM** - Gestione clienti
+- ✅ **Piano Finanziario** - Budget e consuntivi
+- ✅ **Impostazioni** - Configurazione ristorante
+
+## 🔒 Sicurezza
+
+- Database locale SQLite (nessun cloud)
+- CORS configurato per sviluppo locale
+- Validazione dati lato server

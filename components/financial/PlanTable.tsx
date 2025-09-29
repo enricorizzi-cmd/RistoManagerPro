@@ -79,29 +79,29 @@ export const PlanTable: React.FC<PlanTableProps> = ({
   }
 
   return (
-    <div className="overflow-auto rounded-2xl bg-white p-5 shadow-sm max-h-[80vh]">
-      <table className="min-w-[1400px] w-full text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600 sticky top-0 z-10">
+    <div className="overflow-y-auto rounded-2xl bg-white p-5 shadow-sm max-h-[80vh]">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
           <tr>
-            <th className="px-3 py-3 text-left bg-slate-50">CATEGORIA</th>
-            <th className="px-3 py-3 text-center border-l-2 border-gray-300">SOMMA PROGRESSIVA</th>
-            <th className="px-3 py-3 text-center">INCIDENZA PROGRESSIVA</th>
+            <th className="px-3 py-3 text-left bg-slate-50 sticky top-0 left-0 z-30 w-48">CATEGORIA</th>
+            <th className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20">SOMMA PROGRESSIVA</th>
+            <th className="px-3 py-3 text-center bg-slate-50 sticky top-0 z-20">INCIDENZA PROGRESSIVA</th>
             {MONTH_NAMES.map((name) => (
-              <th key={name} className="px-3 py-3 text-center border-l-2 border-gray-300" colSpan={onlyConsuntivo ? 1 : 2}>
+              <th key={name} className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20" colSpan={onlyConsuntivo ? 1 : 2}>
                 {name}
               </th>
             ))}
           </tr>
           <tr>
-            <th className="px-3 py-2 bg-slate-50"></th>
-            <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300">TOTALE</th>
-            <th className="px-3 py-2 text-center text-xs font-normal">%</th>
+            <th className="px-3 py-2 bg-slate-50 sticky top-[3rem] left-0 z-30 w-48"></th>
+            <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">TOTALE</th>
+            <th className="px-3 py-2 text-center text-xs font-normal bg-slate-50 sticky top-[3rem] z-20">%</th>
             {MONTH_NAMES.map((name) => (
               <React.Fragment key={name}>
                 {!onlyConsuntivo && (
-                  <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300">PREVENTIVO</th>
+                  <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">PREVENTIVO</th>
                 )}
-                <th className="px-3 py-2 text-center text-xs font-normal">CONSUNTIVO</th>
+                <th className="px-3 py-2 text-center text-xs font-normal bg-slate-50 sticky top-[3rem] z-20">CONSUNTIVO</th>
               </React.Fragment>
             ))}
           </tr>
@@ -110,7 +110,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
           {causaliCatalog.map((group) => (
             <React.Fragment key={group.macroCategory}>
               <tr className={`${getMacroColor(group.macroCategory)} text-sm font-bold uppercase`}>
-                <td className="px-3 py-3">{group.macroCategory}</td>
+                <td className="px-3 py-3 sticky left-0 bg-inherit z-10 w-48">{group.macroCategory}</td>
                 {(() => {
                   const macroSum = group.categories.reduce((acc, cat) => {
                     const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
@@ -180,7 +180,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                   <React.Fragment key={`${group.macroCategory}-${category.name}`}>
                     {/* Subtotale categoria */}
                     <tr className="bg-slate-50 font-semibold">
-                      <td className="px-3 py-2 text-sm text-gray-700">{category.name}</td>
+                      <td className="px-3 py-2 text-sm text-gray-700 sticky left-0 bg-slate-50 z-10 w-48">{category.name}</td>
                       {(() => {
                         const categorySum = categoryDetails.reduce((acc, d) => 
                           acc + MONTH_NAMES.reduce((monthAcc, _, monthIndex) => 
@@ -227,7 +227,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                       
                       return (
                         <tr key={`${category.name}-${causale}`} className="hover:bg-slate-50">
-                          <td className="px-3 py-2 text-sm text-gray-700 pl-6">{causale}</td>
+                          <td className="px-3 py-2 text-sm text-gray-700 pl-6 sticky left-0 bg-white z-10 w-48 hover:bg-slate-50">{causale}</td>
                           {(() => {
                             const causaleSum = MONTH_NAMES.reduce((acc, _, monthIndex) => 
                               acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex), 0
@@ -281,12 +281,12 @@ export const PlanTable: React.FC<PlanTableProps> = ({
           
           {/* UTILE DI CASSA - Calcolato automaticamente */}
           <tr className="bg-emerald-50 text-sm font-bold uppercase text-emerald-800">
-            <td className="px-3 py-3" colSpan={3 + MONTH_NAMES.length * (onlyConsuntivo ? 1 : 2)}>
+            <td className="px-3 py-3 sticky left-0 bg-emerald-50 z-10 w-48" colSpan={3 + MONTH_NAMES.length * (onlyConsuntivo ? 1 : 2)}>
               UTILE DI CASSA
             </td>
           </tr>
           <tr className="bg-emerald-100 font-semibold">
-            <td className="px-3 py-2 text-sm text-gray-700">Utile di cassa</td>
+            <td className="px-3 py-2 text-sm text-gray-700 sticky left-0 bg-emerald-100 z-10 w-48">Utile di cassa</td>
             {(() => {
               const utileCassaSum = MONTH_NAMES.reduce((acc, _, monthIndex) => {
                 const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
