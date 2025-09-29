@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Reservation, ReservationStatus, RestaurantLocation, KPIs, AppContextType, WaitlistEntry, Notification, NotificationType, MenuItem, Sale, Table, TableStatus, Customer } from '../types';
+import { Reservation, ReservationStatus, RestaurantLocation, KPIs, AppContextType, WaitlistEntry, AppNotification, NotificationType, MenuItem, Sale, Table, TableStatus, Customer } from '../types';
 import * as api from '../services/apiService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -16,10 +16,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [kpis, setKpis] = useState<KPIs>({ totalReservations: 0, totalCovers: 0, occupancyRate: 0, noShowRate: 0, reservationsByTime: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   const showNotification = useCallback((message: string, type: NotificationType) => {
-    const newNotification: Notification = {
+    const newNotification: AppNotification = {
       id: Date.now(),
       message,
       type,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { InformationCircleIcon, CheckCircleIcon, XCircleIcon } from './icons/Icons';
-import { Notification } from '../types';
+import { AppNotification } from '../types';
 
 const iconMap = {
     success: <CheckCircleIcon className="h-6 w-6 text-green-500" aria-hidden="true" />,
@@ -15,7 +15,7 @@ const colorMap = {
     error: 'border-red-400',
 };
 
-const NotificationToast: React.FC<{ notification: Notification }> = ({ notification }) => {
+const NotificationToast: React.FC<{ notification: AppNotification }> = ({ notification }) => {
     return (
         <div className={`max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden border-l-4 ${colorMap[notification.type]}`}>
             <div className="p-4">

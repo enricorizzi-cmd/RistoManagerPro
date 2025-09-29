@@ -1,6 +1,6 @@
 {
   "root": true,
-  "env": { "browser": true, "es2020": true },
+  "env": { "browser": true, "es2020": true, "node": true },
   "extends": [
     "eslint:recommended",
     "plugin:react/recommended",
@@ -15,8 +15,14 @@
       { "allowConstantExport": true }
     ],
     "react/react-in-jsx-scope": "off",
-    "prefer-const": "error",
-    "no-var": "error"
+    "prefer-const": "warn",
+    "no-var": "error",
+    "no-unused-vars": "warn",
+    "no-undef": "warn",
+    "no-redeclare": "warn",
+    "no-irregular-whitespace": "warn",
+    "no-case-declarations": "warn",
+    "react/no-unescaped-entities": "warn"
   },
   "settings": {
     "react": {

@@ -12,8 +12,10 @@ const Settings = lazy(() => import('./components/Settings'));
 const TableManagement = lazy(() => import('./components/TableManagement'));
 const Crm = lazy(() => import('./components/Crm'));
 const FinancialPlan = lazy(() => import('./components/FinancialPlan'));
+const MenuEngineering = lazy(() => import('./components/MenuEngineering'));
+const SalesAnalytics = lazy(() => import('./components/SalesAnalytics'));
 
-type Page = 'dashboard' | 'reservations' | 'analytics' | 'table-management' | 'crm' | 'financial-plan' | 'settings';
+type Page = 'dashboard' | 'reservations' | 'analytics' | 'table-management' | 'crm' | 'financial-plan' | 'settings' | 'menu-engineering' | 'sales-analytics';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -22,7 +24,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Page;
-      if (['dashboard', 'reservations', 'analytics', 'table-management', 'crm', 'financial-plan', 'settings'].includes(hash)) {
+      if (['dashboard', 'reservations', 'analytics', 'table-management', 'crm', 'financial-plan', 'settings', 'menu-engineering', 'sales-analytics'].includes(hash)) {
         setCurrentPage(hash);
       } else {
         setCurrentPage('dashboard');
@@ -51,6 +53,10 @@ const App: React.FC = () => {
         return <FinancialPlan />;
       case 'settings':
         return <Settings />;
+      case 'menu-engineering':
+        return <MenuEngineering />;
+      case 'sales-analytics':
+        return <SalesAnalytics />;
       case 'dashboard':
       default:
         return <Dashboard />;

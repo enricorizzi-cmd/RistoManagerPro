@@ -1,6 +1,6 @@
 import { Reservation, ReservationStatus, RestaurantLocation, WaitlistEntry, MenuItem, Sale, OrderItem, Table, TableStatus, Customer } from '../types';
 
-let mockLocations: RestaurantLocation[] = [
+const mockLocations: RestaurantLocation[] = [
     { id: 'loc-1', name: 'Trattoria del Ponte', capacity: 50, openTime: '18:00', closeTime: '23:00' },
     { id: 'loc-2', name: 'Pizzeria al Forno', capacity: 80, openTime: '19:00', closeTime: '24:00' },
 ];

@@ -13,6 +13,17 @@ export enum TableStatus {
     Cleaning = 'Da Pulire',
 }
 
+// Financial Plan Types
+export type TabKey = 'plan' | 'stats' | 'causali';
+
+export interface PlanOverrides {
+  [key: string]: number;
+}
+
+export interface StatsOverrides {
+  [key: string]: number;
+}
+
 export interface Reservation {
   id: string;
   locationId: string;
@@ -81,7 +92,7 @@ export interface KPIs {
 
 export type NotificationType = 'success' | 'info' | 'error';
 
-export interface Notification {
+export interface AppNotification {
     id: number;
     message: string;
     type: NotificationType;
@@ -122,7 +133,7 @@ export interface AppContextType {
     sales: Sale[];
     loading: boolean;
     error: string | null;
-    notifications: Notification[];
+    notifications: AppNotification[];
     showNotification: (message: string, type: NotificationType) => void;
     setCurrentLocation: (locationId: string) => Promise<void>;
     addReservation: (reservation: Omit<Reservation, 'id' | 'locationId'>) => Promise<void>;

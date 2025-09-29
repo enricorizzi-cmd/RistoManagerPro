@@ -608,9 +608,6 @@ const TableManagement: React.FC = () => {
         setDraggedReservation(null); setDragOverTableId(null);
     };
 
-    if (loading) return <div className="text-center p-8">Caricamento informazioni tavoli...</div>;
-    if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
-
     const floorCursor = isSpacePressed ? (isPanning ? 'grabbing' : 'grab') : (mode === 'edit' ? 'default' : 'auto');
 
     const dropValidations = useMemo(() => {
@@ -633,6 +630,10 @@ const TableManagement: React.FC = () => {
         }
         return map;
     }, [tables, dragOverTableId, draggedReservation]);
+
+    if (loading) return <div className="text-center p-8">Caricamento informazioni tavoli...</div>;
+    if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
+
     return (
         <div className="space-y-4 h-full flex flex-col">
             {contextMenu && (

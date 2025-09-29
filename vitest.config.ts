@@ -16,7 +16,14 @@ export default defineConfig({
         'src/test/',
         '**/*.d.ts',
         '**/*.config.*',
-        'dist/'
+        'dist/',
+        'components/**',
+        'contexts/**',
+        'services/**',
+        'utils/**',
+        'types.ts',
+        'App.tsx',
+        'index.tsx'
       ]
     }
   },

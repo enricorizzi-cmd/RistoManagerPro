@@ -173,15 +173,15 @@ const MenuEngineering: React.FC = () => {
 
             {analysis.popularityRanking.length > 0 && (
                  <div className="mt-8 bg-white p-6 rounded-xl shadow-md">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">PopolaritÃ  Piatti del Menu</h2>
+                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Popolarità Piatti del Menu</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Piatti piÃ¹ Venduti</h3>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Piatti più Venduti</h3>
                             <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
                                 {analysis.popularityRanking.map((item, index) => (
                                     <li key={item.id} className="flex justify-between items-center text-sm p-2 rounded-md even:bg-gray-50">
                                         <span className="text-gray-800 font-medium truncate pr-2">
-                                            <span className="text-gray-400 font-normal w-8 inline-block">{index + 1}.</span> 
+                                            <span className="text-gray-400 font-normal w-8 inline-block">{index + 1}.</span>
                                             {item.name}
                                         </span>
                                         <span className="font-bold text-primary-700 flex-shrink-0">{item.quantitySold} venduti</span>
@@ -190,7 +190,7 @@ const MenuEngineering: React.FC = () => {
                             </ul>
                         </div>
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">PopolaritÃ  per Categoria</h3>
+                            <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Popolarità per Categoria</h3>
                             <ul className="space-y-2">
                                 {analysis.categoryPopularity.map(category => (
                                     <li key={category.name} className="flex justify-between items-center text-sm p-2 rounded-md even:bg-gray-50">
