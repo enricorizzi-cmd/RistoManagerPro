@@ -209,9 +209,9 @@ interface BusinessPlanMessage {
   text: string;
 }
 
-const buildDetailMeta = () => {
+const buildDetailMeta = (causaliCatalog: FinancialCausaleGroup[]) => {
   const map = new Map<string, { macro: string; category: string }>();
-  financialCausali.forEach((group: FinancialCausaleGroup) => {
+  causaliCatalog.forEach((group: FinancialCausaleGroup) => {
     group.categories.forEach((category) => {
       category.items.forEach((item) => {
         map.set(normalizeLabel(item), {
@@ -426,7 +426,7 @@ const createBusinessPlanFormFromDraft = (
 
 const FinancialPlan: React.FC = () => {
   const { showNotification } = useAppContext();
-  const detailMeta = useMemo(() => buildDetailMeta(), []);
+  const detailMeta = useMemo(() => buildDetailMeta(causaliCatalog), [causaliCatalog]);
   const basePlanByYear = useMemo(() => computePlanData(detailMeta), [detailMeta]);
   const yearMetrics = useMemo(
     () => computeYearMetrics(basePlanByYear),
@@ -1364,7 +1364,7 @@ const FinancialPlan: React.FC = () => {
             onClick={() => setEditMode(true)}
             className="ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600"
           >
-            Modifica
+            Blocca modifiche
           </button>
         ) : (
           <div className="ml-auto flex gap-2">
@@ -1399,86 +1399,97 @@ const FinancialPlan: React.FC = () => {
             Nessun dato disponibile per la selezione corrente.
           </p>
         ) : (
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-[1400px] w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
               <tr>
-                <th className="px-3 py-3 text-left">Macro</th>
-                <th className="px-3 py-3 text-left">Categoria</th>
-                <th className="px-3 py-3 text-left">Voce</th>
+                <th className="px-3 py-3 text-left">CATEGORIA</th>
                 {MONTH_NAMES.map((name, index) => (
-                  <th key={name} className="px-3 py-3 text-right">
-                    {MONTH_SHORT[index]}
+                  <th key={name} className="px-3 py-3 text-center" colSpan={2}>
+                    {name}
                   </th>
+                ))}
+              </tr>
+              <tr>
+                <th className="px-3 py-2"></th>
+                {MONTH_NAMES.map((name, index) => (
+                  <React.Fragment key={name}>
+                    <th className="px-3 py-2 text-center text-xs font-normal">PREVENTIVO</th>
+                    <th className="px-3 py-2 text-center text-xs font-normal">CONSUNTIVO</th>
+                  </React.Fragment>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {planYear.macros.map((macro) => (
-                <React.Fragment key={macro.macro}>
+              {causaliCatalog.map((group) => (
+                <React.Fragment key={group.macroCategory}>
                   <tr className="bg-slate-100 text-xs uppercase text-gray-600">
-                    <td className="px-3 py-2" colSpan={3 + MONTH_NAMES.length}>
-                      {macro.macro}
+                    <td className="px-3 py-2" colSpan={1 + MONTH_NAMES.length * 2}>
+                      {group.macroCategory}
                     </td>
                   </tr>
-                  {(() => {
-                    const byCategory = new Map<string, typeof macro.details>();
-                    macro.details.forEach((d) => {
-                      const arr = byCategory.get(d.category) ?? [];
-                      arr.push(d);
-                      byCategory.set(d.category, arr);
-                    });
-                    const nodes: React.ReactNode[] = [];
-                    Array.from(byCategory.entries()).forEach(([categoryName, details]) => {
-                      const hasAny = details.some((detail) =>
-                        rowHasAnyValue(macro.macro, detail.category, detail.detail, selectedYear),
-                      );
-                      if (onlyValued && !hasAny) return;
-                      nodes.push(
-                        <tr key={`subtotal-${macro.macro}-${categoryName}`} className="bg-slate-50">
-                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-600">{macro.macro}</td>
-                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">{categoryName}</td>
-                          <td className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">Subtotale</td>
+                  {group.categories.map((category) => {
+                    const planYear = basePlanByYear.get(selectedYear);
+                    const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                    const categoryDetails = macro?.details?.filter(d => d.category === category.name) ?? [];
+                    const hasAny = categoryDetails.some((detail) =>
+                      rowHasAnyValue(group.macroCategory, category.name, detail.detail, selectedYear),
+                    );
+                    if (onlyValued && !hasAny) return null;
+                    
+                    return (
+                      <React.Fragment key={`${group.macroCategory}-${category.name}`}>
+                        {/* Subtotale categoria */}
+                        <tr className="bg-slate-50 font-semibold">
+                          <td className="px-3 py-2 text-sm text-gray-700">{category.name}</td>
                           {MONTH_NAMES.map((_, monthIndex) => {
-                            const p = details.reduce((acc, d) => acc + getPlanPreventivoValue(macro.macro, d.category, d.detail, selectedYear, monthIndex), 0);
-                            const c = details.reduce((acc, d) => acc + getPlanConsuntivoValue(macro.macro, d.category, d.detail, selectedYear, monthIndex), 0);
+                            const p = categoryDetails.reduce((acc, d) => acc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
+                            const c = categoryDetails.reduce((acc, d) => acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
                             return (
-                              <td key={`subtotal-${monthIndex}`} className="px-3 py-2 text-right text-sm">
-                                <div className="font-semibold text-gray-800">{formatCurrencyValue(c)}</div>
-                                <div className="text-xs text-sky-700">{formatCurrencyValue(p)}</div>
-                              </td>
+                              <React.Fragment key={`subtotal-${monthIndex}`}>
+                                <td className="px-3 py-2 text-right text-sm">
+                                  <div className="font-semibold text-sky-700">{formatCurrencyValue(p)}</div>
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm">
+                                  <div className="font-semibold text-gray-800">{formatCurrencyValue(c)}</div>
+                                </td>
+                              </React.Fragment>
                             );
                           })}
                         </tr>
-                      );
-                      details
-                        .filter((detail) => (onlyValued ? rowHasAnyValue(macro.macro, detail.category, detail.detail, selectedYear) : true))
-                        .forEach((detail) => {
-                          nodes.push(
-                            <tr key={`${detail.category}-${detail.detail}`} className="hover:bg-slate-50">
-                              <td className="px-3 py-2 text-sm text-gray-600">{macro.macro}</td>
-                              <td className="px-3 py-2 text-sm text-gray-600">{detail.category}</td>
-                              <td className="px-3 py-2 text-sm text-gray-700">{detail.detail}</td>
+                        {/* Righe causali */}
+                        {category.items.map((causale) => {
+                          const detail = categoryDetails.find(d => d.detail === causale);
+                          if (!detail) return null;
+                          
+                          return (
+                            <tr key={`${category.name}-${causale}`} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 text-sm text-gray-700 pl-6">{causale}</td>
                               {detail.months.map((month) => (
-                                <td key={month.monthIndex} className="px-3 py-2 text-right text-sm text-gray-700">
-                                  {!editMode ? (
-                                    <div className="space-y-1">
-                                      <div>{formatCurrencyValue(getPlanConsuntivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex))}</div>
-                                      <div className="text-xs text-gray-400">{formatCurrencyValue(getPlanPreventivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex))}</div>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <input type="number" step="0.01" className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`consuntivo|${macro.macro}|${detail.category}|${detail.detail}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} value={getPlanConsuntivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex)} onChange={(e) => setOverride('consuntivo', macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex, Number(e.target.value))} />
-                                      <input type="number" step="0.01" className={`w-28 rounded border px-2 py-1 text-right text-xs text-sky-700 ${dirtyKeys.has(`preventivo|${macro.macro}|${detail.category}|${detail.detail}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} value={getPlanPreventivoValue(macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex)} onChange={(e) => setOverride('preventivo', macro.macro, detail.category, detail.detail, selectedYear, month.monthIndex, Number(e.target.value))} />
-                                    </div>
-                                  )}
-                                </td>
+                                <React.Fragment key={month.monthIndex}>
+                                  <td className="px-3 py-2 text-right text-sm text-gray-700">
+                                    {!editMode ? (
+                                      <div className="text-sky-700">{formatCurrencyValue(getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
+                                    ) : (
+                                      <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`preventivo|${group.macroCategory}|${category.name}|${causale}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} 
+                                        value={getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex)} 
+                                        onChange={(e) => setOverride('preventivo', group.macroCategory, category.name, causale, selectedYear, month.monthIndex, Number(e.target.value))} 
+                                      />
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-sm text-gray-700">
+                                    <div className="text-gray-800">{formatCurrencyValue(getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
+                                  </td>
+                                </React.Fragment>
                               ))}
-                            </tr>,
+                            </tr>
                           );
-                        });
-                    });
-                    return nodes;
-                  })()}
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
                 </React.Fragment>
               ))}
             </tbody>
