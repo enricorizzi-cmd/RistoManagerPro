@@ -1,7 +1,7 @@
 // Inserisci Dati Component
 // Data entry form for monthly financial plan metrics
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useAppContext } from '../../contexts/AppContext';
@@ -15,8 +15,16 @@ interface DataEntry {
   mese: number; // 0-11 (month index)
   anno: number;
   tipologiaCausale: string;
+  categoria: string;
   causale: string;
   valore: number;
+}
+
+interface MetricField {
+  id: string;
+  label: string;
+  value: string;
+  lastValue: string;
 }
 
 interface InserisciDatiProps {
@@ -30,17 +38,61 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());
   const [anno, setAnno] = useState<number>(new Date().getFullYear());
-  const [tipologiaCausale, setTipologiaCausale] = useState<string>('COSTI FISSI');
-  const [causale, setCausale] = useState<string>('Compensi Amministratori');
+  const [tipologiaCausale, setTipologiaCausale] = useState<string>('');
+  const [categoria, setCategoria] = useState<string>('');
+  const [causale, setCausale] = useState<string>('');
   const [valore, setValore] = useState<string>('0,00');
   
   // Saved entries
   const [savedEntries, setSavedEntries] = useState<DataEntry[]>([]);
   
-  // Get available causali for the selected tipologia
-  const availableCausali = causaliCatalog
-    .find(group => group.macroCategory === tipologiaCausale)
-    ?.categories.flatMap(cat => cat.items) || [];
+  // Metrics section state
+  const [metricsExpanded, setMetricsExpanded] = useState<boolean>(false);
+  const [metrics, setMetrics] = useState<MetricField[]>([
+    { id: 'fatturato', label: 'Fatturato mensile', value: '', lastValue: '-' },
+    { id: 'saldo-conto', label: 'Saldo conto fine mese', value: '', lastValue: '-' },
+    { id: 'crediti-pendenti', label: 'Crediti pendenti fine mese', value: '', lastValue: '-' },
+    { id: 'crediti-scaduti', label: 'Crediti scaduti fine mese', value: '', lastValue: '-' },
+    { id: 'debiti-pendenti', label: 'Debiti pendenti fine mese', value: '', lastValue: '-' },
+    { id: 'debiti-scaduti', label: 'Debiti scaduti fine mese', value: '', lastValue: '-' },
+  ]);
+  
+  // Get available tipologie
+  const availableTipologie = useMemo(() => 
+    causaliCatalog.map(group => group.macroCategory), [causaliCatalog]
+  );
+
+  // Get available categorie based on selected tipologia
+  const availableCategorie = useMemo(() => {
+    if (!tipologiaCausale) {
+      // If no tipologia selected, show all categories from all tipologie
+      return causaliCatalog.flatMap(group => group.categories.map(cat => cat.name));
+    }
+    const group = causaliCatalog.find(g => g.macroCategory === tipologiaCausale);
+    return group?.categories.map(cat => cat.name) || [];
+  }, [causaliCatalog, tipologiaCausale]);
+
+  // Get available causali based on selected tipologia and categoria
+  const availableCausali = useMemo(() => {
+    if (!tipologiaCausale) {
+      // If no tipologia selected, show all causali
+      return causaliCatalog.flatMap(group => 
+        group.categories.flatMap(cat => cat.items)
+      );
+    }
+    
+    const group = causaliCatalog.find(g => g.macroCategory === tipologiaCausale);
+    if (!group) return [];
+    
+    if (!categoria) {
+      // If no categoria selected, show all causali from the tipologia
+      return group.categories.flatMap(cat => cat.items);
+    }
+    
+    // Show only causali from the selected categoria
+    const selectedCategory = group.categories.find(cat => cat.name === categoria);
+    return selectedCategory?.items || [];
+  }, [causaliCatalog, tipologiaCausale, categoria]);
 
   // Month names in Italian
   const monthNames = [
@@ -50,6 +102,51 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Format current date for display
   const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm');
+
+  // Auto-completion logic
+  const handleTipologiaChange = (value: string) => {
+    setTipologiaCausale(value);
+    setCategoria('');
+    setCausale('');
+  };
+
+  const handleCategoriaChange = (value: string) => {
+    setCategoria(value);
+    setCausale('');
+    
+    // Auto-fill tipologia if not set
+    if (!tipologiaCausale) {
+      const group = causaliCatalog.find(g => 
+        g.categories.some(cat => cat.name === value)
+      );
+      if (group) {
+        setTipologiaCausale(group.macroCategory);
+      }
+    }
+  };
+
+  const handleCausaleChange = (value: string) => {
+    setCausale(value);
+    
+    // Auto-fill tipologia and categoria if not set
+    if (!tipologiaCausale || !categoria) {
+      const group = causaliCatalog.find(g => 
+        g.categories.some(cat => cat.items.includes(value))
+      );
+      if (group) {
+        if (!tipologiaCausale) {
+          setTipologiaCausale(group.macroCategory);
+        }
+        
+        if (!categoria) {
+          const category = group.categories.find(cat => cat.items.includes(value));
+          if (category) {
+            setCategoria(category.name);
+          }
+        }
+      }
+    }
+  };
 
   // Handle value input formatting
   const handleValoreChange = (value: string) => {
@@ -91,6 +188,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         mese,
         anno,
         tipologiaCausale,
+        categoria,
         causale,
         valore: numericValue
       };
@@ -101,10 +199,8 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       // Update the financial plan data
       const monthKey = buildMonthKey(anno, mese);
       
-      // Find the category for this causale
-      const category = causaliCatalog
-        .find(group => group.macroCategory === tipologiaCausale)
-        ?.categories.find(cat => cat.items.includes(causale))?.name || '';
+      // Use the selected categoria
+      const category = categoria;
 
       // Set the override for consuntivo (actual) value
       setOverride('consuntivo', tipologiaCausale, category, causale, anno, mese, numericValue);
@@ -117,6 +213,8 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       // Reset form but keep month and year
       setValore('0,00');
       setCausale('');
+      setCategoria('');
+      setTipologiaCausale('');
 
     } catch (error) {
       console.error('Error saving entry:', error);
@@ -135,9 +233,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
       // Remove the override (set to null)
       const monthKey = buildMonthKey(entry.anno, entry.mese);
-      const category = causaliCatalog
-        .find(group => group.macroCategory === entry.tipologiaCausale)
-        ?.categories.find(cat => cat.items.includes(entry.causale))?.name || '';
+      const category = entry.categoria;
 
       setOverride('consuntivo', entry.tipologiaCausale, category, entry.causale, entry.anno, entry.mese, null);
 
@@ -156,11 +252,25 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     setMese(entry.mese);
     setAnno(entry.anno);
     setTipologiaCausale(entry.tipologiaCausale);
+    setCategoria(entry.categoria);
     setCausale(entry.causale);
     setValore(formatItalianNumber(entry.valore));
     
     // Remove the entry from saved entries (user will save it again)
     setSavedEntries(prev => prev.filter(e => e.id !== entry.id));
+  };
+
+  // Handle metrics field change
+  const handleMetricChange = (id: string, value: string) => {
+    setMetrics(prev => prev.map(metric => 
+      metric.id === id ? { ...metric, value } : metric
+    ));
+  };
+
+  // Save metrics
+  const handleSaveMetrics = () => {
+    // TODO: Implement metrics saving logic
+    showNotification('Indicatori salvati con successo.', 'success');
   };
 
   return (
@@ -169,11 +279,48 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Inserisci metriche mensili</h2>
-          <span className="text-sm text-gray-500">Nessun dato salvato</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">Prossimo mese proposto: {monthNames[mese].toLowerCase()} {anno}</span>
+            <button
+              onClick={() => setMetricsExpanded(!metricsExpanded)}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              {metricsExpanded ? 'Nascondi' : 'Mostra'}
+            </button>
+          </div>
         </div>
-        <div className="text-right">
-          <span className="text-sm text-gray-500">Mostra</span>
-        </div>
+        
+        {metricsExpanded && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              {metrics.map((metric) => (
+                <div key={metric.id} className="bg-gray-50 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {metric.label}
+                  </label>
+                  <div className="text-xs text-gray-500 mb-2">
+                    Ultimo valore: {metric.lastValue}
+                  </div>
+                  <input
+                    type="text"
+                    value={metric.value}
+                    onChange={(e) => handleMetricChange(metric.id, e.target.value)}
+                    placeholder="Inserisci valore"
+                    className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveMetrics}
+                className="bg-primary text-white px-6 py-2 rounded text-sm font-medium hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                Salva indicatori
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Registro inserimenti section */}
@@ -185,7 +332,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
         {/* Data entry form */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-7 gap-4 items-end">
+          <div className="grid grid-cols-8 gap-4 items-end">
             {/* DATA INSERIMENTO */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -239,15 +386,34 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={tipologiaCausale}
-                onChange={(e) => {
-                  setTipologiaCausale(e.target.value);
-                  setCausale(''); // Reset causale when tipologia changes
-                }}
+                onChange={(e) => handleTipologiaChange(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="COSTI FISSI">COSTI FISSI</option>
-                <option value="COSTI VARIABILI">COSTI VARIABILI</option>
-                <option value="INCASSATO">INCASSATO</option>
+                <option value="">Seleziona tipologia</option>
+                {availableTipologie.map(tipologia => (
+                  <option key={tipologia} value={tipologia}>
+                    {tipologia}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* CATEGORIA */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                CATEGORIA
+              </label>
+              <select
+                value={categoria}
+                onChange={(e) => handleCategoriaChange(e.target.value)}
+                className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Seleziona categoria</option>
+                {availableCategorie.map(categoriaItem => (
+                  <option key={categoriaItem} value={categoriaItem}>
+                    {categoriaItem}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -258,7 +424,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={causale}
-                onChange={(e) => setCausale(e.target.value)}
+                onChange={(e) => handleCausaleChange(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Seleziona causale</option>
@@ -302,7 +468,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
           <div className="space-y-2">
             {savedEntries.map((entry) => (
               <div key={entry.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-6 gap-4 items-center">
+                <div className="grid grid-cols-7 gap-4 items-center">
                   <div className="text-sm text-gray-600">
                     {entry.dataInserimento}
                   </div>
@@ -311,6 +477,9 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
                   </div>
                   <div className="text-sm text-gray-600">
                     {entry.tipologiaCausale}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {entry.categoria}
                   </div>
                   <div className="text-sm text-gray-600">
                     {entry.causale}

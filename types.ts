@@ -14,7 +14,7 @@ export enum TableStatus {
 }
 
 // Financial Plan Types
-export type TabKey = 'plan' | 'stats' | 'causali' | 'inserisci-dati';
+export type TabKey = 'overview' | 'plan' | 'stats' | 'causali' | 'inserisci-dati' | 'business-plan' | 'analisi-fp';
 
 export interface PlanOverrides {
   [macroCategory: string]: {
