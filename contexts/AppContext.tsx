@@ -17,6 +17,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const showNotification = useCallback((message: string, type: NotificationType) => {
     const newNotification: AppNotification = {
@@ -284,8 +285,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   return (
-    <AppContext.Provider value={{ locations, currentLocation, reservations, waitlist, tables, customers, kpis, menuItems, sales, loading, error, notifications, showNotification, setCurrentLocation, addReservation, updateReservationStatus, updateLocationSettings, updateTableStatus, saveTableLayout, addWaitlistEntry, removeWaitlistEntry, seatFromWaitlist, markWaitlistNoShow, assignReservationToTable, seatWalkIn, clearTable }}>
+    <AppContext.Provider value={{ locations, currentLocation, reservations, waitlist, tables, customers, kpis, menuItems, sales, loading, error, notifications, showNotification, setCurrentLocation, addReservation, updateReservationStatus, updateLocationSettings, updateTableStatus, saveTableLayout, addWaitlistEntry, removeWaitlistEntry, seatFromWaitlist, markWaitlistNoShow, assignReservationToTable, seatWalkIn, clearTable, sidebarCollapsed, toggleSidebar }}>
       {children}
     </AppContext.Provider>
   );

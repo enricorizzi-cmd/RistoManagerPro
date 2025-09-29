@@ -427,6 +427,7 @@ const FinancialPlan: React.FC = () => {
   const [savingState, setSavingState] = useState<boolean>(false);
   const [editMode, setEditMode] = useState<boolean>(false);
   const [onlyValued, setOnlyValued] = useState<boolean>(true);
+  const [onlyConsuntivo, setOnlyConsuntivo] = useState<boolean>(false);
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
@@ -1352,6 +1353,14 @@ const FinancialPlan: React.FC = () => {
           />
           Solo valorizzati
         </label>
+        <label className="ml-4 flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={onlyConsuntivo}
+            onChange={(e) => setOnlyConsuntivo(e.target.checked)}
+          />
+          Solo consuntivo
+        </label>
         {!editMode ? (
           <button
             type="button"
@@ -1385,7 +1394,7 @@ const FinancialPlan: React.FC = () => {
           </div>
         )}
       </div>
-      <div className="overflow-x-auto rounded-2xl bg-white p-5 shadow-sm">
+      <div className="overflow-auto rounded-2xl bg-white p-5 shadow-sm max-h-[80vh]">
         {loadingState ? (
           <p className="text-sm text-gray-500">Caricamento…</p>
         ) : !planYear ? (
@@ -1394,33 +1403,110 @@ const FinancialPlan: React.FC = () => {
           </p>
         ) : (
           <table className="min-w-[1400px] w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-3 text-left">CATEGORIA</th>
-                {MONTH_NAMES.map((name) => (
-                  <th key={name} className="px-3 py-3 text-center" colSpan={2}>
+                <th className="px-3 py-3 text-left bg-slate-50">CATEGORIA</th>
+                <th className="px-3 py-3 text-center border-l-2 border-gray-300">SOMMA PROGRESSIVA</th>
+                <th className="px-3 py-3 text-center">INCIDENZA PROGRESSIVA</th>
+                {MONTH_NAMES.map((name, index) => (
+                  <th key={name} className={`px-3 py-3 text-center border-l-2 border-gray-300`} colSpan={onlyConsuntivo ? 1 : 2}>
                     {name}
                   </th>
                 ))}
               </tr>
               <tr>
-                <th className="px-3 py-2"></th>
-                {MONTH_NAMES.map((name) => (
+                <th className="px-3 py-2 bg-slate-50"></th>
+                <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300">TOTALE</th>
+                <th className="px-3 py-2 text-center text-xs font-normal">%</th>
+                {MONTH_NAMES.map((name, index) => (
                   <React.Fragment key={name}>
-                    <th className="px-3 py-2 text-center text-xs font-normal">PREVENTIVO</th>
+                    {!onlyConsuntivo && (
+                      <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300">PREVENTIVO</th>
+                    )}
                     <th className="px-3 py-2 text-center text-xs font-normal">CONSUNTIVO</th>
                   </React.Fragment>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {(causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any).map((group) => (
-                <React.Fragment key={group.macroCategory}>
-                  <tr className="bg-slate-100 text-xs uppercase text-gray-600">
-                    <td className="px-3 py-2" colSpan={1 + MONTH_NAMES.length * 2}>
-                      {group.macroCategory}
-                    </td>
-                  </tr>
+              {(causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any).map((group) => {
+                const getMacroColor = (macro: string) => {
+                  switch (macro) {
+                    case 'INCASSATO':
+                      return 'bg-blue-50 text-blue-800';
+                    case 'COSTI FISSI':
+                      return 'bg-orange-50 text-orange-800';
+                    case 'COSTI VARIABILI':
+                      return 'bg-yellow-50 text-yellow-800';
+                    default:
+                      return 'bg-slate-100 text-slate-800';
+                  }
+                };
+                
+                return (
+                  <React.Fragment key={group.macroCategory}>
+                    <tr className={`${getMacroColor(group.macroCategory)} text-sm font-bold uppercase`}>
+                      <td className="px-3 py-3">{group.macroCategory}</td>
+                      {(() => {
+                        const macroSum = group.categories.reduce((acc, cat) => {
+                          const planYear = basePlanByYear.get(selectedYear);
+                          const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                          const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                          return acc + categoryDetails.reduce((catAcc, d) => 
+                            catAcc + MONTH_NAMES.reduce((monthAcc, _, monthIndex) => 
+                              monthAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                            ), 0
+                          );
+                        }, 0);
+                        
+                        const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                          acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
+                        );
+                        const percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
+                        
+                        return (
+                          <>
+                            <td className="px-3 py-3 text-right border-l-2 border-gray-300">
+                              {formatCurrencyValue(macroSum)}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {percentage.toFixed(1)}%
+                            </td>
+                          </>
+                        );
+                      })()}
+                      {MONTH_NAMES.map((_, monthIndex) => {
+                        const p = group.categories.reduce((acc, cat) => {
+                          const planYear = basePlanByYear.get(selectedYear);
+                          const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                          const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                          return acc + categoryDetails.reduce((catAcc, d) => 
+                            catAcc + getPlanPreventivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                          );
+                        }, 0);
+                        const c = group.categories.reduce((acc, cat) => {
+                          const planYear = basePlanByYear.get(selectedYear);
+                          const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                          const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                          return acc + categoryDetails.reduce((catAcc, d) => 
+                            catAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                          );
+                        }, 0);
+                        
+                        return (
+                          <React.Fragment key={`macro-header-${monthIndex}`}>
+                            {!onlyConsuntivo && (
+                              <td className="px-3 py-3 text-right border-l-2 border-gray-300">
+                                {formatCurrencyValue(p)}
+                              </td>
+                            )}
+                            <td className="px-3 py-3 text-right">
+                              {formatCurrencyValue(c)}
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+                    </tr>
                   {group.categories.map((category) => {
                     const planYear = basePlanByYear.get(selectedYear);
                     const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
@@ -1435,14 +1521,38 @@ const FinancialPlan: React.FC = () => {
                         {/* Subtotale categoria */}
                         <tr className="bg-slate-50 font-semibold">
                           <td className="px-3 py-2 text-sm text-gray-700">{category.name}</td>
+                          {(() => {
+                            const categorySum = categoryDetails.reduce((acc, d) => 
+                              acc + MONTH_NAMES.reduce((monthAcc, _, monthIndex) => 
+                                monthAcc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
+                              ), 0
+                            );
+                            const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                              acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
+                            );
+                            const percentage = totalIncassato === 0 ? 0 : (categorySum / totalIncassato) * 100;
+                            
+                            return (
+                              <>
+                                <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                                  <div className="font-semibold text-gray-800">{formatCurrencyValue(categorySum)}</div>
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm">
+                                  <div className="font-semibold text-gray-800">{percentage.toFixed(1)}%</div>
+                                </td>
+                              </>
+                            );
+                          })()}
                           {MONTH_NAMES.map((_, monthIndex) => {
                             const p = categoryDetails.reduce((acc, d) => acc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
                             const c = categoryDetails.reduce((acc, d) => acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
                             return (
                               <React.Fragment key={`subtotal-${monthIndex}`}>
-                                <td className="px-3 py-2 text-right text-sm">
-                                  <div className="font-semibold text-sky-700">{formatCurrencyValue(p)}</div>
-                                </td>
+                                {!onlyConsuntivo && (
+                                  <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                                    <div className="font-semibold text-sky-700">{formatCurrencyValue(p)}</div>
+                                  </td>
+                                )}
                                 <td className="px-3 py-2 text-right text-sm">
                                   <div className="font-semibold text-gray-800">{formatCurrencyValue(c)}</div>
                                 </td>
@@ -1458,21 +1568,43 @@ const FinancialPlan: React.FC = () => {
                           return (
                             <tr key={`${category.name}-${causale}`} className="hover:bg-slate-50">
                               <td className="px-3 py-2 text-sm text-gray-700 pl-6">{causale}</td>
+                              {(() => {
+                                const causaleSum = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                                  acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex), 0
+                                );
+                                const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                                  acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
+                                );
+                                const percentage = totalIncassato === 0 ? 0 : (causaleSum / totalIncassato) * 100;
+                                
+                                return (
+                                  <>
+                                    <td className="px-3 py-2 text-right text-sm text-gray-700 border-l-2 border-gray-200">
+                                      <div className="text-gray-800">{formatCurrencyValue(causaleSum)}</div>
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-sm text-gray-700">
+                                      <div className="text-gray-800">{percentage.toFixed(1)}%</div>
+                                    </td>
+                                  </>
+                                );
+                              })()}
                               {detail.months.map((month) => (
                                 <React.Fragment key={month.monthIndex}>
-                                  <td className="px-3 py-2 text-right text-sm text-gray-700">
-                                    {!editMode ? (
-                                      <div className="text-sky-700">{formatCurrencyValue(getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
-                                    ) : (
-                                      <input 
-                                        type="number" 
-                                        step="0.01" 
-                                        className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`preventivo|${group.macroCategory}|${category.name}|${causale}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} 
-                                        value={getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex)} 
-                                        onChange={(e) => setOverride('preventivo', group.macroCategory, category.name, causale, selectedYear, month.monthIndex, Number(e.target.value))} 
-                                      />
-                                    )}
-                                  </td>
+                                  {!onlyConsuntivo && (
+                                    <td className="px-3 py-2 text-right text-sm text-gray-700 border-l-2 border-gray-200">
+                                      {!editMode ? (
+                                        <div className="text-sky-700">{formatCurrencyValue(getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
+                                      ) : (
+                                        <input 
+                                          type="number" 
+                                          step="0.01" 
+                                          className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`preventivo|${group.macroCategory}|${category.name}|${causale}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} 
+                                          value={getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex)} 
+                                          onChange={(e) => setOverride('preventivo', group.macroCategory, category.name, causale, selectedYear, month.monthIndex, Number(e.target.value))} 
+                                        />
+                                      )}
+                                    </td>
+                                  )}
                                   <td className="px-3 py-2 text-right text-sm text-gray-700">
                                     <div className="text-gray-800">{formatCurrencyValue(getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
                                   </td>
@@ -1484,17 +1616,56 @@ const FinancialPlan: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                );
+              })}
               
               {/* UTILE DI CASSA - Calcolato automaticamente */}
-              <tr className="bg-emerald-50 text-xs uppercase text-gray-600">
-                <td className="px-3 py-2" colSpan={1 + MONTH_NAMES.length * 2}>
+              <tr className="bg-emerald-50 text-sm font-bold uppercase text-emerald-800">
+                <td className="px-3 py-3" colSpan={3 + MONTH_NAMES.length * (onlyConsuntivo ? 1 : 2)}>
                   UTILE DI CASSA
                 </td>
               </tr>
               <tr className="bg-emerald-100 font-semibold">
                 <td className="px-3 py-2 text-sm text-gray-700">Utile di cassa</td>
+                {(() => {
+                  const utileCassaSum = MONTH_NAMES.reduce((acc, _, monthIndex) => {
+                    const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                    const costiFissi = (causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any)
+                      .find(g => g.macroCategory === 'COSTI FISSI')?.categories
+                      .reduce((catAcc, cat) => {
+                        const planYear = basePlanByYear.get(selectedYear);
+                        const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
+                        const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                        return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                      }, 0) ?? 0;
+                    const costiVariabili = (causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any)
+                      .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
+                      .reduce((catAcc, cat) => {
+                        const planYear = basePlanByYear.get(selectedYear);
+                        const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
+                        const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                        return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
+                      }, 0) ?? 0;
+                    return acc + (incassato - costiFissi - costiVariabili);
+                  }, 0);
+                  
+                  const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                    acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
+                  );
+                  const percentage = totalIncassato === 0 ? 0 : (utileCassaSum / totalIncassato) * 100;
+                  
+                  return (
+                    <>
+                      <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                        <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassaSum)}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-sm">
+                        <div className="font-semibold text-emerald-700">{percentage.toFixed(1)}%</div>
+                      </td>
+                    </>
+                  );
+                })()}
                 {MONTH_NAMES.map((_, monthIndex) => {
                   const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
                   const costiFissi = (causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any)
@@ -1518,9 +1689,11 @@ const FinancialPlan: React.FC = () => {
                   
                   return (
                     <React.Fragment key={`utile-cassa-${monthIndex}`}>
-                      <td className="px-3 py-2 text-right text-sm">
-                        <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassa)}</div>
-                      </td>
+                      {!onlyConsuntivo && (
+                        <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                          <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassa)}</div>
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-right text-sm">
                         <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassa)}</div>
                       </td>
@@ -1827,7 +2000,8 @@ const FinancialPlan: React.FC = () => {
           onClick={() => {
             const macro = window.prompt('Nome macro (es. COSTI FISSI)');
             if (!macro) return;
-            handleCausaliPersist([...causaliCatalog, { macroCategory: macro, categories: [] }]);
+            const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+            handleCausaliPersist([...currentCatalog, { macroCategory: macro, categories: [] }]);
           }}
           className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
         >
@@ -1835,7 +2009,7 @@ const FinancialPlan: React.FC = () => {
         </button>
       </div>
       <div className="space-y-6">
-        {causaliCatalog.map((group, gi) => (
+        {(causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any).map((group, gi) => (
           <div key={`${group.macroCategory}-${gi}`} className="rounded-xl bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="font-semibold text-gray-800 flex-1">{group.macroCategory}</h4>
@@ -1843,7 +2017,8 @@ const FinancialPlan: React.FC = () => {
                 type="button"
                 onClick={() => {
                   const name = window.prompt('Rinomina macro', group.macroCategory) ?? group.macroCategory;
-                  const next = [...causaliCatalog];
+                  const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                  const next = [...currentCatalog];
                   next[gi] = { ...next[gi], macroCategory: name };
                   handleCausaliPersist(next);
                 }}
@@ -1855,7 +2030,8 @@ const FinancialPlan: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (!window.confirm('Eliminare tipologia e tutte le categorie?')) return;
-                  const next = causaliCatalog.filter((_, idx) => idx !== gi);
+                  const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                  const next = currentCatalog.filter((_, idx) => idx !== gi);
                   handleCausaliPersist(next);
                 }}
                 className="text-xs px-2 py-1 rounded bg-red-100 text-red-700"
@@ -1867,7 +2043,8 @@ const FinancialPlan: React.FC = () => {
                 onClick={() => {
                   const name = window.prompt('Nome nuova categoria');
                   if (!name) return;
-                  const next = [...causaliCatalog];
+                  const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                  const next = [...currentCatalog];
                   next[gi] = { ...next[gi], categories: [...next[gi].categories, { name, items: [] }] };
                   handleCausaliPersist(next);
                 }}
@@ -1885,7 +2062,8 @@ const FinancialPlan: React.FC = () => {
                       type="button"
                       onClick={() => {
                         const name = window.prompt('Rinomina categoria', cat.name) ?? cat.name;
-                        const next = [...causaliCatalog];
+                        const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                        const next = [...currentCatalog];
                         next[gi].categories[ci] = { ...cat, name };
                         handleCausaliPersist(next);
                       }}
@@ -1897,7 +2075,8 @@ const FinancialPlan: React.FC = () => {
                       type="button"
                       onClick={() => {
                         if (!window.confirm('Eliminare categoria?')) return;
-                        const next = [...causaliCatalog];
+                        const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                        const next = [...currentCatalog];
                         next[gi].categories.splice(ci, 1);
                         handleCausaliPersist(next);
                       }}
@@ -1910,7 +2089,8 @@ const FinancialPlan: React.FC = () => {
                       onClick={() => {
                         const name = window.prompt('Nome causale');
                         if (!name) return;
-                        const next = [...causaliCatalog];
+                        const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                        const next = [...currentCatalog];
                         next[gi].categories[ci] = { ...cat, items: [...cat.items, name] };
                         handleCausaliPersist(next);
                       }}
@@ -1927,7 +2107,8 @@ const FinancialPlan: React.FC = () => {
                           type="button"
                           onClick={() => {
                             const name = window.prompt('Rinomina causale', it) ?? it;
-                            const next = [...causaliCatalog];
+                            const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                            const next = [...currentCatalog];
                             const items = [...next[gi].categories[ci].items];
                             items[ii] = name;
                             next[gi].categories[ci] = { ...next[gi].categories[ci], items };
@@ -1941,7 +2122,8 @@ const FinancialPlan: React.FC = () => {
                           type="button"
                           onClick={() => {
                             if (!window.confirm('Eliminare causale?')) return;
-                            const next = [...causaliCatalog];
+                            const currentCatalog = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+                            const next = [...currentCatalog];
                             const items = [...next[gi].categories[ci].items];
                             items.splice(ii, 1);
                             next[gi].categories[ci] = { ...next[gi].categories[ci], items };

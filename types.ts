@@ -154,4 +154,6 @@ export interface AppContextType {
     assignReservationToTable: (reservationId: string, tableId: string) => Promise<void>;
     seatWalkIn: (walkinData: Omit<Reservation, 'id' | 'locationId' | 'status'>, tableId: string) => Promise<void>;
     clearTable: (tableId: string) => Promise<void>;
+    sidebarCollapsed: boolean;
+    toggleSidebar: () => void;
 }

@@ -4,6 +4,7 @@ import Header from './components/Header';
 import MobileNav from './components/MobileNav';
 import NotificationContainer from './components/NotificationContainer';
 import WalkinWaitlistModal from './components/WalkinWaitlistModal';
+import { useAppContext } from './contexts/AppContext';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Reservations = lazy(() => import('./components/Reservations'));
@@ -20,6 +21,7 @@ type Page = 'dashboard' | 'reservations' | 'analytics' | 'table-management' | 'c
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isWalkinModalOpen, setIsWalkinModalOpen] = useState(false);
+  const { sidebarCollapsed } = useAppContext();
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -66,7 +68,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-50 text-gray-800">
       <Sidebar currentPage={currentPage} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
         <Header onOpenWalkinModal={() => setIsWalkinModalOpen(true)} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
           <Suspense fallback={<div className="flex h-full items-center justify-center text-gray-500">Caricamento...</div>}>
