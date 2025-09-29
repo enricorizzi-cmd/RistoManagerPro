@@ -1,0 +1,5 @@
+{
+  "name": "RistoManager Pro",
+  "description": "Un'applicazione web completa per la gestione delle prenotazioni di ristoranti, l'analisi delle vendite, dei KPI e dei margini di profitto per un gruppo di ristoranti multi-sede. Questa app fornisce strumenti per la gestione dei tavoli, un sistema di lista d'attesa, CRM e analisi approfondite.",
+  "requestFramePermissions": []
+}

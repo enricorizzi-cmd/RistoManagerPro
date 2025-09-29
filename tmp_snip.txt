@@ -1,0 +1,2285 @@
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  financialPlanRows,
+  financialCausali,
+  financialStats as financialStatsRows,
+  FinancialCausaleGroup,
+  FinancialStatsRow,
+} from '../data/financialPlanData';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  BarChart,
+  Bar,
+} from 'recharts';
+import { addMonths, format } from 'date-fns';
+import { it } from 'date-fns/locale';
+
+type TabKey = 'overview' | 'plan' | 'analysis' | 'causali' | 'stats' | 'data-entry';
+
+type PreventivoOverrides = Record<string, Record<string, Record<string, Record<string, number>>>>;
+
+type ManualLogEntry = {
+  id: string;
+  createdAt: string;
+  year: number;
+  month: number;
+  macroCategory: string;
+  category: string;
+  causale: string;
+  value: number;
+};
+
+type MetricsFieldKey =
+  | 'fatturatoMensile'
+  | 'saldoContoFineMese'
+  | 'creditiPendentiFineMese'
+  | 'creditiScadutiFineMese'
+  | 'debitiPendentiFineMese'
+  | 'debitiScadutiFineMese';
+
+type MetricsDraft = Record<MetricsFieldKey, string>;
+
+type MetricsValueRecord = Record<MetricsFieldKey, number>;
+
+type MonthlyMetricsEntry = MetricsValueRecord & {
+  id: string;
+  year: number;
+  month: number;
+  createdAt: string;
+};
+
+type StatsEditableFieldKey =
+  | 'fatturatoImponibile'
+  | 'fatturatoTotale'
+  | 'saldoConto'
+  | 'saldoSecondoConto'
+  | 'saldoTotale'
+  | 'creditiPendenti'
+  | 'creditiScaduti'
+  | 'debitiFornitore'
+  | 'debitiBancari';
+
+type StatsOverrides = Record<string, Partial<Record<StatsEditableFieldKey, number | null>>>;
+
+type MonthDefinition = {
+  monthIndex: number;
+  monthKey: string;
+  label: string;
+  shortLabel: string;
+};
+
+type PlanCellValue = {
+  monthKey: string;
+  monthIndex: number;
+  preventivo: number | null;
+  consuntivo: number | null;
+};
+
+type PlanDisplayRow = {
+  macro: string;
+  category: string | null;
+  title: string;
+  values: PlanCellValue[];
+};
+
+type PlanCategoryGroup = {
+  name: string;
+  itemRows: PlanDisplayRow[];
+  totalRow: PlanDisplayRow;
+};
+
+type PlanMacroGroup = {
+  macro: string;
+  categories: PlanCategoryGroup[];
+  totalRow: PlanDisplayRow;
+};
+const monthOptions = [
+  { index: 0, label: 'Gennaio', short: 'Gen' },
+  { index: 1, label: 'Febbraio', short: 'Feb' },
+  { index: 2, label: 'Marzo', short: 'Mar' },
+  { index: 3, label: 'Aprile', short: 'Apr' },
+  { index: 4, label: 'Maggio', short: 'Mag' },
+  { index: 5, label: 'Giugno', short: 'Giu' },
+  { index: 6, label: 'Luglio', short: 'Lug' },
+  { index: 7, label: 'Agosto', short: 'Ago' },
+  { index: 8, label: 'Settembre', short: 'Set' },
+  { index: 9, label: 'Ottobre', short: 'Ott' },
+  { index: 10, label: 'Novembre', short: 'Nov' },
+  { index: 11, label: 'Dicembre', short: 'Dic' },
+] as const;
+
+const metricsFields: { key: MetricsFieldKey; label: string }[] = [
+  { key: 'fatturatoMensile', label: 'Fatturato mensile' },
+  { key: 'saldoContoFineMese', label: 'Saldo conto fine mese' },
+  { key: 'creditiPendentiFineMese', label: 'Crediti pendenti fine mese' },
+  { key: 'creditiScadutiFineMese', label: 'Crediti scaduti fine mese' },
+  { key: 'debitiPendentiFineMese', label: 'Debiti pendenti fine mese' },
+  { key: 'debitiScadutiFineMese', label: 'Debiti scaduti fine mese' },
+];
+
+const statsEditableFields: StatsEditableFieldKey[] = [
+  'fatturatoImponibile',
+  'fatturatoTotale',
+  'saldoConto',
+  'saldoSecondoConto',
+  'saldoTotale',
+  'creditiPendenti',
+  'creditiScaduti',
+  'debitiFornitore',
+  'debitiBancari',
+];
+
+const defaultMacroOrder = ['INCASSATO', 'COSTI FISSI', 'COSTI VARIABILI'];
+
+const currencyFormatter = new Intl.NumberFormat('it-IT', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const baseMetricsDraft: MetricsDraft = metricsFields.reduce(
+  (acc, field) => {
+    acc[field.key] = '';
+    return acc;
+  },
+  {} as MetricsDraft,
+);
+
+const tabs: { key: TabKey; label: string }[] = [
+  { key: 'overview', label: 'Panoramica' },
+  { key: 'plan', label: 'Piano Mensile' },
+  { key: 'causali', label: 'Causali' },
+  { key: 'stats', label: 'Statistiche' },
+  { key: 'data-entry', label: 'Inserisci Dati' },
+];
+
+const CAUSALI_VERSION = '2025-09-27';
+
+const normalizeLabel = (value: string): string => value.trim().toUpperCase();
+
+const buildMonthKey = (year: number, monthIndex: number) =>
+  `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+
+const parsePlanMonthLabel = (
+  input: string,
+): { year: number; month: number } | null => {
+  if (!input) {
+    return null;
+  }
+  const parts = input.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return null;
+  }
+  const year = Number(parts[parts.length - 1]);
+  if (Number.isNaN(year)) {
+    return null;
+  }
+  const monthName = normalizeLabel(parts.slice(0, parts.length - 1).join(' '));
+  const monthIndex = monthOptions.findIndex(
+    (option) => normalizeLabel(option.label) === monthName,
+  );
+  if (monthIndex === -1) {
+    return null;
+  }
+  return { year, month: monthIndex };
+};
+
+const formatCurrencyValue = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return '-';
+  }
+  if (Math.abs(value) < 0.005) {
+    return '-';
+  }
+  return currencyFormatter.format(value);
+};
+
+const formatMonthYear = (year: number, monthIndex: number) =>
+  format(new Date(year, monthIndex, 1), 'MMMM yyyy', { locale: it });
+
+const isValueMeaningful = (value: number | null | undefined): boolean => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  return Math.abs(value) >= 0.005;
+};
+
+const sumValues = (values: Array<number | null>): number | null => {
+  let total = 0;
+  let hasValue = false;
+  values.forEach((value) => {
+    if (value !== null && value !== undefined) {
+      total += value;
+      hasValue = true;
+    }
+  });
+  return hasValue ? total : null;
+};
+
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return (crypto as { randomUUID: () => string }).randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+type PlanIndex = Record<
+  string,
+  Record<string, Record<string, { preventivo: number | null; consuntivo: number | null }>>
+>;
+
+type ManualAggregateIndex = Record<
+  string,
+  Record<string, Record<string, number>>
+>;
+
+interface CatalogLookup {
+  macroOrder: string[];
+  macroNormalized: Record<string, string>;
+  categoriesByMacro: Record<
+    string,
+    { label: string; normalized: string; items: { label: string; normalized: string }[] }[]
+  >;
+  itemMetaByNormalized: Record<
+    string,
+    { label: string; macro: string; macroNorm: string; category: string; categoryNorm: string }
+  >;
+  itemMetaByLabel: Record<
+    string,
+    { label: string; macro: string; macroNorm: string; category: string; categoryNorm: string }
+  >;
+  allCausali: string[];
+}
+
+interface LogDraft {
+  year: number;
+  month: number;
+  macroCategory: string;
+  category: string;
+  causale: string;
+  value: string;
+}
+const FinancialPlan: React.FC = () => {
+  const now = useMemo(() => new Date(), []);
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const yearOptions = useMemo(() => {
+    const options: number[] = [];
+    for (let offset = 0; offset <= 3; offset += 1) {
+      options.push(currentYear - offset);
+    }
+    return options;
+  }, [currentYear]);
+
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [soloValorizzati, setSoloValorizzati] = useState(true);
+  const [isPlanEditing, setIsPlanEditing] = useState(false);
+  const [preventivoOverrides, setPreventivoOverrides] = useState<PreventivoOverrides>({});
+  const [preventivoDrafts, setPreventivoDrafts] = useState<Record<string, string>>({});
+  const [manualLog, setManualLog] = useState<ManualLogEntry[]>([]);
+  const [logDefaults, setLogDefaults] = useState<{ year: number; month: number }>(
+    () => ({ year: currentYear, month: currentMonth }),
+  );
+  const [logDraft, setLogDraft] = useState<LogDraft>({
+    year: logDefaults.year,
+    month: logDefaults.month,
+    macroCategory: '',
+    category: '',
+    causale: '',
+    value: '',
+  });
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [logError, setLogError] = useState<string | null>(null);
+  const [monthlyMetrics, setMonthlyMetrics] = useState<MonthlyMetricsEntry[]>([]);
+  const [metricsDraftState, setMetricsDraftState] = useState<MetricsDraft>(baseMetricsDraft);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>(
+    financialCausali,
+  );
+  const [isEditingCausali, setIsEditingCausali] = useState(false);
+  const [statsOverrides, setStatsOverrides] = useState<StatsOverrides>({});
+  const [statsEditing, setStatsEditing] = useState(false);
+  const [statsDraft, setStatsDraft] = useState<
+    Record<string, Partial<Record<StatsEditableFieldKey, string>>>
+  >({});
+  const [statsFilterStart, setStatsFilterStart] = useState<number>(currentYear - 2);
+  const [statsFilterEnd, setStatsFilterEnd] = useState<number>(currentYear);
+  const [storageReady, setStorageReady] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const storedOverrides = window.localStorage.getItem(
+        'financialPlan.preventivoOverrides',
+      );
+      const storedManual = window.localStorage.getItem('financialPlan.manualLog');
+      const storedMetrics = window.localStorage.getItem(
+        'financialPlan.monthlyMetrics',
+      );
+      const storedCausali = window.localStorage.getItem('financialPlan.causali');
+      const storedVersion = window.localStorage.getItem(
+        'financialPlan.causaliVersion',
+      );
+      const storedStats = window.localStorage.getItem(
+        'financialPlan.statsOverrides',
+      );
+
+      if (storedOverrides) {
+        const parsed = JSON.parse(storedOverrides) as PreventivoOverrides;
+        if (parsed && typeof parsed === 'object') {
+          setPreventivoOverrides(parsed);
+        }
+      }
+      if (storedManual) {
+        const parsed = JSON.parse(storedManual) as ManualLogEntry[];
+        if (Array.isArray(parsed)) {
+          setManualLog(
+            parsed.map((entry) => ({
+              ...entry,
+              month: Math.max(0, Math.min(11, entry.month)),
+            })),
+          );
+        }
+      }
+      if (storedMetrics) {
+        const parsed = JSON.parse(storedMetrics) as MonthlyMetricsEntry[];
+        if (Array.isArray(parsed)) {
+          setMonthlyMetrics(
+            parsed.map((entry) => ({
+              ...entry,
+              month: Math.max(0, Math.min(11, entry.month)),
+            })),
+          );
+        }
+      }
+      if (storedStats) {
+        const parsed = JSON.parse(storedStats) as StatsOverrides;
+        if (parsed && typeof parsed === 'object') {
+          setStatsOverrides(parsed);
+        }
+      }
+      if (storedCausali && storedVersion === CAUSALI_VERSION) {
+        const parsed = JSON.parse(storedCausali) as FinancialCausaleGroup[];
+        if (Array.isArray(parsed)) {
+          setCausaliCatalog(parsed);
+        }
+      } else if (storedVersion && storedVersion !== CAUSALI_VERSION) {
+        window.localStorage.removeItem('financialPlan.causali');
+        window.localStorage.setItem('financialPlan.causaliVersion', CAUSALI_VERSION);
+      }
+    } catch (error) {
+      console.error('Impossibile leggere i dati salvati', error);
+    } finally {
+      setStorageReady(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (!storageReady || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(
+      'financialPlan.preventivoOverrides',
+      JSON.stringify(preventivoOverrides),
+    );
+  }, [preventivoOverrides, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem('financialPlan.manualLog', JSON.stringify(manualLog));
+  }, [manualLog, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(
+      'financialPlan.monthlyMetrics',
+      JSON.stringify(monthlyMetrics),
+    );
+  }, [monthlyMetrics, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem('financialPlan.statsOverrides', JSON.stringify(statsOverrides));
+  }, [statsOverrides, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem('financialPlan.causali', JSON.stringify(causaliCatalog));
+    window.localStorage.setItem('financialPlan.causaliVersion', CAUSALI_VERSION);
+  }, [causaliCatalog, storageReady]);
+  const planIndex = useMemo<PlanIndex>(() => {
+    const index: PlanIndex = {};
+    financialPlanRows.forEach((row) => {
+      const macroNorm = normalizeLabel(row.macroCategory);
+      const itemNorm = normalizeLabel(row.detail);
+      row.months.forEach((month) => {
+        const parsed = parsePlanMonthLabel(month.month);
+        if (!parsed) {
+          return;
+        }
+        const key = buildMonthKey(parsed.year, parsed.month);
+        if (!index[macroNorm]) {
+          index[macroNorm] = {};
+        }
+        if (!index[macroNorm][itemNorm]) {
+          index[macroNorm][itemNorm] = {};
+        }
+        index[macroNorm][itemNorm][key] = {
+          preventivo: month.preventivo ?? null,
+          consuntivo: month.consuntivo ?? null,
+        };
+      });
+    });
+    return index;
+  }, []);
+  const catalogLookup = useMemo<CatalogLookup>(() => {
+    const macroNormalized: Record<string, string> = {};
+    const categoriesByMacro: CatalogLookup['categoriesByMacro'] = {};
+    const itemMetaByNormalized: CatalogLookup['itemMetaByNormalized'] = {};
+    const itemMetaByLabel: CatalogLookup['itemMetaByLabel'] = {};
+
+    const macroMap: Record<string, string> = {};
+    causaliCatalog.forEach((group) => {
+      const macroNorm = normalizeLabel(group.macroCategory);
+      macroNormalized[group.macroCategory] = macroNorm;
+      macroMap[macroNorm] = group.macroCategory;
+      categoriesByMacro[group.macroCategory] = group.categories.map((category) => {
+        const categoryNorm = normalizeLabel(category.name);
+        const items = category.items.map((item) => {
+          const itemNorm = normalizeLabel(item);
+          itemMetaByNormalized[itemNorm] = {
+            label: item,
+            macro: group.macroCategory,
+            macroNorm,
+            category: category.name,
+            categoryNorm,
+          };
+          itemMetaByLabel[item] = {
+            label: item,
+            macro: group.macroCategory,
+            macroNorm,
+            category: category.name,
+            categoryNorm,
+          };
+          return { label: item, normalized: itemNorm };
+        });
+        return { label: category.name, normalized: categoryNorm, items };
+      });
+    });
+
+    const desiredOrder = defaultMacroOrder.map((label) => normalizeLabel(label));
+    const macroOrderNormalized = Object.keys(macroMap).sort((a, b) => {
+      const aIndex = desiredOrder.indexOf(a);
+      const bIndex = desiredOrder.indexOf(b);
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      if (aIndex !== -1) {
+        return -1;
+      }
+      if (bIndex !== -1) {
+        return 1;
+      }
+      return macroMap[a].localeCompare(macroMap[b], 'it');
+    });
+    const macroOrder = macroOrderNormalized.map((norm) => macroMap[norm]);
+
+    const allCausali = Object.values(itemMetaByLabel)
+      .map((meta) => meta.label)
+      .sort((a, b) => a.localeCompare(b, 'it'));
+
+    return {
+      macroOrder,
+      macroNormalized,
+      categoriesByMacro,
+      itemMetaByNormalized,
+      itemMetaByLabel,
+      allCausali,
+    };
+  }, [causaliCatalog]);
+  useEffect(() => {
+    setManualLog((prev) =>
+      prev.filter((entry) => {
+        const norm = normalizeLabel(entry.causale);
+        return Boolean(catalogLookup.itemMetaByNormalized[norm]);
+      }),
+    );
+  }, [catalogLookup]);
+
+  const manualAggregates = useMemo<ManualAggregateIndex>(() => {
+    const aggregates: ManualAggregateIndex = {};
+    manualLog.forEach((entry) => {
+      const macroNorm = normalizeLabel(entry.macroCategory);
+      const itemNorm = normalizeLabel(entry.causale);
+      const key = buildMonthKey(entry.year, entry.month);
+      if (!aggregates[macroNorm]) {
+        aggregates[macroNorm] = {};
+      }
+      if (!aggregates[macroNorm][itemNorm]) {
+        aggregates[macroNorm][itemNorm] = {};
+      }
+      aggregates[macroNorm][itemNorm][key] =
+        (aggregates[macroNorm][itemNorm][key] ?? 0) + entry.value;
+    });
+    return aggregates;
+  }, [manualLog]);
+
+  const getItemValues = useCallback(
+    (
+      macroLabel: string,
+      categoryLabel: string,
+      itemLabel: string,
+      year: number,
+      monthIndex: number,
+    ): PlanCellValue => {
+      const macroNorm = normalizeLabel(macroLabel);
+      const itemNorm = normalizeLabel(itemLabel);
+      const monthKey = buildMonthKey(year, monthIndex);
+      const base = planIndex[macroNorm]?.[itemNorm]?.[monthKey];
+      const override =
+        preventivoOverrides[macroLabel]?.[categoryLabel]?.[itemLabel]?.[monthKey];
+      const manualValue =
+        manualAggregates[macroNorm]?.[itemNorm]?.[monthKey] ?? 0;
+      const consuntivoBase = base?.consuntivo ?? null;
+      const preventivoBase = base?.preventivo ?? null;
+      const hasConsuntivoBase = consuntivoBase !== null && !Number.isNaN(consuntivoBase);
+      const hasManual =
+        manualAggregates[macroNorm]?.[itemNorm]?.hasOwnProperty(monthKey) ?? false;
+      const consuntivo = hasConsuntivoBase || hasManual
+        ? (hasConsuntivoBase ? consuntivoBase ?? 0 : 0) + manualValue
+        : null;
+      const preventivo =
+        override !== undefined
+          ? override
+          : preventivoBase !== null && !Number.isNaN(preventivoBase)
+          ? preventivoBase
+          : null;
+      return {
+        monthIndex,
+        monthKey,
+        preventivo,
+        consuntivo,
+      };
+    },
+    [manualAggregates, planIndex, preventivoOverrides],
+  );
+
+  const monthDefinitions = useMemo<MonthDefinition[]>(
+    () =>
+      monthOptions.map((option) => ({
+        monthIndex: option.index,
+        monthKey: buildMonthKey(selectedYear, option.index),
+        label: `${option.label} ${selectedYear}`,
+        shortLabel: `${option.short} ${String(selectedYear).slice(-2)}`,
+      })),
+    [selectedYear],
+  );
+  const computeMacroTotalsForMonth = useCallback(
+    (year: number, monthIndex: number) => {
+      const totals: Record<
+        string,
+        { preventivo: number | null; consuntivo: number | null }
+      > = {};
+      catalogLookup.macroOrder.forEach((macroLabel) => {
+        const macroNorm = normalizeLabel(macroLabel);
+        const categories = catalogLookup.categoriesByMacro[macroLabel] ?? [];
+        const preventivoValues: number[] = [];
+        const consuntivoValues: number[] = [];
+        categories.forEach((category) => {
+          category.items.forEach((item) => {
+            const cell = getItemValues(
+              macroLabel,
+              category.label,
+              item.label,
+              year,
+              monthIndex,
+            );
+            if (cell.preventivo !== null && !Number.isNaN(cell.preventivo)) {
+              preventivoValues.push(cell.preventivo);
+            }
+            if (cell.consuntivo !== null && !Number.isNaN(cell.consuntivo)) {
+              consuntivoValues.push(cell.consuntivo);
+            }
+          });
+        });
+        totals[macroNorm] = {
+          preventivo: sumValues(preventivoValues) ?? null,
+          consuntivo: sumValues(consuntivoValues) ?? null,
+        };
+      });
+      return totals;
+    },
+    [catalogLookup, getItemValues],
+  );
+  const planData = useMemo(() => {
+    const groups: PlanMacroGroup[] = [];
+    const macroTotalsByMonth: Record<
+      string,
+      { preventivo: (number | null)[]; consuntivo: (number | null)[] }
+    > = {};
+
+    catalogLookup.macroOrder.forEach((macroLabel) => {
+      const categories = catalogLookup.categoriesByMacro[macroLabel] ?? [];
+      const macroNorm = normalizeLabel(macroLabel);
+      const macroTotalsPreventivo: Array<number | null> = new Array(12).fill(null);
+      const macroTotalsConsuntivo: Array<number | null> = new Array(12).fill(null);
+      const categoryGroups: PlanCategoryGroup[] = [];
+
+      categories.forEach((category) => {
+        const itemRowsFull: PlanDisplayRow[] = category.items.map((item) => {
+          const values = monthDefinitions.map((definition) =>
+            getItemValues(
+              macroLabel,
+              category.label,
+              item.label,
+              definition.monthIndex,
+            ),
+          );
+          return {
+            macro: macroLabel,
+            category: category.label,
+            title: item.label,
+            values,
+          };
+        });
+
+        itemRowsFull.forEach((row) => {
+          row.values.forEach((cell, index) => {
+            if (isValueMeaningful(cell.preventivo)) {
+              const current = macroTotalsPreventivo[index];
+              macroTotalsPreventivo[index] =
+                (current ?? 0) + (cell.preventivo ?? 0);
+            }
+            if (isValueMeaningful(cell.consuntivo)) {
+              const current = macroTotalsConsuntivo[index];
+              macroTotalsConsuntivo[index] =
+                (current ?? 0) + (cell.consuntivo ?? 0);
+            }
+          });
+        });
+
+        const categoryTotals: PlanDisplayRow = {
+          macro: macroLabel,
+          category: category.label,
+          title: `${category.label} Totale`,
+          values: monthDefinitions.map((definition, idx) => {
+            const preventivo = sumValues(
+              itemRowsFull.map((row) => row.values[idx].preventivo),
+            );
+            const consuntivo = sumValues(
+              itemRowsFull.map((row) => row.values[idx].consuntivo),
+            );
+            return {
+              monthKey: definition.monthKey,
+              monthIndex: definition.monthIndex,
+              preventivo,
+              consuntivo,
+            };
+          }),
+        };
+
+        const displayRows = soloValorizzati
+          ? itemRowsFull.filter((row) =>
+              row.values.some(
+                (cell) => isValueMeaningful(cell.preventivo) || isValueMeaningful(cell.consuntivo),
+              ),
+            )
+          : itemRowsFull;
+
+        categoryGroups.push({
+          name: category.label,
+          itemRows: displayRows,
+          totalRow: categoryTotals,
+        });
+      });
+
+      const macroTotalRow: PlanDisplayRow = {
+        macro: macroLabel,
+        category: null,
+        title: `${macroLabel} Totale`,
+        values: monthDefinitions.map((definition, idx) => ({
+          monthKey: definition.monthKey,
+          monthIndex: definition.monthIndex,
+          preventivo: macroTotalsPreventivo[idx],
+          consuntivo: macroTotalsConsuntivo[idx],
+        })),
+      };
+
+      macroTotalsByMonth[macroNorm] = {
+        preventivo: macroTotalsPreventivo,
+        consuntivo: macroTotalsConsuntivo,
+      };
+
+      groups.push({
+        macro: macroLabel,
+        categories: categoryGroups,
+        totalRow: macroTotalRow,
+      });
+    });
+
+    const incassatoTotals = macroTotalsByMonth[normalizeLabel('INCASSATO')];
+    const costiFissiTotals = macroTotalsByMonth[normalizeLabel('COSTI FISSI')];
+    const costiVariabiliTotals = macroTotalsByMonth[normalizeLabel('COSTI VARIABILI')];
+    const utileRow: PlanDisplayRow = {
+      macro: 'Utile',
+      category: null,
+      title: 'UTILE',
+      values: monthDefinitions.map((definition, idx) => {
+        const preventivo =
+          (incassatoTotals?.preventivo[idx] ?? 0) -
+          (costiFissiTotals?.preventivo[idx] ?? 0) -
+          (costiVariabiliTotals?.preventivo[idx] ?? 0);
+        const consuntivo =
+          (incassatoTotals?.consuntivo[idx] ?? 0) -
+          (costiFissiTotals?.consuntivo[idx] ?? 0) -
+          (costiVariabiliTotals?.consuntivo[idx] ?? 0);
+        const preventivoValue =
+          isValueMeaningful(incassatoTotals?.preventivo[idx]) ||
+          isValueMeaningful(costiFissiTotals?.preventivo[idx]) ||
+          isValueMeaningful(costiVariabiliTotals?.preventivo[idx])
+            ? preventivo
+            : null;
+        const consuntivoValue =
+          isValueMeaningful(incassatoTotals?.consuntivo[idx]) ||
+          isValueMeaningful(costiFissiTotals?.consuntivo[idx]) ||
+          isValueMeaningful(costiVariabiliTotals?.consuntivo[idx])
+            ? consuntivo
+            : null;
+        return {
+          monthKey: definition.monthKey,
+          monthIndex: definition.monthIndex,
+          preventivo: preventivoValue,
+          consuntivo: consuntivoValue,
+        };
+      }),
+    };
+
+    return {
+      monthDefinitions,
+      groups,
+      utileRow,
+      macroTotalsByMonth,
+    };
+  }, [catalogLookup, getItemValues, monthDefinitions, soloValorizzati]);
+  const planOverviewData = useMemo(() => {
+    const rows = monthDefinitions.map((definition) => {
+      const macroTotals = computeMacroTotalsForMonth(
+        selectedYear,
+        definition.monthIndex,
+      );
+      const incassato = macroTotals[normalizeLabel('INCASSATO')]?.consuntivo ?? null;
+      const costiFissi =
+        macroTotals[normalizeLabel('COSTI FISSI')]?.consuntivo ?? null;
+      const costiVariabili =
+        macroTotals[normalizeLabel('COSTI VARIABILI')]?.consuntivo ?? null;
+      const utile =
+        (incassato ?? 0) - (costiFissi ?? 0) - (costiVariabili ?? 0);
+      return {
+        month: definition.shortLabel,
+        incassato: incassato ?? 0,
+        costiFissi: costiFissi ?? 0,
+        costiVariabili: costiVariabili ?? 0,
+        utile,
+      };
+    });
+    const totals = rows.reduce(
+      (acc, row) => {
+        acc.incassato += row.incassato;
+        acc.costiFissi += row.costiFissi;
+        acc.costiVariabili += row.costiVariabili;
+        acc.utile += row.utile;
+        return acc;
+      },
+      { incassato: 0, costiFissi: 0, costiVariabili: 0, utile: 0 },
+    );
+    return { rows, totals };
+  }, [computeMacroTotalsForMonth, monthDefinitions, selectedYear]);
+
+  const sortedMetrics = useMemo(
+    () =>
+      [...monthlyMetrics].sort((a, b) => {
+        if (a.year === b.year) {
+          return a.month - b.month;
+        }
+        return a.year - b.year;
+      }),
+    [monthlyMetrics],
+  );
+
+  const lastMetrics = sortedMetrics[sortedMetrics.length - 1] ?? null;
+
+  const metricsDraftDate = useMemo(() => {
+    const baseDate = lastMetrics
+      ? addMonths(new Date(lastMetrics.year, lastMetrics.month, 1), 1)
+      : new Date(currentYear, currentMonth, 1);
+    return {
+      year: baseDate.getFullYear(),
+      month: baseDate.getMonth(),
+    };
+  }, [currentMonth, currentYear, lastMetrics]);
+  useEffect(() => {
+    if (!editingLogId) {
+      setLogDraft((prev) => ({
+        ...prev,
+        year: logDefaults.year,
+        month: logDefaults.month,
+      }));
+    }
+  }, [editingLogId, logDefaults]);
+
+  const handleSelectCausale = (value: string) => {
+    const normalized = normalizeLabel(value);
+    const meta = catalogLookup.itemMetaByNormalized[normalized];
+    if (meta) {
+      setLogDraft((prev) => ({
+        ...prev,
+        macroCategory: meta.macro,
+        category: meta.category,
+        causale: meta.label,
+      }));
+    } else {
+      setLogDraft((prev) => ({ ...prev, causale: value }));
+    }
+  };
+
+  const handleSelectMacro = (value: string) => {
+    setLogDraft((prev) => ({ ...prev, macroCategory: value }));
+    const normalized = normalizeLabel(value);
+    const meta = catalogLookup.itemMetaByNormalized[normalizeLabel(logDraft.causale ?? '')];
+    if (meta && meta.macroNorm !== normalized) {
+      setLogDraft((prevDraft) => ({
+        ...prevDraft,
+        causale: '',
+        category: '',
+      }));
+    }
+  };
+
+  const handleChangePreventivoDraft = (
+    key: string,
+    value: string,
+    commit: (draftValue: string) => void,
+  ) => {
+    setPreventivoDrafts((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+    commit(value);
+  };
+  const commitPreventivoValue = (
+    macroLabel: string,
+    categoryLabel: string,
+    itemLabel: string,
+    monthKey: string,
+    value: string,
+  ) => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      setPreventivoOverrides((prev) => {
+        const next = { ...prev };
+        const macroBlock = next[macroLabel];
+        if (!macroBlock) {
+          return next;
+        }
+        const categoryBlock = macroBlock[categoryLabel];
+        if (!categoryBlock) {
+          return next;
+        }
+        const itemBlock = categoryBlock[itemLabel];
+        if (!itemBlock) {
+          return next;
+        }
+        delete itemBlock[monthKey];
+        if (Object.keys(itemBlock).length === 0) {
+          delete categoryBlock[itemLabel];
+        }
+        if (Object.keys(categoryBlock).length === 0) {
+          delete macroBlock[categoryLabel];
+        }
+        if (Object.keys(macroBlock).length === 0) {
+          delete next[macroLabel];
+        }
+        return next;
+      });
+      setPreventivoDrafts((prev) => {
+        const next = { ...prev };
+        delete next[`${macroLabel}|${categoryLabel}|${itemLabel}|${monthKey}`];
+        return next;
+      });
+      return;
+    }
+    const parsed = Number(trimmed.replace(/,/g, '.'));
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+    setPreventivoOverrides((prev) => {
+      const next = { ...prev };
+      if (!next[macroLabel]) {
+        next[macroLabel] = {};
+      }
+      if (!next[macroLabel][categoryLabel]) {
+        next[macroLabel][categoryLabel] = {};
+      }
+      if (!next[macroLabel][categoryLabel][itemLabel]) {
+        next[macroLabel][categoryLabel][itemLabel] = {};
+      }
+      next[macroLabel][categoryLabel][itemLabel][monthKey] = parsed;
+      return next;
+    });
+  };
+
+  const clearPlanEditing = () => {
+    setIsPlanEditing(false);
+    setPreventivoDrafts({});
+  };
+
+  const handleSaveLogEntry = () => {
+    setLogError(null);
+    const normalizedCausale = normalizeLabel(logDraft.causale);
+    const meta = catalogLookup.itemMetaByNormalized[normalizedCausale];
+    if (!meta) {
+      setLogError('Seleziona una causale valida dal catalogo.');
+      return;
+    }
+    const parsedValue = Number(logDraft.value.replace(/,/g, '.'));
+    if (Number.isNaN(parsedValue)) {
+      setLogError('Inserisci un valore numerico.');
+      return;
+    }
+    const year = logDraft.year;
+    const month = Math.max(0, Math.min(11, logDraft.month));
+    const entry: ManualLogEntry = {
+      id: editingLogId ?? generateId(),
+      createdAt:
+        manualLog.find((row) => row.id === editingLogId)?.createdAt ??
+        new Date().toISOString(),
+      year,
+      month,
+      macroCategory: meta.macro,
+      category: meta.category,
+      causale: meta.label,
+      value: parsedValue,
+    };
+
+    setManualLog((prev) => {
+      if (editingLogId) {
+        return prev.map((row) => (row.id === editingLogId ? entry : row));
+      }
+      return [...prev, entry];
+    });
+
+    setLogDefaults({ year, month });
+    setLogDraft({
+      year,
+      month,
+      macroCategory: meta.macro,
+      category: meta.category,
+      causale: meta.label,
+      value: '',
+    });
+    setEditingLogId(null);
+  };
+  const handleDeleteLogEntry = (id: string) => {
+    const confirmation = window.confirm('Eliminare definitivamente la riga selezionata?');
+    if (!confirmation) {
+      return;
+    }
+    setManualLog((prev) => prev.filter((entry) => entry.id !== id));
+    if (editingLogId === id) {
+      setEditingLogId(null);
+      setLogDraft({
+        year: logDefaults.year,
+        month: logDefaults.month,
+        macroCategory: '',
+        category: '',
+        causale: '',
+        value: '',
+      });
+    }
+  };
+
+  const handleEditLogEntry = (entry: ManualLogEntry) => {
+    setEditingLogId(entry.id);
+    setLogDraft({
+      year: entry.year,
+      month: entry.month,
+      macroCategory: entry.macroCategory,
+      category: entry.category,
+      causale: entry.causale,
+      value: String(entry.value),
+    });
+  };
+
+  const handleCancelLogEdit = () => {
+    setEditingLogId(null);
+    setLogDraft({
+      year: logDefaults.year,
+      month: logDefaults.month,
+      macroCategory: '',
+      category: '',
+      causale: '',
+      value: '',
+    });
+  };
+
+  const handleSaveMetrics = () => {
+    setMetricsError(null);
+    const values: Partial<MetricsValueRecord> = {};
+    for (const field of metricsFields) {
+      const input = metricsDraftState[field.key].trim();
+      if (input === '') {
+        setMetricsError('Compila tutti i valori prima di salvare.');
+        return;
+      }
+      const parsed = Number(input.replace(/,/g, '.'));
+      if (Number.isNaN(parsed)) {
+        setMetricsError('Inserisci solo valori numerici.');
+        return;
+      }
+      values[field.key] = parsed;
+    }
+    const entry: MonthlyMetricsEntry = {
+      id: generateId(),
+      year: metricsDraftDate.year,
+      month: metricsDraftDate.month,
+      createdAt: new Date().toISOString(),
+      ...(values as MetricsValueRecord),
+    };
+    setMonthlyMetrics((prev) => [...prev, entry]);
+    setMetricsDraftState(baseMetricsDraft);
+  };
+  const handleToggleStatsEditing = () => {
+    setStatsEditing((prev) => {
+      if (prev) {
+        setStatsDraft({});
+      }
+      return !prev;
+    });
+  };
+
+  const handleStatsFieldChange = (
+    monthKey: string,
+    field: StatsEditableFieldKey,
+    value: string,
+  ) => {
+    setStatsDraft((prev) => ({
+      ...prev,
+      [monthKey]: {
+        ...(prev[monthKey] ?? {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveStatsEditing = () => {
+    const nextOverrides: StatsOverrides = { ...statsOverrides };
+    for (const [monthKey, fields] of Object.entries(statsDraft)) {
+      if (!nextOverrides[monthKey]) {
+        nextOverrides[monthKey] = {};
+      }
+      for (const [field, rawValue] of Object.entries(fields)) {
+        const trimmed = rawValue.trim();
+        if (trimmed === '') {
+          delete nextOverrides[monthKey]?.[field as StatsEditableFieldKey];
+          continue;
+        }
+        const parsed = Number(trimmed.replace(/,/g, '.'));
+        if (Number.isNaN(parsed)) {
+          continue;
+        }
+        nextOverrides[monthKey]![field as StatsEditableFieldKey] = parsed;
+      }
+      if (
+        nextOverrides[monthKey] &&
+        Object.keys(nextOverrides[monthKey] as Record<string, unknown>).length === 0
+      ) {
+        delete nextOverrides[monthKey];
+      }
+    }
+    setStatsOverrides(nextOverrides);
+    setStatsDraft({});
+    setStatsEditing(false);
+  };
+  const statsBaseIndex = useMemo(() => {
+    const map: Record<string, FinancialStatsRow> = {};
+    financialStatsRows.forEach((row) => {
+      const parsed = parsePlanMonthLabel(row.month);
+      if (!parsed) {
+        return;
+      }
+      const monthKey = buildMonthKey(parsed.year, parsed.month);
+      map[monthKey] = row;
+    });
+    return map;
+  }, []);
+
+  const statsRows = useMemo(() => {
+    const rows: Array<FinancialStatsRow & { monthKey: string; year: number; monthIndex: number }> = [];
+    const monthKeys = new Set<string>(Object.keys(statsBaseIndex));
+    manualLog.forEach((entry) => {
+      monthKeys.add(buildMonthKey(entry.year, entry.month));
+    });
+    monthKeys.forEach((key) => {
+      const [yearString, monthString] = key.split('-');
+      const year = Number(yearString);
+      const monthIndex = Number(monthString) - 1;
+      const baseRow = statsBaseIndex[key];
+      rows.push({
+        monthKey: key,
+        year,
+        monthIndex,
+        month: baseRow?.month ?? formatMonthYear(year, monthIndex),
+        fatturatoImponibile: baseRow?.fatturatoImponibile ?? null,
+        fatturatoTotale: baseRow?.fatturatoTotale ?? null,
+        utileCassa: baseRow?.utileCassa ?? null,
+        incassato: baseRow?.incassato ?? null,
+        saldoConto: baseRow?.saldoConto ?? null,
+        saldoSecondoConto: baseRow?.saldoSecondoConto ?? null,
+        saldoTotale: baseRow?.saldoTotale ?? null,
+        creditiPendenti: baseRow?.creditiPendenti ?? null,
+        creditiScaduti: baseRow?.creditiScaduti ?? null,
+        debitiFornitore: baseRow?.debitiFornitore ?? null,
+        debitiBancari: baseRow?.debitiBancari ?? null,
+      });
+    });
+    return rows.sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  }, [manualLog, statsBaseIndex]);
+  const statsDisplayRows = useMemo(() => {
+    return statsRows
+      .filter((row) => row.year >= statsFilterStart && row.year <= statsFilterEnd)
+      .map((row) => {
+        const overrides = statsOverrides[row.monthKey] ?? {};
+        const macroTotals = computeMacroTotalsForMonth(row.year, row.monthIndex);
+        const incassato =
+          macroTotals[normalizeLabel('INCASSATO')]?.consuntivo ?? row.incassato ?? null;
+        const costiFissi =
+          macroTotals[normalizeLabel('COSTI FISSI')]?.consuntivo ?? null;
+        const costiVariabili =
+          macroTotals[normalizeLabel('COSTI VARIABILI')]?.consuntivo ?? null;
+        const utile =
+          incassato !== null &&
+          (costiFissi !== null || costiVariabili !== null)
+            ? (incassato ?? 0) - (costiFissi ?? 0) - (costiVariabili ?? 0)
+            : row.utileCassa ?? null;
+        return {
+          ...row,
+          incassato,
+          utileCassa: utile,
+          fatturatoImponibile: overrides.fatturatoImponibile ?? row.fatturatoImponibile,
+          fatturatoTotale: overrides.fatturatoTotale ?? row.fatturatoTotale,
+          saldoConto: overrides.saldoConto ?? row.saldoConto,
+          saldoSecondoConto: overrides.saldoSecondoConto ?? row.saldoSecondoConto,
+          saldoTotale: overrides.saldoTotale ?? row.saldoTotale,
+          creditiPendenti: overrides.creditiPendenti ?? row.creditiPendenti,
+          creditiScaduti: overrides.creditiScaduti ?? row.creditiScaduti,
+          debitiFornitore: overrides.debitiFornitore ?? row.debitiFornitore,
+          debitiBancari: overrides.debitiBancari ?? row.debitiBancari,
+        };
+      });
+  }, [computeMacroTotalsForMonth, statsFilterEnd, statsFilterStart, statsOverrides, statsRows]);
+
+  useEffect(() => {
+    if (statsFilterStart > statsFilterEnd) {
+      setStatsFilterStart(statsFilterEnd);
+    }
+  }, [statsFilterEnd, statsFilterStart]);
+
+  const editButtonClasses =
+    'px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition';
+  const renderPlanRow = (row: PlanDisplayRow, options: {
+    key: string;
+    label?: string;
+    rowType: 'macro' | 'category' | 'item' | 'utile';
+  }) => {
+    const displayLabel = options.label ?? row.title;
+    const rowClassName =
+      options.rowType === 'macro'
+        ? 'bg-slate-100 text-gray-900'
+        : options.rowType === 'category'
+        ? 'bg-slate-50 text-gray-800'
+        : options.rowType === 'utile'
+        ? 'bg-emerald-50 text-emerald-800 font-semibold'
+        : 'bg-white text-gray-700';
+    const labelClassName =
+      options.rowType === 'item'
+        ? 'pl-6 block text-gray-700'
+        : options.rowType === 'macro'
+        ? 'block uppercase tracking-wide text-gray-900'
+        : options.rowType === 'utile'
+        ? 'block text-emerald-800'
+        : 'block text-gray-800';
+    const isEditableRow = options.rowType === 'item';
+
+    return (
+      <tr key={options.key} className={rowClassName}>
+        <td className="px-4 py-3 text-sm align-middle">
+          <span className={labelClassName}>{displayLabel}</span>
+        </td>
+        {row.values.map((value) => {
+          const monthKey = value.monthKey;
+          const cellKey = `${row.macro}|${row.category ?? ''}|${row.title}|${monthKey}`;
+          const preventivoValue =
+            preventivoDrafts[cellKey] ??
+            (value.preventivo !== null && Number.isFinite(value.preventivo)
+              ? String(value.preventivo)
+              : '');
+          const preventivoCellClass =
+            'px-3 py-2 text-right align-middle' +
+            (options.rowType !== 'item' ? ' font-semibold text-gray-800' : '');
+          const consuntivoCellClass =
+            'px-3 py-2 text-right align-middle ' +
+            (options.rowType !== 'item'
+              ? 'font-semibold text-gray-700'
+              : 'text-gray-500');
+
+          return (
+            <React.Fragment key={cellKey}>
+              <td className={preventivoCellClass}>
+                {isEditableRow && isPlanEditing ? (
+                  <input
+                    type="text"
+                    value={preventivoValue}
+                    onChange={(event) =>
+                      handleChangePreventivoDraft(cellKey, event.target.value, (draft) =>
+                        commitPreventivoValue(
+                          row.macro,
+                          row.category ?? '',
+                          row.title,
+                          monthKey,
+                          draft,
+                        ),
+                      )
+                    }
+                    onBlur={(event) =>
+                      commitPreventivoValue(
+                        row.macro,
+                        row.category ?? '',
+                        row.title,
+                        monthKey,
+                        event.target.value,
+                      )
+                    }
+                    className="w-full min-w-[110px] rounded-lg border border-gray-200 px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="-"
+                  />
+                ) : (
+                  <span>{formatCurrencyValue(value.preventivo)}</span>
+                )}
+              </td>
+              <td className={consuntivoCellClass}>
+                {formatCurrencyValue(value.consuntivo)}
+              </td>
+            </React.Fragment>
+          );
+        })}
+      </tr>
+    );
+  };
+  const renderPlan = () => (
+    <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="financial-year" className="text-sm font-medium text-gray-600">
+              Anno
+            </label>
+            <select
+              id="financial-year"
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(Number(event.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={soloValorizzati}
+              onChange={(event) => setSoloValorizzati(event.target.checked)}
+              className="rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            Solo valorizzati
+          </label>
+        </div>
+        <button
+          type="button"
+          onClick={() => (isPlanEditing ? clearPlanEditing() : setIsPlanEditing(true))}
+          className={`${editButtonClasses} ${
+            isPlanEditing
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              : 'bg-primary text-white hover:bg-primary-700'
+          }`}
+        >
+          {isPlanEditing ? 'Blocca modifiche' : 'Modifica'}
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[1200px] w-full text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
+              <th className="px-4 py-3 text-left" rowSpan={2}>
+                Categoria
+              </th>
+              {monthDefinitions.map((definition) => (
+                <th
+                  key={`${definition.monthKey}-header`}
+                  className="px-3 py-3 text-center"
+                  colSpan={2}
+                >
+                  {definition.label}
+                </th>
+              ))}
+            </tr>
+            <tr className="bg-slate-50 text-xs uppercase tracking-wide text-gray-500">
+              {monthDefinitions.map((definition) => (
+                <React.Fragment key={`${definition.monthKey}-sub`}>
+                  <th className="px-3 py-2 text-right">Preventivo</th>
+                  <th className="px-3 py-2 text-right">Consuntivo</th>
+                </React.Fragment>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {planData.groups.length === 0 &&
+            !planData.utileRow.values.some(
+              (cell) => isValueMeaningful(cell.preventivo) || isValueMeaningful(cell.consuntivo),
+            ) ? (
+              <tr>
+                <td
+                  className="px-4 py-6 text-center text-sm text-gray-500"
+                  colSpan={1 + monthDefinitions.length * 2}
+                >
+                  Nessun dato disponibile per l'anno selezionato.
+                </td>
+              </tr>
+            ) : (
+              <>
+                {planData.groups.map((group) => (
+                  <React.Fragment key={group.macro}>
+                    {renderPlanRow(group.totalRow, {
+                      key: `${group.macro}-totale`,
+                      label: group.macro,
+                      rowType: 'macro',
+                    })}
+                    {group.categories.map((category) => (
+                      <React.Fragment key={`${group.macro}-${category.name}`}>
+                        {renderPlanRow(category.totalRow, {
+                          key: `${group.macro}-${category.name}-totale`,
+                          label: category.name,
+                          rowType: 'category',
+                        })}
+                        {category.itemRows.map((row) =>
+                          renderPlanRow(row, {
+                            key: `${group.macro}-${category.name}-${row.title}`,
+                            rowType: 'item',
+                          }),
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </React.Fragment>
+                ))}
+                {renderPlanRow(planData.utileRow, {
+                  key: 'utile',
+                  label: 'UTILE',
+                  rowType: 'utile',
+                })}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {isPlanEditing && (
+        <p className="text-xs text-gray-500">
+          Stai modificando il preventivo mensile: aggiorna solo le colonne "Preventivo" e premi di nuovo "Blocca modifiche" quando hai terminato.
+        </p>
+      )}
+    </div>
+  );
+  const handleAddMacro = () => {
+    const name = window.prompt('Nome della nuova tipologia di causali:');
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) => {
+      if (prev.some((group) => normalizeLabel(group.macroCategory) === normalizeLabel(trimmed))) {
+        return prev;
+      }
+      return [...prev, { macroCategory: trimmed, categories: [] }];
+    });
+  };
+
+  const handleRenameMacro = (macroLabel: string) => {
+    const name = window.prompt('Nuovo nome per la tipologia:', macroLabel);
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) =>
+        group.macroCategory === macroLabel
+          ? { ...group, macroCategory: trimmed }
+          : group,
+      ),
+    );
+  };
+
+  const handleDeleteMacro = (macroLabel: string) => {
+    const confirmation = window.confirm(
+      `Eliminare la tipologia "${macroLabel}" e tutte le causali associate?`,
+    );
+    if (!confirmation) {
+      return;
+    }
+    setCausaliCatalog((prev) => prev.filter((group) => group.macroCategory !== macroLabel));
+  };
+
+  const handleAddCategory = (macroLabel: string) => {
+    const name = window.prompt('Nome della nuova categoria:');
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        if (
+          group.categories.some(
+            (category) => normalizeLabel(category.name) === normalizeLabel(trimmed),
+          )
+        ) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: [...group.categories, { name: trimmed, items: [] }],
+        };
+      }),
+    );
+  };
+
+  const handleRenameCategory = (macroLabel: string, categoryLabel: string) => {
+    const name = window.prompt('Nuovo nome per la categoria:', categoryLabel);
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: group.categories.map((category) =>
+            category.name === categoryLabel ? { ...category, name: trimmed } : category,
+          ),
+        };
+      }),
+    );
+  };
+
+  const handleDeleteCategory = (macroLabel: string, categoryLabel: string) => {
+    const confirmation = window.confirm(
+      `Eliminare la categoria "${categoryLabel}" e tutte le causali contenute?`,
+    );
+    if (!confirmation) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: group.categories.filter((category) => category.name !== categoryLabel),
+        };
+      }),
+    );
+  };
+  const handleAddCausale = (macroLabel: string, categoryLabel: string) => {
+    const name = window.prompt('Nome della nuova causale:');
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: group.categories.map((category) => {
+            if (category.name !== categoryLabel) {
+              return category;
+            }
+            if (
+              category.items.some(
+                (item) => normalizeLabel(item) === normalizeLabel(trimmed),
+              )
+            ) {
+              return category;
+            }
+            return { ...category, items: [...category.items, trimmed] };
+          }),
+        };
+      }),
+    );
+  };
+
+  const handleRenameCausale = (
+    macroLabel: string,
+    categoryLabel: string,
+    itemLabel: string,
+  ) => {
+    const name = window.prompt('Nuovo nome per la causale:', itemLabel);
+    if (!name) {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: group.categories.map((category) => {
+            if (category.name !== categoryLabel) {
+              return category;
+            }
+            return {
+              ...category,
+              items: category.items.map((item) => (item === itemLabel ? trimmed : item)),
+            };
+          }),
+        };
+      }),
+    );
+  };
+
+  const handleDeleteCausale = (
+    macroLabel: string,
+    categoryLabel: string,
+    itemLabel: string,
+  ) => {
+    const confirmation = window.confirm(`Eliminare la causale "${itemLabel}"?`);
+    if (!confirmation) {
+      return;
+    }
+    setCausaliCatalog((prev) =>
+      prev.map((group) => {
+        if (group.macroCategory !== macroLabel) {
+          return group;
+        }
+        return {
+          ...group,
+          categories: group.categories.map((category) =>
+            category.name === categoryLabel
+              ? {
+                  ...category,
+                  items: category.items.filter((item) => item !== itemLabel),
+                }
+              : category,
+          ),
+        };
+      }),
+    );
+  };
+  const sortedManualLog = useMemo(
+    () =>
+      [...manualLog].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt),
+      ),
+    [manualLog],
+  );
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-gray-500">Incassato {selectedYear}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {formatCurrencyValue(planOverviewData.totals.incassato)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-gray-500">Costi fissi {selectedYear}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {formatCurrencyValue(planOverviewData.totals.costiFissi)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-gray-500">Costi variabili {selectedYear}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {formatCurrencyValue(planOverviewData.totals.costiVariabili)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-gray-500">Utile {selectedYear}</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-700">
+            {formatCurrencyValue(planOverviewData.totals.utile)}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Andamento incassato e costi
+          </h3>
+          <div className="h-72">
+            <ResponsiveContainer>
+              <LineChart data={planOverviewData.rows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} />
+                <Tooltip formatter={(value: number) => currencyFormatter.format(value)} />
+                <Line
+                  type="monotone"
+                  dataKey="incassato"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Incassato"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="costiFissi"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Costi fissi"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="costiVariabili"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Costi variabili"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Utile mensile</h3>
+          <div className="h-72">
+            <ResponsiveContainer>
+              <BarChart data={planOverviewData.rows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={12} />
+                <Tooltip formatter={(value: number) => currencyFormatter.format(value)} />
+                <Bar dataKey="utile" fill="#10b981" name="Utile" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  const renderCausali = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">Catalogo causali</h2>
+          <p className="text-sm text-gray-500">
+            Gestisci la struttura di tipologie, categorie e causali utilizzate nel piano.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isEditingCausali && (
+            <button
+              onClick={handleAddMacro}
+              className="px-3 py-2 rounded-lg text-sm font-medium text-white bg-primary shadow-sm hover:bg-primary-700"
+            >
+              Aggiungi tipologia
+            </button>
+          )}
+          <button
+            onClick={() => setIsEditingCausali((prev) => !prev)}
+            className={`${editButtonClasses} ${
+              isEditingCausali
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-primary text-white hover:bg-primary-700'
+            }`}
+          >
+            {isEditingCausali ? 'Fine modifica' : 'Modifica'}
+          </button>
+        </div>
+      </div>
+      {causaliCatalog.map((group) => (
+        <div key={group.macroCategory} className="bg-white rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {group.macroCategory}
+            </h3>
+            {isEditingCausali && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleRenameMacro(group.macroCategory)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+                >
+                  Rinomina
+                </button>
+                <button
+                  onClick={() => handleAddCategory(group.macroCategory)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-700"
+                >
+                  + Categoria
+                </button>
+                <button
+                  onClick={() => handleDeleteMacro(group.macroCategory)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                >
+                  Elimina
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            {group.categories.map((category) => (
+              <div key={category.name} className="rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    {category.name}
+                  </h4>
+                  {isEditingCausali && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRenameCategory(group.macroCategory, category.name)}
+                        className="px-3 py-1 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      >
+                        Rinomina
+                      </button>
+                      <button
+                        onClick={() => handleAddCausale(group.macroCategory, category.name)}
+                        className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary-700"
+                      >
+                        + Causale
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(group.macroCategory, category.name)}
+                        className="px-3 py-1 text-xs font-medium rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                      >
+                        Elimina
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {category.items.length === 0 ? (
+                    <p className="text-sm text-gray-400">
+                      Nessuna causale presente.
+                    </p>
+                  ) : (
+                    category.items.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                      >
+                        <span className="text-sm text-gray-600">{item}</span>
+                        {isEditingCausali && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                handleRenameCausale(
+                                  group.macroCategory,
+                                  category.name,
+                                  item,
+                                )
+                              }
+                              className="px-2 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            >
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteCausale(
+                                  group.macroCategory,
+                                  category.name,
+                                  item,
+                                )
+                              }
+                              className="px-2 py-1 text-xs rounded-md bg-red-50 text-red-600 hover:bg-red-100"
+                            >
+                              Elimina
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+            {group.categories.length === 0 && (
+              <p className="text-sm text-gray-400">Nessuna categoria configurata.</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const renderDataEntry = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm">
+        <button
+          onClick={() => setMetricsExpanded((prev) => !prev)}
+          className="w-full flex items-center justify-between px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition"
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Inserisci metriche mensili</h3>
+            <p className="text-sm text-gray-500">
+              {lastMetrics
+                ? `Ultimo mese compilato: ${formatMonthYear(
+                    lastMetrics.year,
+                    lastMetrics.month,
+                  )}`
+                : 'Nessun dato salvato'}
+            </p>
+          </div>
+          <span className="text-sm text-gray-500">
+            {metricsExpanded ? 'Nascondi' : 'Mostra'}
+          </span>
+        </button>
+        {metricsExpanded && (
+          <div className="p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-gray-600">
+                  Prossimo mese proposto: {formatMonthYear(metricsDraftDate.year, metricsDraftDate.month)}
+                </p>
+                {lastMetrics && (
+                  <p className="text-xs text-gray-500">
+                    Ultimo aggiornamento: {format(new Date(lastMetrics.createdAt), 'dd/MM/yyyy HH:mm')}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleSaveMetrics}
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium shadow-sm hover:bg-primary-700 transition"
+              >
+                Salva indicatori
+              </button>
+            </div>
+            {metricsError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {metricsError}
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {metricsFields.map((field) => (
+                <div key={field.key} className="border border-gray-100 rounded-xl p-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">{field.label}</p>
+                  <p className="text-xs text-gray-500">
+                    Ultimo valore:{' '}
+                    {lastMetrics
+                      ? formatCurrencyValue(lastMetrics[field.key])
+                      : '-'}
+                  </p>
+                  <input
+                    type="text"
+                    value={metricsDraftState[field.key]}
+                    onChange={(event) =>
+                      setMetricsDraftState((prev) => ({
+                        ...prev,
+                        [field.key]: event.target.value,
+                      }))
+                    }
+                    placeholder="Inserisci valore"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-right"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Registro inserimenti</h3>
+            <p className="text-sm text-gray-500">
+              Inserisci una nuova riga per aggiornare il piano mensile.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {editingLogId && (
+              <button
+                onClick={handleCancelLogEdit}
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium shadow-sm hover:bg-gray-300 transition"
+              >
+                Annulla modifica
+              </button>
+            )}
+            <button
+              onClick={handleSaveLogEntry}
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium shadow-sm hover:bg-primary-700 transition"
+            >
+              {editingLogId ? 'Salva modifiche' : 'Salva riga'}
+            </button>
+          </div>
+        </div>
+
+        {logError && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {logError}
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
+              <tr>
+                <th className="px-3 py-3 text-left">Data inserimento</th>
+                <th className="px-3 py-3 text-left">Mese</th>
+                <th className="px-3 py-3 text-left">Tipologia causale</th>
+                <th className="px-3 py-3 text-left">Causale</th>
+                <th className="px-3 py-3 text-right">Valore</th>
+                <th className="px-3 py-3 text-right">Azioni</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              <tr className="bg-slate-50">
+                <td className="px-3 py-2 text-sm text-gray-500">
+                  {format(new Date(), 'dd/MM/yyyy HH:mm')}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={logDraft.month}
+                      onChange={(event) =>
+                        setLogDraft((prev) => ({
+                          ...prev,
+                          month: Number(event.target.value),
+                        }))
+                      }
+                      className="border border-gray-200 rounded-lg px-2 py-1"
+                    >
+                      {monthOptions.map((option) => (
+                        <option key={option.index} value={option.index}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={logDraft.year}
+                      onChange={(event) =>
+                        setLogDraft((prev) => ({
+                          ...prev,
+                          year: Number(event.target.value),
+                        }))
+                      }
+                      className="border border-gray-200 rounded-lg px-2 py-1"
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    list="macro-options"
+                    value={logDraft.macroCategory}
+                    onChange={(event) => handleSelectMacro(event.target.value)}
+                    placeholder="Seleziona tipologia"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm"
+                  />
+                  <datalist id="macro-options">
+                    {catalogLookup.macroOrder.map((macro) => (
+                      <option key={macro} value={macro} />
+                    ))}
+                  </datalist>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    list="causali-options"
+                    value={logDraft.causale}
+                    onChange={(event) => handleSelectCausale(event.target.value)}
+                    placeholder="Seleziona causale"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm"
+                  />
+                  <datalist id="causali-options">
+                    {(logDraft.macroCategory
+                      ? catalogLookup.categoriesByMacro[logDraft.macroCategory]?.flatMap((category) =>
+                          category.items.map((item) => item.label),
+                        ) ?? []
+                      : catalogLookup.allCausali
+                    ).map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <input
+                    type="text"
+                    value={logDraft.value}
+                    onChange={(event) =>
+                      setLogDraft((prev) => ({ ...prev, value: event.target.value }))
+                    }
+                    placeholder="0,00"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm text-right"
+                  />
+                </td>
+                <td className="px-3 py-2 text-right text-xs text-gray-400">
+                  Righe salvate in basso
+                </td>
+              </tr>
+              {sortedManualLog.map((entry) => (
+                <tr key={entry.id} className="bg-white">
+                  <td className="px-3 py-2 text-sm text-gray-500">
+                    {format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm')}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-600">
+                    {formatMonthYear(entry.year, entry.month)}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-600">
+                    {entry.macroCategory}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-600">
+                    {entry.causale}
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm text-gray-700">
+                    {formatCurrencyValue(entry.value)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditLogEntry(entry)}
+                        className="px-3 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      >
+                        Modifica
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLogEntry(entry.id)}
+                        className="px-3 py-1 text-xs rounded-md bg-red-50 text-red-600 hover:bg-red-100"
+                      >
+                        Elimina
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+  const renderStats = () => (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Da anno
+              </label>
+              <select
+                value={statsFilterStart}
+                onChange={(event) => setStatsFilterStart(Number(event.target.value))}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                {yearOptions
+                  .filter((year) => year <= statsFilterEnd)
+                  .map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                A anno
+              </label>
+              <select
+                value={statsFilterEnd}
+                onChange={(event) => setStatsFilterEnd(Number(event.target.value))}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {statsEditing && (
+              <button
+                onClick={saveStatsEditing}
+                className="px-3 py-2 rounded-lg text-sm font-medium bg-primary text-white shadow-sm hover:bg-primary-700"
+              >
+                Salva modifiche
+              </button>
+            )}
+            <button
+              onClick={handleToggleStatsEditing}
+              className={`${editButtonClasses} ${
+                statsEditing
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-primary text-white hover:bg-primary-700'
+              }`}
+            >
+              {statsEditing ? 'Blocca modifiche' : 'Modifica'}
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1100px] w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
+              <tr>
+                <th className="px-3 py-3 text-left">Periodo</th>
+                <th className="px-3 py-3 text-right">Fatturato imponibile</th>
+                <th className="px-3 py-3 text-right">Fatturato totale</th>
+                <th className="px-3 py-3 text-right">Incassato</th>
+                <th className="px-3 py-3 text-right">Saldo conto</th>
+                <th className="px-3 py-3 text-right">Secondo conto</th>
+                <th className="px-3 py-3 text-right">Saldo totale</th>
+                <th className="px-3 py-3 text-right">Crediti pendenti</th>
+                <th className="px-3 py-3 text-right">Crediti scaduti</th>
+                <th className="px-3 py-3 text-right">Debiti fornitori</th>
+                <th className="px-3 py-3 text-right">Debiti bancari</th>
+                <th className="px-3 py-3 text-right">Utile</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {statsDisplayRows.length === 0 ? (
+                <tr>
+                  <td
+                    className="px-3 py-5 text-center text-sm text-gray-500"
+                    colSpan={12}
+                  >
+                    Nessun dato disponibile per il filtro selezionato.
+                  </td>
+                </tr>
+              ) : (
+                statsDisplayRows.map((row) => (
+                  <tr key={row.monthKey}>
+                    <td className="px-3 py-2 text-sm text-gray-600">
+                      {formatMonthYear(row.year, row.monthIndex)}
+                    </td>
+                    {statsEditableFields.map((field) => (
+                      <td key={field} className="px-3 py-2 text-right">
+                        {statsEditing ? (
+                          <input
+                            type="text"
+                            value={statsDraft[row.monthKey]?.[field] ?? (row[field] ?? '')}
+                            onChange={(event) =>
+                              handleStatsFieldChange(
+                                row.monthKey,
+                                field,
+                                event.target.value,
+                              )
+                            }
+                            className="w-full border border-gray-200 rounded-lg px-2 py-1 text-right text-sm"
+                          />
+                        ) : (
+                          <span>{formatCurrencyValue(row[field])}</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-right text-sm text-gray-600">
+                      {formatCurrencyValue(row.incassato)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-sm font-semibold text-emerald-700">
+                      {formatCurrencyValue(row.utileCassa)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+              activeTab === tab.key
+                ? 'bg-primary text-white shadow-sm'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'plan' && renderPlan()}
+      {activeTab === 'causali' && renderCausali()}
+      {activeTab === 'stats' && renderStats()}
+      {activeTab === 'data-entry' && renderDataEntry()}
+    </div>
+  );
+};
+
+export default FinancialPlan;
+
+
+

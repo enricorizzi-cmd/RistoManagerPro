@@ -1,0 +1,25 @@
+diff --git a/components/FinancialPlan.tsx b/components/FinancialPlan.tsx
+index 7e144e1..0000000 100644
+--- a/components/FinancialPlan.tsx
++++ b/components/FinancialPlan.tsx
+@@
+-type TabKey = 'overview' | 'analysis' | 'plan' | 'causali' | 'stats' | 'data-entry';
++type TabKey =
++  | 'overview'
++  | 'analysis'
++  | 'plan'
++  | 'business-plan'
++  | 'causali'
++  | 'stats'
++  | 'data-entry';
+@@
+-type StatsOverrides = Record<string, Partial<Record<StatsEditableFieldKey, number | null>>>;
++type StatsForecastFieldKey =
++  | 'fatturatoPrevisionale'
++  | 'incassatoPrevisionale'
++  | 'utilePrevisionale';
++
++type StatsOverrides = Record<
++  string,
++  Partial<Record<StatsEditableFieldKey | StatsForecastFieldKey, number | null>>
++>;
