@@ -11,6 +11,7 @@ import { PlanTable } from './financial/PlanTable';
 import { BusinessPlanForm } from './financial/BusinessPlanForm';
 import { StatsTable } from './financial/StatsTable';
 import { CausaliManager } from './financial/CausaliManager';
+import { InserisciDati } from './financial/InserisciDati';
 import { financialCausali, financialStats as financialStatsRows } from '../data/financialPlanData';
 import { calcRatios, round2, parseNumberInput, buildMonthKey, parseMonthKey } from '../utils/financialPlanUtils';
 import type { TabKey } from '../types';
@@ -246,6 +247,7 @@ const FinancialPlan: React.FC = () => {
     { key: 'causali', label: 'Causali' },
     { key: 'business-plan', label: 'Business Plan' },
     { key: 'stats', label: 'Statistiche' },
+    { key: 'inserisci-dati', label: 'Inserisci Dati' },
   ];
 
   return (
@@ -450,6 +452,12 @@ const FinancialPlan: React.FC = () => {
             planYear={planYear}
           />
         </div>
+      )}
+
+      {activeTab === 'inserisci-dati' && (
+        <InserisciDati
+          causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
+        />
       )}
     </div>
   );
