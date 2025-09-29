@@ -11,11 +11,11 @@ const NavLink: React.FC<{ href: string; icon: React.ReactNode; label: string; is
   return (
     <a
       href={href}
-      className={`flex items-center px-4 py-3 my-1 text-sm font-medium rounded-lg transition-colors duration-200 ${
+      className={`flex items-center py-3 my-1 text-sm font-medium rounded-lg transition-colors duration-200 ${
         isActive
           ? 'bg-primary text-white'
           : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
-      } ${collapsed ? 'justify-center' : ''}`}
+      } ${collapsed ? 'justify-center px-2' : 'px-4'}`}
       title={collapsed ? label : undefined}
     >
       {icon}
@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
           )}
         </button>
       </div>
-      <nav className="flex-1 px-4 py-4">
+      <nav className={`flex-1 py-4 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
         <NavLink
           href="#dashboard"
           icon={<CalendarIcon className="h-6 w-6" />}
