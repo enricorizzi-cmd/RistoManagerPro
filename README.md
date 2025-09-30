@@ -2,6 +2,16 @@
 
 Sistema di gestione completo per ristoranti con prenotazioni, tavoli, analisi finanziarie e CRM.
 
+## 📋 Regole Auree per i Calcoli Finanziari
+
+**⚠️ IMPORTANTE:** Prima di modificare qualsiasi calcolo finanziario, leggi le [Regole Auree](./docs/financial-calculation-rules.md).
+
+**In sintesi:**
+- **INCASSATO** = sempre il valore aggregato della tipologia 1 (macroId: 1)
+- **COSTI FISSI** = sempre il valore aggregato della tipologia 2 (macroId: 2)  
+- **COSTI VARIABILI** = sempre il valore aggregato della tipologia 3 (macroId: 3)
+- **Utile** = Tipologia1 - Tipologia2 - Tipologia3
+
 ## 🚀 Avvio Rapido
 
 **Prerequisiti:** Node.js 18+ installato

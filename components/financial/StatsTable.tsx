@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatCurrencyValue, parseMonthKey, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
-import { calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
+import { calculateUtileFromMacroTotals, getIncassatoTotal } from '../../utils/financialCalculations';
 import type { FinancialStatsRow } from '../../data/financialPlanData';
 import type { StatsOverrides } from '../../types';
 
@@ -113,9 +113,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
         const monthKey = buildMonthKey(year, monthIndex);
         const data = statsMap.get(monthKey);
         
-        // Import INCASSATO from monthly plan
-        const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
-        const incassatoPrevisionale = getPlanPreventivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
+        // Import INCASSATO from monthly plan (following golden rule #1)
+        const incassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+        const incassatoPrevisionale = getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, year, monthIndex);
         
         // Import UTILE from monthly plan (calculated using macro totals in correct order)
         const utile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);

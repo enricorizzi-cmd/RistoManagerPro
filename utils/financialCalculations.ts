@@ -180,7 +180,61 @@ export const computeYearMetrics = (
   return metrics;
 };
 
-// Calculate utile using macro totals in correct order
+// Get macro total by macroId (following golden rule #1)
+export const getMacroTotal = (
+  macroId: number,
+  causaliCatalog: FinancialCausaleGroup[],
+  planYear: PlanYearData | undefined,
+  getPlanValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  year: number,
+  monthIndex: number
+): number => {
+  const macro = causaliCatalog.find(m => m.macroId === macroId);
+  if (!macro) return 0;
+  
+  return macro.categories.reduce((catAcc, cat) => {
+    const macroData = planYear?.macros.find(m => m.macro === macro.macroCategory);
+    const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];
+    return catAcc + categoryDetails.reduce((detailAcc, d) => 
+      detailAcc + getPlanValue(macro.macroCategory, cat.name, d.detail, year, monthIndex), 0
+    );
+  }, 0);
+};
+
+// Get INCASSATO total (macroId: 1) - following golden rule #1
+export const getIncassatoTotal = (
+  causaliCatalog: FinancialCausaleGroup[],
+  planYear: PlanYearData | undefined,
+  getPlanValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  year: number,
+  monthIndex: number
+): number => {
+  return getMacroTotal(1, causaliCatalog, planYear, getPlanValue, year, monthIndex);
+};
+
+// Get COSTI FISSI total (macroId: 2) - following golden rule #1
+export const getCostiFissiTotal = (
+  causaliCatalog: FinancialCausaleGroup[],
+  planYear: PlanYearData | undefined,
+  getPlanValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  year: number,
+  monthIndex: number
+): number => {
+  return getMacroTotal(2, causaliCatalog, planYear, getPlanValue, year, monthIndex);
+};
+
+// Get COSTI VARIABILI total (macroId: 3) - following golden rule #1
+export const getCostiVariabiliTotal = (
+  causaliCatalog: FinancialCausaleGroup[],
+  planYear: PlanYearData | undefined,
+  getPlanValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  year: number,
+  monthIndex: number
+): number => {
+  return getMacroTotal(3, causaliCatalog, planYear, getPlanValue, year, monthIndex);
+};
+
+// Calculate utile using macro totals in correct order (following golden rule #2)
 export const calculateUtileFromMacroTotals = (
   causaliCatalog: FinancialCausaleGroup[],
   planYear: PlanYearData | undefined,
@@ -188,31 +242,10 @@ export const calculateUtileFromMacroTotals = (
   year: number,
   monthIndex: number
 ): number => {
-  // Sort macro categories by macroId to ensure correct calculation order
-  const sortedMacros = [...causaliCatalog].sort((a, b) => a.macroId - b.macroId);
+  const incassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+  const costiFissi = getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+  const costiVariabili = getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
   
-  let utile = 0;
-  let isFirstMacro = true;
-  
-  sortedMacros.forEach((macro) => {
-    // Calculate total for this macro category
-    const macroTotal = macro.categories.reduce((catAcc, cat) => {
-      const macroData = planYear?.macros.find(m => m.macro === macro.macroCategory);
-      const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];
-      return catAcc + categoryDetails.reduce((detailAcc, d) => 
-        detailAcc + getPlanConsuntivoValue(macro.macroCategory, cat.name, d.detail, year, monthIndex), 0
-      );
-    }, 0);
-    
-    if (isFirstMacro) {
-      // First macro (INCASSATO) - start with this value
-      utile = macroTotal;
-      isFirstMacro = false;
-    } else {
-      // Subsequent macros (COSTI FISSI, COSTI VARIABILI) - subtract from utile
-      utile -= macroTotal;
-    }
-  });
-  
-  return utile;
+  // Golden rule #2: Utile = Tipologia1 - Tipologia2 - Tipologia3
+  return incassato - costiFissi - costiVariabili;
 };

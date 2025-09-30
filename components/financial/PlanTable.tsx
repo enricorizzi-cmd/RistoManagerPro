@@ -3,7 +3,7 @@
 
 import React, { useCallback } from 'react';
 import { formatCurrencyValue, MONTH_NAMES, buildMonthKey } from '../../utils/financialPlanUtils';
-import { calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
+import { calculateUtileFromMacroTotals, getIncassatoTotal } from '../../utils/financialCalculations';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
 import type { PlanYearData } from '../../utils/financialCalculations';
 
@@ -126,13 +126,13 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                   // For INCASSATO, the percentage should always be 100%
                   // For other categories, calculate percentage based on monthly incassato values
                   let percentage = 0;
-                  if (group.macroCategory === 'INCASSATO') {
+                  if (group.macroId === 1) { // INCASSATO
                     percentage = 100;
                   } else {
                     // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
                     let totalPercentage = 0;
                     MONTH_NAMES.forEach((_, monthIndex) => {
-                      const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                      const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
                       const monthlyMacroValue = group.categories.reduce((acc, cat) => {
                         const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
                         const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
@@ -211,7 +211,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                         // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
                         let totalPercentage = 0;
                         MONTH_NAMES.forEach((_, monthIndex) => {
-                          const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                          const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
                           const monthlyCategoryValue = categoryDetails.reduce((acc, d) => 
                             acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
                           );
@@ -268,7 +268,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                             // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
                             let totalPercentage = 0;
                             MONTH_NAMES.forEach((_, monthIndex) => {
-                              const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                              const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
                               const monthlyCausaleValue = getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex);
                               if (monthlyIncassato > 0) {
                                 totalPercentage += (monthlyCausaleValue / monthlyIncassato) * 100;
@@ -333,7 +333,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
               // Calculate progressive incidence: sum of (monthly_utile / monthly_incassato) for each month
               let totalPercentage = 0;
               MONTH_NAMES.forEach((_, monthIndex) => {
-                const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
                 const monthlyUtile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
                 if (monthlyIncassato > 0) {
                   totalPercentage += (monthlyUtile / monthlyIncassato) * 100;
