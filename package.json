@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "npm run dev:all",
+        "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/start-clean.ps1",
         "dev:frontend": "vite",
         "build": "vite build",
         "preview": "vite preview",
