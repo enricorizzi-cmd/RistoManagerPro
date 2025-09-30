@@ -196,11 +196,16 @@ export const getMacroTotal = (
   
   const result = macro.categories.reduce((catAcc, cat) => {
     const macroData = planYear?.macros.find(m => m.macro === macro.macroCategory);
-    const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];    
-    return catAcc + categoryDetails.reduce((detailAcc, d) => 
-      detailAcc + getPlanValue(macro.macroCategory, cat.name, d.detail, year, monthIndex), 0
+    const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];
+
+    return catAcc + categoryDetails.reduce(
+      (detailAcc, d) =>
+        detailAcc + getPlanValue(macro.macroCategory, cat.name, d.detail, year, monthIndex),
+      0,
     );
-  }, 0);  return result;
+  }, 0);
+
+  return result;
 };
 
 // Get INCASSATO total (macroId: 1) - following golden rule #1

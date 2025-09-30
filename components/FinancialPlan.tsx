@@ -349,6 +349,7 @@ const FinancialPlan: React.FC = () => {
           selectedYear={selectedYear}
           availableYears={availableYears}
           onYearChange={setSelectedYear}
+          financialStatsRows={financialStatsRows}
         />
       )}
 

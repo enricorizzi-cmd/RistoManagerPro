@@ -13,21 +13,24 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
-import { formatCurrencyValue, MONTH_SHORT } from '../../utils/financialPlanUtils';
+import { formatCurrencyValue, MONTH_SHORT, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
 import type { PlanYearData } from '../../utils/financialCalculations';
+import type { FinancialStatsRow } from '../../data/financialPlanData';
 
 interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
   selectedYear: number;
   availableYears: number[];
   onYearChange: (year: number) => void;
+  financialStatsRows: FinancialStatsRow[];
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
   planYear, 
   selectedYear,
   availableYears,
-  onYearChange
+  onYearChange,
+  financialStatsRows
 }) => {
   const overviewTotals = useMemo(() => {
     if (!planYear) {
@@ -39,13 +42,13 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       };
     }
     const incassato =
-      planYear.totals['INCASSATO']?.consuntivo.reduce((acc, value) => acc + value, 0) ??
+      planYear.totals['INCASSATO']?.preventivo.reduce((acc, value) => acc + value, 0) ??
       0;
     const costiFissi =
-      planYear.totals['COSTI FISSI']?.consuntivo.reduce((acc, value) => acc + value, 0) ??
+      planYear.totals['COSTI FISSI']?.preventivo.reduce((acc, value) => acc + value, 0) ??
       0;
     const costiVariabili =
-      planYear.totals['COSTI VARIABILI']?.consuntivo.reduce((acc, value) => acc + value, 0) ??
+      planYear.totals['COSTI VARIABILI']?.preventivo.reduce((acc, value) => acc + value, 0) ??
       0;
     return {
       incassato,
@@ -59,10 +62,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     if (!planYear) {
       return [];
     }
-    const incassato = planYear.totals['INCASSATO']?.consuntivo ?? new Array(12).fill(0);
-    const costiFissi = planYear.totals['COSTI FISSI']?.consuntivo ?? new Array(12).fill(0);
+    const incassato = planYear.totals['INCASSATO']?.preventivo ?? new Array(12).fill(0);
+    const costiFissi = planYear.totals['COSTI FISSI']?.preventivo ?? new Array(12).fill(0);
     const costiVariabili =
-      planYear.totals['COSTI VARIABILI']?.consuntivo ?? new Array(12).fill(0);
+      planYear.totals['COSTI VARIABILI']?.preventivo ?? new Array(12).fill(0);
 
     // Calcolo del breakeven point
     const currentYear = new Date().getFullYear();
@@ -90,6 +93,50 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       breakevenPoint: breakevenPoint,
     }));
   }, [planYear, selectedYear]);
+
+  // Calcolo dati grafico fatturato 48 mesi
+  const fatturatoChartData = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 3; // 3 anni fa
+    const data: Array<{
+      month: string;
+      fatturatoReale: number | null;
+      fatturatoPrevisionale: number | null;
+    }> = [];
+
+    // Creare mappa dei dati statistiche per accesso rapido
+    const statsMap = new Map<string, FinancialStatsRow>();
+    financialStatsRows.forEach((row) => {
+      const parsed = parsePlanMonthLabel(row.month);
+      if (parsed) {
+        const { year, monthIndex } = parsed;
+        const key = `${year}-${monthIndex}`;
+        statsMap.set(key, row);
+      }
+    });
+
+    // Generare 48 mesi (gennaio 3 anni fa - dicembre anno corrente)
+    for (let year = startYear; year <= currentYear; year++) {
+      for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+        const key = `${year}-${monthIndex}`;
+        const statsData = statsMap.get(key);
+        
+        const monthLabel = `${MONTH_SHORT[monthIndex]} ${String(year).slice(-2)}`;
+        
+        // Separare dati reali e previsionali
+        const fatturatoReale = statsData?.fatturatoTotale ?? null;
+        const fatturatoPrevisionale = statsData?.fatturatoPrevisionale ?? null;
+        
+        data.push({
+          month: monthLabel,
+          fatturatoReale,
+          fatturatoPrevisionale,
+        });
+      }
+    }
+
+    return data;
+  }, [financialStatsRows]);
 
   return (
     <div className="space-y-4">
@@ -192,6 +239,47 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               radius={[4, 4, 0, 0]}
             />
           </BarChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Grafico fatturato 48 mesi */}
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">
+          Fatturato 48 Mesi (Gennaio 2022 - Dicembre 2025)
+        </h3>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={fatturatoChartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="month" 
+              tick={{ fontSize: 10 }}
+              interval="preserveStartEnd"
+            />
+            <YAxis />
+            <Tooltip 
+              formatter={(value: number) => formatCurrencyValue(value)}
+              labelStyle={{ color: '#374151' }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="fatturatoReale" 
+              stroke="#2563eb" 
+              strokeWidth={2}
+              name="Fatturato Reale"
+              dot={false}
+              connectNulls={false}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="fatturatoPrevisionale" 
+              stroke="#2563eb" 
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              name="Fatturato Previsionale"
+              dot={false}
+              connectNulls={false}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

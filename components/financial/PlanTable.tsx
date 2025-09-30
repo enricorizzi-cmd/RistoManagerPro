@@ -138,22 +138,6 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     );
                   }
                   
-                  // Debug: log the values to understand the issue
-                  console.log('PlanTable Debug:', {
-                    group: group.macroCategory,
-                    macroId: group.macroId,
-                    macroSum,
-                    totalIncassato,
-                    selectedYear,
-                    consuntivoOverrides: Object.keys(consuntivoOverrides).length,
-                    planYearMacros: planYear?.macros?.length || 0,
-                    causaliCatalogLength: causaliCatalog.length
-                  });
-                  
-                  // Debug: test getIncassatoTotal directly
-                  const testIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, 0);
-                  console.log('Direct getIncassatoTotal test:', testIncassato);
-                  
                   const percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
                   
                   return (

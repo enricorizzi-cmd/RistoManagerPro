@@ -56,7 +56,8 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     { id: 'debiti-pendenti', label: 'Debiti pendenti fine mese', value: '', lastValue: '-' },
     { id: 'debiti-scaduti', label: 'Debiti scaduti fine mese', value: '', lastValue: '-' },
   ]);
-  
+  const waitForStateFlush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
   // Get available tipologie
   const availableTipologie = useMemo(() => 
     causaliCatalog.map(group => group.macroCategory), [causaliCatalog]
@@ -114,7 +115,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               if (parsed && value !== 0) {
                 entries.push({
                   id: `${tipologia}-${categoria}-${causale}-${monthKey}`,
-                  dataInserimento: new Date().toISOString(),
+                  dataInserimento: format(new Date(), 'dd/MM/yyyy HH:mm', { locale: it }),
                   mese: parsed.monthIndex,
                   anno: parsed.year,
                   tipologiaCausale: tipologia,
@@ -209,9 +210,19 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   // Save entry
   const handleSaveEntry = async () => {
     const numericValue = parseItalianNumber(valore);
-    
+
     if (numericValue === 0) {
       showNotification('Inserisci un valore diverso da zero.', 'error');
+      return;
+    }
+
+    if (!tipologiaCausale) {
+      showNotification('Seleziona una tipologia.', 'error');
+      return;
+    }
+
+    if (!categoria) {
+      showNotification('Seleziona una categoria.', 'error');
       return;
     }
 
@@ -220,22 +231,26 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       return;
     }
 
+    const monthKey = buildMonthKey(anno, mese);
+    const category = categoria;
+    const existingValue = consuntivoOverrides?.[tipologiaCausale]?.[category]?.[causale]?.[monthKey] ?? 0;
+    const delta = numericValue - existingValue;
+
+    if (delta === 0) {
+      showNotification('Il valore inserito e\' gia\' presente.', 'info');
+      return;
+    }
+
     try {
-      // Update the financial plan data first
-      const monthKey = buildMonthKey(anno, mese);
-      
-      // Use the selected categoria
-      const category = categoria;
+      setOverride('consuntivo', tipologiaCausale, category, causale, anno, mese, delta);
 
-      // Set the override for consuntivo (actual) value
-      setOverride('consuntivo', tipologiaCausale, category, causale, anno, mese, numericValue);
+      await waitForStateFlush();
 
-      // Save the plan
-      await handleSavePlan(anno, new Set([`consuntivo|${tipologiaCausale}|${category}|${causale}|${monthKey}`]));
+      const saveKey = `consuntivo|${tipologiaCausale}|${category}|${causale}|${monthKey}`;
+      await handleSavePlan(anno, new Set([saveKey]));
 
       showNotification('Riga salvata con successo.', 'success');
 
-      // Reset form but keep month and year
       setValore('0,00');
       setCausale('');
       setCategoria('');
@@ -253,13 +268,13 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     if (!entry) return;
 
     try {
-      // Remove the override (set to null)
       const monthKey = buildMonthKey(entry.anno, entry.mese);
       const category = entry.categoria;
 
       setOverride('consuntivo', entry.tipologiaCausale, category, entry.causale, entry.anno, entry.mese, null);
 
-      // Save the plan
+      await waitForStateFlush();
+
       await handleSavePlan(entry.anno, new Set([`consuntivo|${entry.tipologiaCausale}|${category}|${entry.causale}|${monthKey}`]));
 
       showNotification('Riga eliminata con successo.', 'success');
