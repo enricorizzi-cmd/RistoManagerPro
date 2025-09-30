@@ -295,7 +295,7 @@ const ReservationDock: React.FC = () => {
         new Date(r.reservationTime).toDateString() === today.toDateString() &&
         r.status === ReservationStatus.Confirmed &&
         !r.tableId
-    ).sort((a,b) => new Date(a.reservationTime).getTime() - new Date(b.reservationTime).getTime());
+    ).sort((a,b) => new Date(b.reservationTime).getTime() - new Date(a.reservationTime).getTime());
 
     return (
         <div className="w-full lg:w-80 flex-shrink-0 bg-gray-50 border-l border-gray-200 flex flex-col">

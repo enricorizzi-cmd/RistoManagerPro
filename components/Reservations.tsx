@@ -106,6 +106,9 @@ const Reservations: React.FC = () => {
             const matchesStatus = filter === 'Tutte' ? true : r.status === filter;
 
             return isOnDate && matchesSearch && matchesStatus;
+        }).sort((a, b) => {
+            // Sort by reservation time from most recent to oldest
+            return new Date(b.reservationTime).getTime() - new Date(a.reservationTime).getTime();
         });
     }, [reservations, filter, selectedDate, searchTerm]);
 

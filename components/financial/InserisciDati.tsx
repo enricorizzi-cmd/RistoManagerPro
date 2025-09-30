@@ -46,6 +46,10 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   // Saved entries - loaded from database
   const [savedEntries, setSavedEntries] = useState<DataEntry[]>([]);
   
+  // Inline editing state
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Partial<DataEntry>>({});
+  
   // Metrics section state
   const [metricsExpanded, setMetricsExpanded] = useState<boolean>(false);
   const [metrics, setMetrics] = useState<MetricField[]>([
@@ -284,14 +288,54 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     }
   };
 
-  // Edit entry
+  // Edit entry - start inline editing
   const handleEditEntry = (entry: DataEntry) => {
-    setMese(entry.mese);
-    setAnno(entry.anno);
-    setTipologiaCausale(entry.tipologiaCausale);
-    setCategoria(entry.categoria);
-    setCausale(entry.causale);
-    setValore(formatItalianNumber(entry.valore));
+    setEditingEntryId(entry.id);
+    setEditingValues({
+      mese: entry.mese,
+      anno: entry.anno,
+      tipologiaCausale: entry.tipologiaCausale,
+      categoria: entry.categoria,
+      causale: entry.causale,
+      valore: entry.valore
+    });
+  };
+
+  // Save inline edit
+  const handleSaveEdit = async (entryId: string) => {
+    const entry = savedEntries.find(e => e.id === entryId);
+    if (!entry || !editingValues) return;
+
+    try {
+      // Update the entry with new values
+      const updatedEntry = {
+        ...entry,
+        ...editingValues,
+        dataInserimento: new Date().toLocaleDateString('it-IT')
+      };
+
+      // Update in database
+      const monthKey = buildMonthKey(updatedEntry.anno, updatedEntry.mese);
+      await setOverride('consuntivo', updatedEntry.tipologiaCausale, updatedEntry.categoria, updatedEntry.causale, updatedEntry.anno, updatedEntry.mese, updatedEntry.valore);
+
+      // Update local state
+      setSavedEntries(prev => prev.map(e => e.id === entryId ? updatedEntry : e));
+      
+      // Clear editing state
+      setEditingEntryId(null);
+      setEditingValues({});
+      
+      showNotification('Riga modificata con successo', 'success');
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      showNotification('Errore durante la modifica della riga', 'error');
+    }
+  };
+
+  // Cancel inline edit
+  const handleCancelEdit = () => {
+    setEditingEntryId(null);
+    setEditingValues({});
   };
 
   // Handle metrics field change
@@ -522,44 +566,138 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         {/* Saved entries */}
         {savedEntries.length > 0 && (
           <div className="space-y-2">
-            {savedEntries.map((entry) => (
-              <div key={entry.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-7 gap-4 items-center">
-                  <div className="text-sm text-gray-600">
-                    {entry.dataInserimento}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {monthNames[entry.mese].toLowerCase()} {entry.anno}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {entry.tipologiaCausale}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {entry.categoria}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {entry.causale}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {formatItalianNumber(entry.valore)} €
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditEntry(entry)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Modifica
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEntry(entry.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Elimina
-                    </button>
+            {savedEntries.map((entry) => {
+              const isEditing = editingEntryId === entry.id;
+              const currentValues = isEditing ? editingValues : entry;
+              
+              return (
+                <div key={entry.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="grid grid-cols-7 gap-4 items-center">
+                    <div className="text-sm text-gray-600">
+                      {entry.dataInserimento}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {isEditing ? (
+                        <select
+                          value={currentValues.mese}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, mese: Number(e.target.value) }))}
+                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                        >
+                          {monthNames.map((month, index) => (
+                            <option key={index} value={index}>
+                              {month}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        `${monthNames[entry.mese].toLowerCase()} ${entry.anno}`
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {isEditing ? (
+                        <select
+                          value={currentValues.anno}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, anno: Number(e.target.value) }))}
+                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                        >
+                          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        entry.tipologiaCausale
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {isEditing ? (
+                        <select
+                          value={currentValues.tipologiaCausale}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, tipologiaCausale: e.target.value }))}
+                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                        >
+                          <option value="">Seleziona tipologia</option>
+                          {availableTipologie.map(tipologia => (
+                            <option key={tipologia} value={tipologia}>
+                              {tipologia}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        entry.categoria
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {isEditing ? (
+                        <select
+                          value={currentValues.categoria}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, categoria: e.target.value }))}
+                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                        >
+                          <option value="">Seleziona categoria</option>
+                          {availableCategorie.map(categoriaItem => (
+                            <option key={categoriaItem} value={categoriaItem}>
+                              {categoriaItem}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        entry.causale
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={formatItalianNumber(currentValues.valore || 0)}
+                          onChange={(e) => {
+                            const numericValue = parseItalianNumber(e.target.value);
+                            setEditingValues(prev => ({ ...prev, valore: numericValue }));
+                          }}
+                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                        />
+                      ) : (
+                        `${formatItalianNumber(entry.valore)} €`
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSaveEdit(entry.id)}
+                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                          >
+                            Salva
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                          >
+                            Annulla
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEditEntry(entry)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            Modifica
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Elimina
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

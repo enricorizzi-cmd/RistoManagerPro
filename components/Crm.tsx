@@ -39,7 +39,9 @@ const CustomerDetail: React.FC<{ customer: Customer }> = ({ customer }) => (
             <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Storico Prenotazioni</h3>
             <div className="space-y-4">
                 {customer.reservationHistory.length > 0 ? (
-                    customer.reservationHistory.map(res => (
+                    customer.reservationHistory
+                        .sort((a, b) => new Date(b.reservationTime).getTime() - new Date(a.reservationTime).getTime())
+                        .map(res => (
                         <div key={res.id} className="bg-white p-4 rounded-lg shadow-sm border">
                              <div className="flex items-start justify-between">
                                 <div>
