@@ -10,9 +10,11 @@ interface BusinessPlanFormProps {
   businessPlanMessage: BusinessPlanMessage | null;
   completeYears: number[];
   availableYears: number[];
+  businessPlanDrafts: Record<string, any>;
   onFieldChange: (
     field:
       | 'fatturatoIncrement'
+      | 'fatturatoValue'
       | 'incassatoPercent'
       | 'incassatoValue'
       | 'costiFissiPercent'
@@ -26,6 +28,7 @@ interface BusinessPlanFormProps {
   onSaveDraft: () => void;
   onApplyToOverrides: () => void;
   onReset: () => void;
+  onDeleteDraft: (targetYear: number) => void;
 }
 
 export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
@@ -33,12 +36,14 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   businessPlanMessage,
   completeYears,
   availableYears,
+  businessPlanDrafts,
   onFieldChange,
   onBaseYearChange,
   onTargetYearChange,
   onSaveDraft,
   onApplyToOverrides,
   onReset,
+  onDeleteDraft,
 }) => {
   if (!businessPlanForm) {
     return (
@@ -101,8 +106,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             <input
               type="text"
               value={businessPlanForm.fatturatoPrevisionale}
-              readOnly
-              className="mt-1 w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm"
+              onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>
@@ -225,6 +230,34 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Sezione Bozze Salvate */}
+      {Object.keys(businessPlanDrafts).length > 0 && (
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Bozze Salvate</h3>
+          <div className="space-y-2">
+            {Object.entries(businessPlanDrafts).map(([targetYear, draft]) => (
+              <div key={targetYear} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                <div>
+                  <span className="text-sm font-medium text-gray-700">
+                    Previsionale {targetYear}
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500">
+                    (Base: {draft.baseYear}, Creato: {new Date(draft.createdAt).toLocaleDateString()})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDeleteDraft(Number(targetYear))}
+                  className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
+                >
+                  Elimina
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <button

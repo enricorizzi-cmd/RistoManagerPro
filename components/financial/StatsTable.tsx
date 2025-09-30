@@ -205,6 +205,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">CORRISPETTIVI</th>
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">FATTURATO IMPONIBILE</th>
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">FATTURATO TOTALE</th>
+              <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">FATTURATO PREVISIONALE</th>
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">INCASSATO</th>
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">INCASSATO PREVISIONALE</th>
               <th className="px-3 py-3 text-right bg-slate-50 sticky top-0 z-20">SALDO CONTO</th>
@@ -252,6 +253,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                 </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 bg-gray-50">
                     {formatCurrencyValue(row.fatturatoTotale)}
+                  </td>
+                <td className="px-3 py-2 text-right text-sm text-sky-700 bg-gray-50">
+                    {formatCurrencyValue(getRowFieldValue(row, 'fatturatoPrevisionale'))}
                   </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 bg-gray-50">
                     {formatCurrencyValue(row.incassato)}

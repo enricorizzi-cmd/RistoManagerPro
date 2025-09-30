@@ -108,6 +108,7 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
   const handleBusinessPlanFieldChange = useCallback((
     field:
       | 'fatturatoIncrement'
+      | 'fatturatoValue'
       | 'incassatoPercent'
       | 'incassatoValue'
       | 'costiFissiPercent'
@@ -124,6 +125,9 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
       switch (field) {
         case 'fatturatoIncrement':
           next.fatturatoIncrement = value;
+          break;
+        case 'fatturatoValue':
+          next.fatturatoPrevisionale = value;
           break;
         case 'incassatoPercent':
           next.incassatoPercent = value;
@@ -200,6 +204,7 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
       costiFissiPrevisionale: parseNumberInput(normalized.costiFissiPrevisionale) ?? 0,
       costiVariabiliPercent: parseNumberInput(normalized.costiVariabiliPercent) ?? 0,
       costiVariabiliPrevisionale: parseNumberInput(normalized.costiVariabiliPrevisionale) ?? 0,
+      createdAt: new Date().toISOString(),
     };
     setBusinessPlanDrafts((prev) => ({
       ...prev,
@@ -208,9 +213,48 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
     setBusinessPlanForm(normalized);
     setBusinessPlanMessage({
       type: 'success',
-      text: `Previsionale ${new Date().getFullYear()} applicato e salvato.`,
+      text: `Previsionale ${normalized.targetYear} salvato come bozza.`,
     });
   }, [businessPlanForm, yearMetrics]);
+
+  const handleApplyBusinessPlanToOverrides = useCallback(() => {
+    if (!businessPlanForm || businessPlanForm.baseYear === null) {
+      setBusinessPlanMessage({
+        type: 'error',
+        text: 'Compila il Business Plan prima di applicare il previsionale.',
+      });
+      return;
+    }
+    // Questa funzione sarà implementata nel componente principale
+    setBusinessPlanMessage({
+      type: 'success',
+      text: `Previsionale ${businessPlanForm.targetYear} applicato e salvato.`,
+    });
+  }, [businessPlanForm]);
+
+  const handleResetBusinessPlan = useCallback(() => {
+    if (!businessPlanForm) {
+      return;
+    }
+    const targetYear = businessPlanForm.targetYear;
+    setBusinessPlanMessage({
+      type: 'info',
+      text: `Previsionale ${targetYear} ripristinato.`,
+    });
+    // Questa funzione sarà implementata nel componente principale
+  }, [businessPlanForm]);
+
+  const handleDeleteBusinessPlanDraft = useCallback((targetYear: number) => {
+    setBusinessPlanDrafts((prev) => {
+      const newDrafts = { ...prev };
+      delete newDrafts[String(targetYear)];
+      return newDrafts;
+    });
+    setBusinessPlanMessage({
+      type: 'info',
+      text: `Bozza previsionale ${targetYear} eliminata.`,
+    });
+  }, []);
 
   const clearBusinessPlanMessage = useCallback(() => {
     setBusinessPlanMessage(null);
@@ -229,6 +273,9 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
     handleBusinessPlanBaseYearChange,
     handleBusinessPlanTargetYearChange,
     handleSaveBusinessPlanDraft,
+    handleApplyBusinessPlanToOverrides,
+    handleResetBusinessPlan,
+    handleDeleteBusinessPlanDraft,
     clearBusinessPlanMessage,
   };
 };

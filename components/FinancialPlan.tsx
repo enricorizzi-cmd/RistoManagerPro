@@ -15,6 +15,7 @@ import { InserisciDati } from './financial/InserisciDati';
 import { AnalisiFP } from './financial/AnalisiFP';
 import { financialCausali, financialStats as financialStatsRows } from '../data/financialPlanData';
 import { calcRatios, round2, parseNumberInput, buildMonthKey, parseMonthKey } from '../utils/financialPlanUtils';
+import { calculateAverageMonthlyRatios, distributeAnnualValueToMonths } from '../utils/businessPlanLogic';
 import type { TabKey } from '../types';
 
 const FinancialPlan: React.FC = () => {
@@ -48,6 +49,7 @@ const FinancialPlan: React.FC = () => {
   } = useFinancialPlanData();
 
   const {
+    businessPlanDrafts,
     businessPlanForm,
     businessPlanMessage,
     availableYears,
@@ -56,6 +58,8 @@ const FinancialPlan: React.FC = () => {
     handleBusinessPlanBaseYearChange,
     handleBusinessPlanTargetYearChange,
     handleSaveBusinessPlanDraft,
+    handleApplyBusinessPlanToOverrides,
+    handleDeleteBusinessPlanDraft,
   } = useBusinessPlan(yearMetrics);
 
   const {
@@ -119,6 +123,14 @@ const FinancialPlan: React.FC = () => {
     }
   };
 
+
+  const handleCausaliPersistWithNotification = async (causali: any[]) => {
+    const success = await handleCausaliPersist(causali);
+    if (success) {
+      showNotification('Catalogo causali aggiornato.', 'success');
+    }
+  };
+
   // Business plan apply to overrides
   const applyBusinessPlanToOverrides = () => {
     if (!businessPlanForm || businessPlanForm.baseYear === null) {
@@ -138,47 +150,73 @@ const FinancialPlan: React.FC = () => {
     const costiFissiPrevisionale = parseNumberInput(businessPlanForm.costiFissiPrevisionale) ?? metrics.costiFissi;
     const costiVariabiliPrevisionale = parseNumberInput(businessPlanForm.costiVariabiliPrevisionale) ?? metrics.costiVariabili;
 
-    // Filter overrides for target year
-    const filterPlanOverridesForYear = (overrides: any, year: number) => {
-      const result: any = {};
-      Object.entries(overrides).forEach(([macro, categories]: [string, any]) => {
-        Object.entries(categories).forEach(([category, details]: [string, any]) => {
-          Object.entries(details).forEach(([detail, months]: [string, any]) => {
-            Object.entries(months).forEach(([monthKey, value]: [string, any]) => {
-              const parsed = parseMonthKey(monthKey);
-              if (!parsed || parsed.year === year) {
-                return;
-              }
-              if (!result[macro]) result[macro] = {};
-              if (!result[macro][category]) result[macro][category] = {};
-              if (!result[macro][category][detail]) result[macro][category][detail] = {};
-              result[macro][category][detail][monthKey] = value;
-            });
-          });
-        });
-      });
-      return result;
-    };
+    // Controlla se ci sono override esistenti per l'anno target
+    const hasExistingOverrides = Object.keys(planOverrides).some(key => 
+      key.includes(`|${targetYear}|`)
+    ) || Object.keys(statsOverrides).some(key => 
+      key.includes(`|${targetYear}|`)
+    );
 
-    const nextPlanOverrides = filterPlanOverridesForYear(planOverrides, targetYear);
-
-    const macroTargets: Record<string, number> = {
-      INCASSATO: incassatoPrevisionale,
-      'COSTI FISSI': costiFissiPrevisionale,
-      'COSTI VARIABILI': costiVariabiliPrevisionale,
-    };
-
-    const macroRatios: Record<string, number[]> = {
-      INCASSATO: calcRatios(metrics.monthlyIncassato),
-      'COSTI FISSI': calcRatios(metrics.monthlyCostiFissi),
-      'COSTI VARIABILI': calcRatios(metrics.monthlyCostiVariabili),
-    };
-
-    planBase.macros.forEach((macro) => {
-      const macroKey = macro.macro.toUpperCase();
-      if (!macroTargets[macroKey]) {
+    if (hasExistingOverrides) {
+      const confirmed = window.confirm(
+        `Sono presenti dati previsionali per l'anno ${targetYear}. Vuoi sovrascriverli?`
+      );
+      if (!confirmed) {
         return;
       }
+    }
+
+    // Svuota tutti i campi previsionali dell'anno target
+    const filteredPlanOverrides = { ...planOverrides };
+    const filteredStatsOverrides = { ...statsOverrides };
+
+    // Rimuovi override del piano mensile per l'anno target
+    Object.keys(filteredPlanOverrides).forEach(key => {
+      if (key.includes(`|${targetYear}|`)) {
+        delete filteredPlanOverrides[key];
+      }
+    });
+
+    // Rimuovi override delle statistiche per l'anno target
+    Object.keys(filteredStatsOverrides).forEach(key => {
+      if (key.includes(`|${targetYear}|`)) {
+        delete filteredStatsOverrides[key];
+      }
+    });
+
+    // Calcola le incidenze mensili per le macro categorie usando l'anno base
+    const baseMetrics = yearMetrics.get(businessPlanForm.baseYear);
+    if (!baseMetrics) {
+      showNotification('Dati storici insufficienti per l\'anno base selezionato.', 'error');
+      return;
+    }
+
+    // Calcola le incidenze mensili per ogni macro categoria
+    const incassatoRatios = baseMetrics.monthlyIncassato && baseMetrics.incassato > 0 
+      ? baseMetrics.monthlyIncassato.map(value => value / baseMetrics.incassato)
+      : new Array(12).fill(1/12);
+    
+    const costiFissiRatios = baseMetrics.monthlyCostiFissi && baseMetrics.costiFissi > 0
+      ? baseMetrics.monthlyCostiFissi.map(value => value / baseMetrics.costiFissi)
+      : new Array(12).fill(1/12);
+    
+    const costiVariabiliRatios = baseMetrics.monthlyCostiVariabili && baseMetrics.costiVariabili > 0
+      ? baseMetrics.monthlyCostiVariabili.map(value => value / baseMetrics.costiVariabili)
+      : new Array(12).fill(1/12);
+
+    // Distribuisci i valori annuali sui mesi
+    const incassatoMensile = distributeAnnualValueToMonths(incassatoPrevisionale, incassatoRatios);
+    const costiFissiMensile = distributeAnnualValueToMonths(costiFissiPrevisionale, costiFissiRatios);
+    const costiVariabiliMensile = distributeAnnualValueToMonths(costiVariabiliPrevisionale, costiVariabiliRatios);
+
+    // Applica i valori al piano mensile per ogni singola riga elementare
+    planBase.macros.forEach((macro) => {
+      const macroKey = macro.macro.toUpperCase();
+      if (!['INCASSATO', 'COSTI FISSI', 'COSTI VARIABILI'].includes(macroKey)) {
+        return;
+      }
+
+      // Calcola il totale della macro categoria nell'anno base
       const macroTotalBase = macro.details
         .map((detail) =>
           detail.months.reduce((acc, month) => acc + (month.consuntivo ?? 0), 0),
@@ -186,34 +224,55 @@ const FinancialPlan: React.FC = () => {
         .reduce((acc, value) => acc + value, 0);
 
       macro.details.forEach((detail) => {
+        // Calcola il totale della singola riga nell'anno base
         const detailSum = detail.months.reduce(
           (acc, month) => acc + (month.consuntivo ?? 0),
           0,
         );
+        
+        // Calcola l'incidenza della singola riga rispetto alla macro categoria
         const detailShare = macroTotalBase === 0 ? 0 : detailSum / macroTotalBase;
-        const annualTarget = round2(macroTargets[macroKey] * detailShare);
-        const detailRatios =
-          detailSum === 0
-            ? macroRatios[macroKey]
-            : detail.months.map((month) =>
-                detailSum === 0 ? 0 : (month.consuntivo ?? 0) / detailSum,
-              );
-        (detailRatios ?? new Array(12).fill(1 / 12)).forEach((ratio, monthIndex) => {
+
+        // Calcola il target annuale per questa singola riga
+        let annualTarget = 0;
+        let monthlyRatios: number[] = [];
+
+        switch (macroKey) {
+          case 'INCASSATO':
+            annualTarget = round2(incassatoPrevisionale * detailShare);
+            monthlyRatios = incassatoRatios;
+            break;
+          case 'COSTI FISSI':
+            annualTarget = round2(costiFissiPrevisionale * detailShare);
+            monthlyRatios = costiFissiRatios;
+            break;
+          case 'COSTI VARIABILI':
+            annualTarget = round2(costiVariabiliPrevisionale * detailShare);
+            monthlyRatios = costiVariabiliRatios;
+            break;
+        }
+
+        // Distribuisci il target annuale sui 12 mesi usando le incidenze mensili
+        monthlyRatios.forEach((ratio, monthIndex) => {
           const monthValue = round2(annualTarget * ratio);
-          if (!nextPlanOverrides[detail.macro]) {
-            nextPlanOverrides[detail.macro] = {};
-          }
-          if (!nextPlanOverrides[detail.macro][detail.category]) {
-            nextPlanOverrides[detail.macro][detail.category] = {};
-          }
-          if (!nextPlanOverrides[detail.macro][detail.category][detail.detail]) {
-            nextPlanOverrides[detail.macro][detail.category][detail.detail] = {};
-          }
-          const monthKey = buildMonthKey(new Date().getFullYear(), monthIndex);
-          nextPlanOverrides[detail.macro][detail.category][detail.detail][monthKey] = monthValue;
+          const monthKey = buildMonthKey(targetYear, monthIndex);
+          
+          // Applica il valore usando setOverride
+          setOverride('preventivo', detail.macro, detail.category, detail.detail, targetYear, monthIndex, monthValue);
         });
       });
     });
+
+    // Applica i valori alle statistiche
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      const monthKey = buildMonthKey(targetYear, monthIndex);
+      filteredStatsOverrides[`${monthKey}|fatturatoPrevisionale`] = round2(fatturatoPrevisionale * incassatoRatios[monthIndex]);
+      filteredStatsOverrides[`${monthKey}|incassatoPrevisionale`] = incassatoMensile[monthIndex];
+      filteredStatsOverrides[`${monthKey}|utilePrevisionale`] = round2(incassatoMensile[monthIndex] - costiFissiMensile[monthIndex] - costiVariabiliMensile[monthIndex]);
+    }
+
+    // Aggiorna gli override delle statistiche
+    setStatsOverrides(filteredStatsOverrides);
 
     showNotification(`Previsionale ${targetYear} applicato e salvato.`, 'success');
   };
@@ -223,14 +282,27 @@ const FinancialPlan: React.FC = () => {
       return;
     }
     const targetYear = businessPlanForm.targetYear;
-    showNotification(`Previsionale ${targetYear} ripristinato.`, 'info');
-  };
+    
+    // Svuota tutti i campi previsionali dell'anno target
+    const filteredPlanOverrides = { ...planOverrides };
+    const filteredStatsOverrides = { ...statsOverrides };
 
-  const handleCausaliPersistWithNotification = async (causali: any[]) => {
-    const success = await handleCausaliPersist(causali);
-    if (success) {
-      showNotification('Catalogo causali aggiornato.', 'success');
-    }
+    // Rimuovi override del piano mensile per l'anno target
+    Object.keys(filteredPlanOverrides).forEach(key => {
+      if (key.includes(`|${targetYear}|`)) {
+        delete filteredPlanOverrides[key];
+      }
+    });
+
+    // Rimuovi override delle statistiche per l'anno target
+    Object.keys(filteredStatsOverrides).forEach(key => {
+      if (key.includes(`|${targetYear}|`)) {
+        delete filteredStatsOverrides[key];
+      }
+    });
+
+    setStatsOverrides(filteredStatsOverrides);
+    showNotification(`Previsionale ${targetYear} ripristinato.`, 'info');
   };
 
   // Statistics override handler
@@ -375,12 +447,14 @@ const FinancialPlan: React.FC = () => {
           businessPlanMessage={businessPlanMessage}
           completeYears={completeYears}
           availableYears={availableYears}
+          businessPlanDrafts={businessPlanDrafts}
           onFieldChange={handleBusinessPlanFieldChange}
           onBaseYearChange={handleBusinessPlanBaseYearChange}
           onTargetYearChange={handleBusinessPlanTargetYearChange}
           onSaveDraft={handleSaveBusinessPlanDraft}
           onApplyToOverrides={applyBusinessPlanToOverrides}
           onReset={handleResetBusinessPlan}
+          onDeleteDraft={handleDeleteBusinessPlanDraft}
         />
       )}
 
