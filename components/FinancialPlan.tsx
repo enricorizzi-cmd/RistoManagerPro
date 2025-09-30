@@ -430,6 +430,7 @@ const FinancialPlan: React.FC = () => {
             getPlanPreventivoValue={getPlanPreventivoValue}
             getPlanConsuntivoValue={getPlanConsuntivoValue}
             setOverride={handleSetOverride}
+            consuntivoOverrides={consuntivoOverrides}
           />
         </div>
       )}

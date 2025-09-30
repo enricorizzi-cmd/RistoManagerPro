@@ -19,6 +19,7 @@ interface PlanTableProps {
   getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   setOverride: (target: 'preventivo' | 'consuntivo', macro: string, category: string, detail: string, year: number, monthIndex: number, value: number | null) => void;
+  consuntivoOverrides?: any;
 }
 
 export const PlanTable: React.FC<PlanTableProps> = ({
@@ -33,6 +34,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
   getPlanPreventivoValue,
   getPlanConsuntivoValue,
   setOverride,
+  consuntivoOverrides = {},
 }) => {
   const rowHasAnyValue = useCallback((
     macro: string,
@@ -123,18 +125,36 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     );
                   }, 0);
                   
-                  // For INCASSATO, the percentage should always be 100%
-                  // For other categories, calculate percentage based on total incassato
-                  let percentage = 0;
+                  // Calculate progressive incidence: (macroSum / totalIncassato) * 100
+                  // For INCASSATO, use the macroSum itself as the total (100% of itself)
+                  // For other categories, calculate based on total INCASSATO
+                  let totalIncassato = 0;
                   if (group.macroId === 1) { // INCASSATO
-                    percentage = 100;
+                    totalIncassato = macroSum; // Use the macroSum itself
                   } else {
-                    // Calculate progressive incidence: (macroSum / totalIncassato) * 100
-                    const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                    // Calculate total INCASSATO from all months
+                    totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
                       acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
                     );
-                    percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
                   }
+                  
+                  // Debug: log the values to understand the issue
+                  console.log('PlanTable Debug:', {
+                    group: group.macroCategory,
+                    macroId: group.macroId,
+                    macroSum,
+                    totalIncassato,
+                    selectedYear,
+                    consuntivoOverrides: Object.keys(consuntivoOverrides).length,
+                    planYearMacros: planYear?.macros?.length || 0,
+                    causaliCatalogLength: causaliCatalog.length
+                  });
+                  
+                  // Debug: test getIncassatoTotal directly
+                  const testIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, 0);
+                  console.log('Direct getIncassatoTotal test:', testIncassato);
+                  
+                  const percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
                   
                   return (
                     <>

@@ -190,15 +190,31 @@ export const getMacroTotal = (
   monthIndex: number
 ): number => {
   const macro = causaliCatalog.find(m => m.macroId === macroId);
-  if (!macro) return 0;
+  if (!macro) {
+    console.log('getMacroTotal: macro not found for macroId:', macroId);
+    return 0;
+  }
   
-  return macro.categories.reduce((catAcc, cat) => {
+  const result = macro.categories.reduce((catAcc, cat) => {
     const macroData = planYear?.macros.find(m => m.macro === macro.macroCategory);
     const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];
+    
+    console.log('getMacroTotal Debug:', {
+      macroId,
+      macroCategory: macro.macroCategory,
+      category: cat.name,
+      macroDataExists: !!macroData,
+      categoryDetailsLength: categoryDetails.length,
+      planYearMacrosLength: planYear?.macros?.length || 0
+    });
+    
     return catAcc + categoryDetails.reduce((detailAcc, d) => 
       detailAcc + getPlanValue(macro.macroCategory, cat.name, d.detail, year, monthIndex), 0
     );
   }, 0);
+  
+  console.log('getMacroTotal result:', result);
+  return result;
 };
 
 // Get INCASSATO total (macroId: 1) - following golden rule #1
@@ -209,7 +225,20 @@ export const getIncassatoTotal = (
   year: number,
   monthIndex: number
 ): number => {
-  return getMacroTotal(1, causaliCatalog, planYear, getPlanValue, year, monthIndex);
+  const result = getMacroTotal(1, causaliCatalog, planYear, getPlanValue, year, monthIndex);
+  
+  // Debug: log the calculation details
+  console.log('getIncassatoTotal Debug:', {
+    macroId: 1,
+    causaliCatalogLength: causaliCatalog.length,
+    planYearExists: !!planYear,
+    planYearMacrosLength: planYear?.macros?.length || 0,
+    year,
+    monthIndex,
+    result
+  });
+  
+  return result;
 };
 
 // Get COSTI FISSI total (macroId: 2) - following golden rule #1
