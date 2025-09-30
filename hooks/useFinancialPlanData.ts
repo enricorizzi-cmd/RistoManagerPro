@@ -9,6 +9,46 @@ import type { PlanOverrides, StatsOverrides } from '../types';
 import { computePlanData, computeYearMetrics, type PlanYearData, type BusinessPlanYearMetrics } from '../utils/financialCalculations';
 import { buildMonthKey, normalizeLabel, parseMonthKey } from '../utils/financialPlanUtils';
 
+const DEFAULT_CAUSALI_CATALOG: FinancialCausaleGroup[] = (financialCausali as unknown as FinancialCausaleGroup[]);
+
+const normalizeCausaliCatalog = (catalog: FinancialCausaleGroup[]): FinancialCausaleGroup[] => {
+  const defaultMap = new Map(
+    DEFAULT_CAUSALI_CATALOG.map((group) => [normalizeLabel(group.macroCategory), group.macroId]),
+  );
+
+  const existingIds = catalog
+    .map((group) => group?.macroId)
+    .filter((id): id is number => typeof id === 'number' && !Number.isNaN(id) && id > 0);
+
+  const defaultIds = Array.from(defaultMap.values()).filter(
+    (id): id is number => typeof id === 'number' && !Number.isNaN(id) && id > 0,
+  );
+
+  let nextId = Math.max(0, ...existingIds, ...defaultIds);
+
+  return catalog.map((group) => {
+    const normalizedName = normalizeLabel(group.macroCategory);
+    let macroId =
+      typeof group.macroId === 'number' && !Number.isNaN(group.macroId) && group.macroId > 0
+        ? group.macroId
+        : defaultMap.get(normalizedName);
+
+    if (!macroId) {
+      nextId += 1;
+      macroId = nextId;
+    }
+
+    return {
+      ...group,
+      macroId,
+      categories: (group.categories ?? []).map((category) => ({
+        ...category,
+        items: Array.isArray(category.items) ? [...category.items] : [],
+      })),
+    };
+  });
+};
+
 export const useFinancialPlanData = () => {
   const [planOverrides, setPlanOverrides] = useState<PlanOverrides>({});
   const [consuntivoOverrides, setConsuntivoOverrides] = useState<PlanOverrides>({});
@@ -19,7 +59,7 @@ export const useFinancialPlanData = () => {
   const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>([]);
 
   const basePlanByYear = useMemo(() => {
-    const source = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
+    const source = causaliCatalog.length > 0 ? causaliCatalog : DEFAULT_CAUSALI_CATALOG;
     return computePlanData(source);
   }, [causaliCatalog]);
 
@@ -40,11 +80,7 @@ export const useFinancialPlanData = () => {
       setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
       setStatsOverrides(payload.statsOverrides ?? {});
       setMonthlyMetrics(payload.monthlyMetrics ?? []);
-      setCausaliCatalog(
-        payload.causaliCatalog && payload.causaliCatalog.length > 0
-          ? (payload.causaliCatalog as FinancialCausaleGroup[])
-          : (financialCausali as unknown as FinancialCausaleGroup[]),
-      );
+      setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
       setLoadingState(false);
     }).catch(() => setLoadingState(false));
     return () => { mounted = false; };
@@ -188,11 +224,7 @@ export const useFinancialPlanData = () => {
         setConsuntivoOverrides((payload as FinancialPlanStatePayload | null)?.consuntivoOverrides ?? {});
         setStatsOverrides(payload.statsOverrides ?? {});
         setMonthlyMetrics(payload.monthlyMetrics ?? []);
-        setCausaliCatalog(
-          payload && payload.causaliCatalog && payload.causaliCatalog.length > 0
-            ? (payload.causaliCatalog as FinancialCausaleGroup[])
-            : (financialCausali as unknown as FinancialCausaleGroup[]),
-        );
+        setCausaliCatalog(() => normalizeCausaliCatalog((payload && payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
       }
       return true;
     } catch (error) {
@@ -206,17 +238,18 @@ export const useFinancialPlanData = () => {
   const handleCausaliPersist = useCallback(async (next: FinancialCausaleGroup[]) => {
     setSavingState(true);
     try {
+      const normalizedCatalog = normalizeCausaliCatalog(next);
       const payload: FinancialPlanStatePayload = {
         preventivoOverrides: planOverrides,
         consuntivoOverrides: consuntivoOverrides,
         manualLog: [],
         monthlyMetrics: monthlyMetrics,
         statsOverrides,
-        causaliCatalog: next,
+        causaliCatalog: normalizedCatalog,
         causaliVersion: String(Date.now()),
       };
       await persistFinancialPlanState(payload);
-      setCausaliCatalog(next);
+      setCausaliCatalog(normalizedCatalog);
       return true;
     } finally {
       setSavingState(false);
@@ -267,3 +300,4 @@ export const useFinancialPlanData = () => {
     getPlanConsuntivoValue,
   };
 };
+

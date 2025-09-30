@@ -6,6 +6,8 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -62,6 +64,20 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     const costiVariabili =
       planYear.totals['COSTI VARIABILI']?.consuntivo ?? new Array(12).fill(0);
 
+    // Calcolo del breakeven point
+    const currentYear = new Date().getFullYear();
+    const isCurrentYear = selectedYear === currentYear;
+    const currentMonth = new Date().getMonth(); // 0-11
+    
+    // Per l'anno corrente: somma costi fissi + variabili / numero di mesi da gennaio al mese precedente
+    // Per gli anni passati: somma costi fissi + variabili / 12 mesi
+    const totalCostiFissi = costiFissi.reduce((acc, value) => acc + value, 0);
+    const totalCostiVariabili = costiVariabili.reduce((acc, value) => acc + value, 0);
+    const totalCosti = totalCostiFissi + totalCostiVariabili;
+    
+    const monthsToConsider = isCurrentYear ? Math.max(1, currentMonth) : 12;
+    const breakevenPoint = totalCosti / monthsToConsider;
+
     return MONTH_SHORT.map((label, index) => ({
       month: `${label} ${String(selectedYear).slice(-2)}`,
       incassato: incassato[index] ?? 0,
@@ -71,6 +87,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         (incassato[index] ?? 0) -
         (costiFissi[index] ?? 0) -
         (costiVariabili[index] ?? 0),
+      breakevenPoint: breakevenPoint,
     }));
   }, [planYear, selectedYear]);
 
@@ -142,7 +159,39 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               strokeWidth={2}
             />
             <Line type="monotone" dataKey="utile" stroke="#047857" strokeWidth={2} />
+            <Line 
+              type="monotone" 
+              dataKey="breakevenPoint" 
+              stroke="#dc2626" 
+              strokeWidth={2} 
+              strokeDasharray="5 5"
+              name="Breakeven Point"
+            />
           </LineChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Istogramma utile mensile */}
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">
+          Utile Mensile {selectedYear}
+        </h3>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={overviewChartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip 
+              formatter={(value: number) => formatCurrencyValue(value)}
+              labelStyle={{ color: '#374151' }}
+            />
+            <Bar 
+              dataKey="utile" 
+              fill="#047857" 
+              name="Utile Mensile"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
