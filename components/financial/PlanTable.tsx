@@ -124,27 +124,16 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                   }, 0);
                   
                   // For INCASSATO, the percentage should always be 100%
-                  // For other categories, calculate percentage based on monthly incassato values
+                  // For other categories, calculate percentage based on total incassato
                   let percentage = 0;
                   if (group.macroId === 1) { // INCASSATO
                     percentage = 100;
                   } else {
-                    // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
-                    let totalPercentage = 0;
-                    MONTH_NAMES.forEach((_, monthIndex) => {
-                      const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
-                      const monthlyMacroValue = group.categories.reduce((acc, cat) => {
-                        const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
-                        const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                        return acc + categoryDetails.reduce((catAcc, d) => 
-                          catAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
-                        );
-                      }, 0);
-                      if (monthlyIncassato > 0) {
-                        totalPercentage += (monthlyMacroValue / monthlyIncassato) * 100;
-                      }
-                    });
-                    percentage = totalPercentage;
+                    // Calculate progressive incidence: (macroSum / totalIncassato) * 100
+                    const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                    );
+                    percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
                   }
                   
                   return (
@@ -208,17 +197,11 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                           ), 0
                         );
                         
-                        // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
-                        let totalPercentage = 0;
-                        MONTH_NAMES.forEach((_, monthIndex) => {
-                          const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
-                          const monthlyCategoryValue = categoryDetails.reduce((acc, d) => 
-                            acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
-                          );
-                          if (monthlyIncassato > 0) {
-                            totalPercentage += (monthlyCategoryValue / monthlyIncassato) * 100;
-                          }
-                        });
+                        // Calculate progressive incidence: (categorySum / totalIncassato) * 100
+                        const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                          acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                        );
+                        const totalPercentage = totalIncassato === 0 ? 0 : (categorySum / totalIncassato) * 100;
                         
                         return (
                           <>
@@ -265,15 +248,11 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                               acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex), 0
                             );
                             
-                            // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
-                            let totalPercentage = 0;
-                            MONTH_NAMES.forEach((_, monthIndex) => {
-                              const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
-                              const monthlyCausaleValue = getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex);
-                              if (monthlyIncassato > 0) {
-                                totalPercentage += (monthlyCausaleValue / monthlyIncassato) * 100;
-                              }
-                            });
+                            // Calculate progressive incidence: (causaleSum / totalIncassato) * 100
+                            const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                              acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                            );
+                            const totalPercentage = totalIncassato === 0 ? 0 : (causaleSum / totalIncassato) * 100;
                             
                             return (
                               <>
@@ -330,15 +309,11 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                 return acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
               }, 0);
               
-              // Calculate progressive incidence: sum of (monthly_utile / monthly_incassato) for each month
-              let totalPercentage = 0;
-              MONTH_NAMES.forEach((_, monthIndex) => {
-                const monthlyIncassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
-                const monthlyUtile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
-                if (monthlyIncassato > 0) {
-                  totalPercentage += (monthlyUtile / monthlyIncassato) * 100;
-                }
-              });
+              // Calculate progressive incidence: (utileCassaSum / totalIncassato) * 100
+              const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
+                acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+              );
+              const totalPercentage = totalIncassato === 0 ? 0 : (utileCassaSum / totalIncassato) * 100;
               
               return (
                 <>

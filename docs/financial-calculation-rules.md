@@ -27,16 +27,16 @@ Dove:
 ## REGOLA AUREA #3: Incidenza Progressiva
 
 **DEFINIZIONE:**
-L'incidenza progressiva misura la percentuale del campo sul valore dello stesso periodo della tipologia INCASSATO.
+L'incidenza progressiva misura la percentuale del campo sul valore totale della tipologia INCASSATO.
 
 **FORMULA:**
 ```
-Incidenza = (ValoreCampo / ValoreTipologia1) * 100
+Incidenza = (ValoreCampo / ValoreTotaleTipologia1) * 100
 ```
 
 **ECCEZIONI:**
 - INCASSATO su INCASSATO = sempre 100%
-- Altri campi = percentuale basata sui valori mensili
+- Altri campi = percentuale basata sui totali annuali
 
 ## REGOLA AUREA #4: Ordine di Calcolo
 
