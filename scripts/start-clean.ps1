@@ -7,13 +7,13 @@ function Stop-ProcessOnPort {
     
     $processes = netstat -ano | Select-String ":$Port"
     foreach ($process in $processes) {
-        $pid = ($process -split '\s+')[-1]
-        if ($pid -match '^\d+$') {
+        $processId = ($process -split '\s+')[-1]
+        if ($processId -match '^\d+$') {
             try {
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-                Write-Host "Terminato processo $pid sulla porta $Port" -ForegroundColor Green
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                Write-Host "Terminato processo $processId sulla porta $Port" -ForegroundColor Green
             } catch {
-                Write-Host "Impossibile terminare processo $pid" -ForegroundColor Red
+                Write-Host "Impossibile terminare processo $processId" -ForegroundColor Red
             }
         }
     }

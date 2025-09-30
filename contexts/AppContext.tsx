@@ -98,6 +98,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
             setLoading(true);
             setError(null);
+            
+            // Initialize default data if needed
+            try {
+              await api.initializeDefaultData();
+            } catch (initError) {
+              console.log('Default data already exists or initialization failed:', initError);
+            }
+            
             const locs = await api.getLocations();
             setLocations(locs);
             

@@ -20,6 +20,7 @@ export interface FinancialCausaleCategory {
 
 export interface FinancialCausaleGroup {
   macroCategory: string;
+  macroId: number; // Unique ID for calculation order (1=INCASSATO, 2=COSTI FISSI, 3=COSTI VARIABILI)
   categories: FinancialCausaleCategory[];
 }
 
@@ -1540,6 +1541,7 @@ export const financialPlanRows = [
 export const financialCausali = [
   {
     "macroCategory": "INCASSATO",
+    "macroId": 1,
     "categories": [
       {
         "name": "Incassato",
@@ -1551,6 +1553,7 @@ export const financialCausali = [
   },
   {
     "macroCategory": "COSTI FISSI",
+    "macroId": 2,
     "categories": [
       {
         "name": "Rete vendita, Amministratori, Immobili",
@@ -1658,6 +1661,7 @@ export const financialCausali = [
   },
   {
     "macroCategory": "COSTI VARIABILI",
+    "macroId": 3,
     "categories": [
       {
         "name": "Fornitori Materiali",

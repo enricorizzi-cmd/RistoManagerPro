@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatCurrencyValue, parseMonthKey, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
+import { calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
 import type { FinancialStatsRow } from '../../data/financialPlanData';
 import type { StatsOverrides } from '../../types';
 
@@ -116,38 +117,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
         const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
         const incassatoPrevisionale = getPlanPreventivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
         
-        // Import UTILE from monthly plan (calculated as incassato - costi fissi - costi variabili)
-        const costiFissi = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-          .reduce((catAcc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const costiVariabili = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-          .reduce((catAcc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const utile = incassato - costiFissi - costiVariabili;
-        
-        const costiFissiPreventivo = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-          .reduce((acc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI FISSI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const costiVariabiliPreventivo = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-          .reduce((acc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI VARIABILI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const utilePrevisionale = incassatoPrevisionale - costiFissiPreventivo - costiVariabiliPreventivo;
+        // Import UTILE from monthly plan (calculated using macro totals in correct order)
+        const utile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+        const utilePrevisionale = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, year, monthIndex);
         
         // Get field values with overrides
         const dataWithKey = { ...data, monthKey };

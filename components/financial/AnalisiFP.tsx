@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatCurrencyValue, parseMonthKey, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
+import { calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
 import type { FinancialStatsRow } from '../../data/financialPlanData';
 import type { StatsOverrides } from '../../types';
 
@@ -104,21 +105,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
         
         // Get plan values
         const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
-        const costiFissi = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-          .reduce((catAcc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const costiVariabili = causaliCatalog
-          .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-          .reduce((catAcc, cat) => {
-            const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-            const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-            return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, year, monthIndex), 0);
-          }, 0) ?? 0;
-        const utile = incassato - costiFissi - costiVariabili;
+        const utile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
 
         const dataWithKey = { ...data, monthKey };
         

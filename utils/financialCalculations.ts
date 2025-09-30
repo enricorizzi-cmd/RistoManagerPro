@@ -179,3 +179,40 @@ export const computeYearMetrics = (
 
   return metrics;
 };
+
+// Calculate utile using macro totals in correct order
+export const calculateUtileFromMacroTotals = (
+  causaliCatalog: FinancialCausaleGroup[],
+  planYear: PlanYearData | undefined,
+  getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  year: number,
+  monthIndex: number
+): number => {
+  // Sort macro categories by macroId to ensure correct calculation order
+  const sortedMacros = [...causaliCatalog].sort((a, b) => a.macroId - b.macroId);
+  
+  let utile = 0;
+  let isFirstMacro = true;
+  
+  sortedMacros.forEach((macro) => {
+    // Calculate total for this macro category
+    const macroTotal = macro.categories.reduce((catAcc, cat) => {
+      const macroData = planYear?.macros.find(m => m.macro === macro.macroCategory);
+      const categoryDetails = macroData?.details?.filter(d => d.category === cat.name) ?? [];
+      return catAcc + categoryDetails.reduce((detailAcc, d) => 
+        detailAcc + getPlanConsuntivoValue(macro.macroCategory, cat.name, d.detail, year, monthIndex), 0
+      );
+    }, 0);
+    
+    if (isFirstMacro) {
+      // First macro (INCASSATO) - start with this value
+      utile = macroTotal;
+      isFirstMacro = false;
+    } else {
+      // Subsequent macros (COSTI FISSI, COSTI VARIABILI) - subtract from utile
+      utile -= macroTotal;
+    }
+  });
+  
+  return utile;
+};

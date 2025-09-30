@@ -33,7 +33,7 @@ interface InserisciDatiProps {
 
 export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
   const { showNotification } = useAppContext();
-  const { setOverride, handleSavePlan, handleSaveMetrics } = useFinancialPlanData();
+  const { setOverride, handleSavePlan, handleSaveMetrics, consuntivoOverrides } = useFinancialPlanData();
   
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());
@@ -43,7 +43,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   const [causale, setCausale] = useState<string>('');
   const [valore, setValore] = useState<string>('0,00');
   
-  // Saved entries
+  // Saved entries - loaded from database
   const [savedEntries, setSavedEntries] = useState<DataEntry[]>([]);
   
   // Metrics section state
@@ -99,6 +99,46 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
     'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
   ];
+
+  // Load existing data from database on component mount
+  useEffect(() => {
+    const loadExistingData = () => {
+      const entries: DataEntry[] = [];
+      
+      // Convert consuntivoOverrides to DataEntry format
+      Object.entries(consuntivoOverrides).forEach(([tipologia, categories]) => {
+        Object.entries(categories).forEach(([categoria, details]) => {
+          Object.entries(details).forEach(([causale, months]) => {
+            Object.entries(months).forEach(([monthKey, value]) => {
+              const parsed = parseMonthKey(monthKey);
+              if (parsed && value !== 0) {
+                entries.push({
+                  id: `${tipologia}-${categoria}-${causale}-${monthKey}`,
+                  dataInserimento: new Date().toISOString(),
+                  mese: parsed.monthIndex,
+                  anno: parsed.year,
+                  tipologiaCausale: tipologia,
+                  categoria: categoria,
+                  causale: causale,
+                  valore: value
+                });
+              }
+            });
+          });
+        });
+      });
+      
+      // Sort by date (newest first)
+      entries.sort((a, b) => {
+        if (a.anno !== b.anno) return b.anno - a.anno;
+        return b.mese - a.mese;
+      });
+      
+      setSavedEntries(entries);
+    };
+
+    loadExistingData();
+  }, [consuntivoOverrides]);
 
   // Format current date for display
   const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm');
@@ -181,22 +221,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     }
 
     try {
-      // Create new entry
-      const newEntry: DataEntry = {
-        id: Date.now().toString(),
-        dataInserimento: currentDate,
-        mese,
-        anno,
-        tipologiaCausale,
-        categoria,
-        causale,
-        valore: numericValue
-      };
-
-      // Add to saved entries
-      setSavedEntries(prev => [newEntry, ...prev]);
-
-      // Update the financial plan data
+      // Update the financial plan data first
       const monthKey = buildMonthKey(anno, mese);
       
       // Use the selected categoria
@@ -228,9 +253,6 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     if (!entry) return;
 
     try {
-      // Remove from saved entries
-      setSavedEntries(prev => prev.filter(e => e.id !== entryId));
-
       // Remove the override (set to null)
       const monthKey = buildMonthKey(entry.anno, entry.mese);
       const category = entry.categoria;
@@ -255,9 +277,6 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     setCategoria(entry.categoria);
     setCausale(entry.causale);
     setValore(formatItalianNumber(entry.valore));
-    
-    // Remove the entry from saved entries (user will save it again)
-    setSavedEntries(prev => prev.filter(e => e.id !== entry.id));
   };
 
   // Handle metrics field change

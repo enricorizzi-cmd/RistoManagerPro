@@ -3,6 +3,7 @@
 
 import React, { useCallback } from 'react';
 import { formatCurrencyValue, MONTH_NAMES, buildMonthKey } from '../../utils/financialPlanUtils';
+import { calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
 import type { PlanYearData } from '../../utils/financialCalculations';
 
@@ -122,10 +123,29 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     );
                   }, 0);
                   
-                  const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                    acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
-                  );
-                  const percentage = totalIncassato === 0 ? 0 : (macroSum / totalIncassato) * 100;
+                  // For INCASSATO, the percentage should always be 100%
+                  // For other categories, calculate percentage based on monthly incassato values
+                  let percentage = 0;
+                  if (group.macroCategory === 'INCASSATO') {
+                    percentage = 100;
+                  } else {
+                    // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
+                    let totalPercentage = 0;
+                    MONTH_NAMES.forEach((_, monthIndex) => {
+                      const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                      const monthlyMacroValue = group.categories.reduce((acc, cat) => {
+                        const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                        const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                        return acc + categoryDetails.reduce((catAcc, d) => 
+                          catAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                        );
+                      }, 0);
+                      if (monthlyIncassato > 0) {
+                        totalPercentage += (monthlyMacroValue / monthlyIncassato) * 100;
+                      }
+                    });
+                    percentage = totalPercentage;
+                  }
                   
                   return (
                     <>
@@ -187,10 +207,18 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                             monthAcc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
                           ), 0
                         );
-                        const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                          acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
-                        );
-                        const percentage = totalIncassato === 0 ? 0 : (categorySum / totalIncassato) * 100;
+                        
+                        // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
+                        let totalPercentage = 0;
+                        MONTH_NAMES.forEach((_, monthIndex) => {
+                          const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                          const monthlyCategoryValue = categoryDetails.reduce((acc, d) => 
+                            acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
+                          );
+                          if (monthlyIncassato > 0) {
+                            totalPercentage += (monthlyCategoryValue / monthlyIncassato) * 100;
+                          }
+                        });
                         
                         return (
                           <>
@@ -198,7 +226,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                               <div className="font-semibold text-gray-800">{formatCurrencyValue(categorySum)}</div>
                             </td>
                             <td className="px-3 py-2 text-right text-sm">
-                              <div className="font-semibold text-gray-800">{percentage.toFixed(1)}%</div>
+                              <div className="font-semibold text-gray-800">{totalPercentage.toFixed(1)}%</div>
                             </td>
                           </>
                         );
@@ -236,10 +264,16 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                             const causaleSum = MONTH_NAMES.reduce((acc, _, monthIndex) => 
                               acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex), 0
                             );
-                            const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                              acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
-                            );
-                            const percentage = totalIncassato === 0 ? 0 : (causaleSum / totalIncassato) * 100;
+                            
+                            // Calculate progressive incidence: sum of (monthly_value / monthly_incassato) for each month
+                            let totalPercentage = 0;
+                            MONTH_NAMES.forEach((_, monthIndex) => {
+                              const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                              const monthlyCausaleValue = getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex);
+                              if (monthlyIncassato > 0) {
+                                totalPercentage += (monthlyCausaleValue / monthlyIncassato) * 100;
+                              }
+                            });
                             
                             return (
                               <>
@@ -247,7 +281,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                                   <div className="text-gray-800">{formatCurrencyValue(causaleSum)}</div>
                                 </td>
                                 <td className="px-3 py-2 text-right text-sm text-gray-700">
-                                  <div className="text-gray-800">{percentage.toFixed(1)}%</div>
+                                  <div className="text-gray-800">{totalPercentage.toFixed(1)}%</div>
                                 </td>
                               </>
                             );
@@ -293,28 +327,18 @@ export const PlanTable: React.FC<PlanTableProps> = ({
             <td className="px-3 py-2 text-sm text-gray-700 sticky left-0 bg-emerald-100 z-10 w-48">Utile di cassa</td>
             {(() => {
               const utileCassaSum = MONTH_NAMES.reduce((acc, _, monthIndex) => {
-                const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
-                const costiFissi = causaliCatalog
-                  .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-                  .reduce((catAcc, cat) => {
-                    const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-                    const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                    return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                  }, 0) ?? 0;
-                const costiVariabili = causaliCatalog
-                  .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-                  .reduce((catAcc, cat) => {
-                    const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-                    const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                    return catAcc + categoryDetails.reduce((detailAcc, d) => detailAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                  }, 0) ?? 0;
-                return acc + (incassato - costiFissi - costiVariabili);
+                return acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
               }, 0);
               
-              const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                acc + getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex), 0
-              );
-              const percentage = totalIncassato === 0 ? 0 : (utileCassaSum / totalIncassato) * 100;
+              // Calculate progressive incidence: sum of (monthly_utile / monthly_incassato) for each month
+              let totalPercentage = 0;
+              MONTH_NAMES.forEach((_, monthIndex) => {
+                const monthlyIncassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
+                const monthlyUtile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
+                if (monthlyIncassato > 0) {
+                  totalPercentage += (monthlyUtile / monthlyIncassato) * 100;
+                }
+              });
               
               return (
                 <>
@@ -322,47 +346,17 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     <div className="font-semibold text-emerald-700">{formatCurrencyValue(utileCassaSum)}</div>
                   </td>
                   <td className="px-3 py-2 text-right text-sm">
-                    <div className="font-semibold text-emerald-700">{percentage.toFixed(1)}%</div>
+                    <div className="font-semibold text-emerald-700">{totalPercentage.toFixed(1)}%</div>
                   </td>
                 </>
               );
             })()}
             {MONTH_NAMES.map((_, monthIndex) => {
-              // Calcolo per PREVENTIVO
-              const incassatoPreventivo = getPlanPreventivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
-              const costiFissiPreventivo = causaliCatalog
-                .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-                .reduce((acc, cat) => {
-                  const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                }, 0) ?? 0;
-              const costiVariabiliPreventivo = causaliCatalog
-                .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-                .reduce((acc, cat) => {
-                  const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanPreventivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                }, 0) ?? 0;
-              const utileCassaPreventivo = incassatoPreventivo - costiFissiPreventivo - costiVariabiliPreventivo;
+              // Calcolo per PREVENTIVO - using the same logic but with preventivo values
+              const utileCassaPreventivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, selectedYear, monthIndex);
 
               // Calcolo per CONSUNTIVO
-              const incassatoConsuntivo = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', selectedYear, monthIndex);
-              const costiFissiConsuntivo = causaliCatalog
-                .find(g => g.macroCategory === 'COSTI FISSI')?.categories
-                .reduce((acc, cat) => {
-                  const macro = planYear?.macros.find(m => m.macro === 'COSTI FISSI');
-                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI FISSI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                }, 0) ?? 0;
-              const costiVariabiliConsuntivo = causaliCatalog
-                .find(g => g.macroCategory === 'COSTI VARIABILI')?.categories
-                .reduce((acc, cat) => {
-                  const macro = planYear?.macros.find(m => m.macro === 'COSTI VARIABILI');
-                  const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
-                  return acc + categoryDetails.reduce((catAcc, d) => catAcc + getPlanConsuntivoValue('COSTI VARIABILI', cat.name, d.detail, selectedYear, monthIndex), 0);
-                }, 0) ?? 0;
-              const utileCassaConsuntivo = incassatoConsuntivo - costiFissiConsuntivo - costiVariabiliConsuntivo;
+              const utileCassaConsuntivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
               
               return (
                 <React.Fragment key={`utile-cassa-${monthIndex}`}>

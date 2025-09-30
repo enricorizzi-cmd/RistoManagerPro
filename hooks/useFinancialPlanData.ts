@@ -119,7 +119,14 @@ export const useFinancialPlanData = () => {
       if (value === null) {
         delete next[macro][category][detail][monthKey];
       } else {
-        next[macro][category][detail][monthKey] = value;
+        // Per i consuntivi, somma i valori invece di sovrascriverli
+        if (target === 'consuntivo') {
+          const existingValue = next[macro][category][detail][monthKey] || 0;
+          next[macro][category][detail][monthKey] = existingValue + value;
+        } else {
+          // Per i preventivi, mantieni il comportamento originale (sovrascrittura)
+          next[macro][category][detail][monthKey] = value;
+        }
       }
       return { ...next };
     });

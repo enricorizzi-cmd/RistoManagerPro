@@ -14,6 +14,32 @@ import {
   type BusinessPlanMessage
 } from '../utils/businessPlanLogic';
 
+// API functions for business plan drafts
+const fetchBusinessPlanDrafts = async (): Promise<BusinessPlanDrafts> => {
+  try {
+    const response = await fetch('http://localhost:4000/api/business-plan-drafts');
+    if (!response.ok) throw new Error('Failed to fetch drafts');
+    return await response.json();
+  } catch (error) {
+    console.warn('Failed to load business plan drafts from database:', error);
+    return {};
+  }
+};
+
+const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft): Promise<void> => {
+  try {
+    const response = await fetch('http://localhost:4000/api/business-plan-drafts', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetYear, data }),
+    });
+    if (!response.ok) throw new Error('Failed to save draft');
+  } catch (error) {
+    console.error('Failed to save business plan draft to database:', error);
+    throw error;
+  }
+};
+
 export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics>) => {
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
@@ -55,27 +81,19 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
     return years.sort((a, b) => a - b);
   }, [yearMetrics]);
 
-  // Load drafts from localStorage
+  // Load drafts from database
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const stored = window.localStorage.getItem('financialPlan.businessPlanDrafts');
-      if (stored) {
-        setBusinessPlanDrafts(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.warn('Failed to load business plan drafts from localStorage:', error);
-    }
+    fetchBusinessPlanDrafts().then(setBusinessPlanDrafts);
   }, []);
 
-  // Save drafts to localStorage
+  // Save drafts to database
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
+    if (Object.keys(businessPlanDrafts).length > 0) {
+      // Save each draft to database
+      Object.entries(businessPlanDrafts).forEach(([targetYear, draft]) => {
+        saveBusinessPlanDraft(parseInt(targetYear), draft).catch(console.error);
+      });
     }
-    window.localStorage.setItem('financialPlan.businessPlanDrafts', JSON.stringify(businessPlanDrafts));
   }, [businessPlanDrafts]);
 
   // Initialize form
@@ -206,15 +224,27 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
       costiVariabiliPrevisionale: parseNumberInput(normalized.costiVariabiliPrevisionale) ?? 0,
       createdAt: new Date().toISOString(),
     };
-    setBusinessPlanDrafts((prev) => ({
-      ...prev,
-      [String(draft.targetYear)]: draft,
-    }));
-    setBusinessPlanForm(normalized);
-    setBusinessPlanMessage({
-      type: 'success',
-      text: `Previsionale ${normalized.targetYear} salvato come bozza.`,
-    });
+    
+    // Save to database
+    saveBusinessPlanDraft(draft.targetYear, draft)
+      .then(() => {
+        setBusinessPlanDrafts((prev) => ({
+          ...prev,
+          [String(draft.targetYear)]: draft,
+        }));
+        setBusinessPlanForm(normalized);
+        setBusinessPlanMessage({
+          type: 'success',
+          text: `Previsionale ${normalized.targetYear} salvato come bozza.`,
+        });
+      })
+      .catch((error) => {
+        setBusinessPlanMessage({
+          type: 'error',
+          text: 'Errore nel salvataggio della bozza.',
+        });
+        console.error('Failed to save business plan draft:', error);
+      });
   }, [businessPlanForm, yearMetrics]);
 
   const handleApplyBusinessPlanToOverrides = useCallback(() => {
