@@ -227,8 +227,18 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                     {formatCurrencyValue(row.fatturatoTotale)}
                   </td>
                 <td className="px-3 py-2 text-right text-sm text-sky-700 bg-gray-50">
-                    {formatCurrencyValue(getRowFieldValue(row, 'fatturatoPrevisionale'))}
-                  </td>
+                  {editMode ? (
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                      value={getRowFieldValue(row, 'fatturatoPrevisionale') ?? ''}
+                      onChange={(e) => handleFieldChange(row.monthKey, 'fatturatoPrevisionale', e.target.value)}
+                    />
+                  ) : (
+                    formatCurrencyValue(getRowFieldValue(row, 'fatturatoPrevisionale'))
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right text-sm text-gray-700 bg-gray-50">
                     {formatCurrencyValue(row.incassato)}
                   </td>

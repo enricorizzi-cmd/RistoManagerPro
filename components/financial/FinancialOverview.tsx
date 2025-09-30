@@ -14,15 +14,18 @@ import {
   Tooltip,
 } from 'recharts';
 import { formatCurrencyValue, MONTH_SHORT, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
+import { calculateUtileFromMacroTotals, getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../../utils/financialCalculations';
 import type { PlanYearData } from '../../utils/financialCalculations';
-import type { FinancialStatsRow } from '../../data/financialPlanData';
+import type { FinancialStatsRow, FinancialCausaleGroup } from '../../data/financialPlanData';
 
 interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
   selectedYear: number;
   availableYears: number[];
-  onYearChange: (year: number) => void;
+  onYearChange: (selectedYear: number) => void;
   financialStatsRows: FinancialStatsRow[];
+  causaliCatalog: FinancialCausaleGroup[];
+  getPlanConsuntivoValue: (macro: string, category: string, detail: string, selectedYear: number, monthIndex: number) => number;
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
@@ -30,7 +33,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   selectedYear,
   availableYears,
   onYearChange,
-  financialStatsRows
+  financialStatsRows,
+  causaliCatalog,
+  getPlanConsuntivoValue
 }) => {
   const overviewTotals = useMemo(() => {
     if (!planYear) {
@@ -41,31 +46,49 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         utile: 0,
       };
     }
-    const incassato =
-      planYear.totals['INCASSATO']?.preventivo.reduce((acc, value) => acc + value, 0) ??
-      0;
-    const costiFissi =
-      planYear.totals['COSTI FISSI']?.preventivo.reduce((acc, value) => acc + value, 0) ??
-      0;
-    const costiVariabili =
-      planYear.totals['COSTI VARIABILI']?.preventivo.reduce((acc, value) => acc + value, 0) ??
-      0;
+    
+    // Estrai dati dal piano mensile usando le funzioni di calcolo
+    const incassato = MONTH_SHORT.reduce((acc, _, monthIndex) => 
+      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    );
+    
+    const costiFissi = MONTH_SHORT.reduce((acc, _, monthIndex) => 
+      acc + getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    );
+    
+    const costiVariabili = MONTH_SHORT.reduce((acc, _, monthIndex) => 
+      acc + getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    );
+    
+    const utile = MONTH_SHORT.reduce((acc, _, monthIndex) => 
+      acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    );
+    
     return {
       incassato,
       costiFissi,
       costiVariabili,
-      utile: incassato - costiFissi - costiVariabili,
+      utile,
     };
-  }, [planYear]);
+  }, [planYear, causaliCatalog, getPlanConsuntivoValue, selectedYear]);
 
   const overviewChartData = useMemo(() => {
     if (!planYear) {
       return [];
     }
-    const incassato = planYear.totals['INCASSATO']?.preventivo ?? new Array(12).fill(0);
-    const costiFissi = planYear.totals['COSTI FISSI']?.preventivo ?? new Array(12).fill(0);
-    const costiVariabili =
-      planYear.totals['COSTI VARIABILI']?.preventivo ?? new Array(12).fill(0);
+    
+    // Estrai dati mensili dal piano mensile usando le funzioni di calcolo
+    const incassato = MONTH_SHORT.map((_, monthIndex) => 
+      getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex)
+    );
+    
+    const costiFissi = MONTH_SHORT.map((_, monthIndex) => 
+      getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex)
+    );
+    
+    const costiVariabili = MONTH_SHORT.map((_, monthIndex) => 
+      getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex)
+    );
 
     // Calcolo del breakeven point
     const currentYear = new Date().getFullYear();
@@ -86,13 +109,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       incassato: incassato[index] ?? 0,
       costiFissi: costiFissi[index] ?? 0,
       costiVariabili: costiVariabili[index] ?? 0,
-      utile:
-        (incassato[index] ?? 0) -
-        (costiFissi[index] ?? 0) -
-        (costiVariabili[index] ?? 0),
+      utile: calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, index),
       breakevenPoint: breakevenPoint,
     }));
-  }, [planYear, selectedYear]);
+  }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue]);
 
   // Calcolo dati grafico fatturato 48 mesi
   const fatturatoChartData = useMemo(() => {
@@ -123,8 +143,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         
         const monthLabel = `${MONTH_SHORT[monthIndex]} ${String(year).slice(-2)}`;
         
-        // Separare dati reali e previsionali
+        // Estrai dati reali dalle statistiche
         const fatturatoReale = statsData?.fatturatoTotale ?? null;
+        
+        // Estrai dati previsionali dalle statistiche
         const fatturatoPrevisionale = statsData?.fatturatoPrevisionale ?? null;
         
         data.push({

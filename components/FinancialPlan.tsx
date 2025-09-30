@@ -350,6 +350,8 @@ const FinancialPlan: React.FC = () => {
           availableYears={availableYears}
           onYearChange={setSelectedYear}
           financialStatsRows={financialStatsRows}
+          causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
+          getPlanConsuntivoValue={getPlanConsuntivoValue}
         />
       )}
 

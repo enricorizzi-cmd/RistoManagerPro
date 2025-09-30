@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatCurrencyValue, parseMonthKey, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
-import { calculateUtileFromMacroTotals, getIncassatoTotal } from '../../utils/financialCalculations';
+import { calculateUtileFromMacroTotals, getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../../utils/financialCalculations';
 import type { FinancialStatsRow } from '../../data/financialPlanData';
 import type { StatsOverrides } from '../../types';
 
@@ -105,6 +105,8 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
         
         // Get plan values (following golden rule #1)
         const incassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+        const costiFissi = getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+        const costiVariabili = getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
         const utile = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
 
         const dataWithKey = { ...data, monthKey };
