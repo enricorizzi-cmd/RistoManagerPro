@@ -33,7 +33,7 @@ interface InserisciDatiProps {
 
 export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
   const { showNotification } = useAppContext();
-  const { setOverride, handleSavePlan } = useFinancialPlanData();
+  const { setOverride, handleSavePlan, handleSaveMetrics } = useFinancialPlanData();
   
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());
@@ -268,25 +268,47 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   };
 
   // Save metrics
-  const handleSaveMetrics = () => {
-    // TODO: Implement metrics saving logic
-    showNotification('Indicatori salvati con successo.', 'success');
+  const handleSaveMetricsLocal = async () => {
+    try {
+      // Create metrics entry
+      const metricsEntry = {
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        year: anno,
+        month: mese + 1, // Convert to 1-based month
+        values: metrics.reduce((acc, metric) => {
+          const numericValue = parseItalianNumber(metric.value);
+          acc[metric.id] = numericValue;
+          return acc;
+        }, {} as Record<string, number>)
+      };
+
+      // Save to database
+      await handleSaveMetrics(metricsEntry);
+      showNotification('Indicatori salvati con successo.', 'success');
+      
+      // Reset metrics form
+      setMetrics(prev => prev.map(metric => ({ ...metric, value: '' })));
+    } catch (error) {
+      console.error('Error saving metrics:', error);
+      showNotification('Errore nel salvataggio degli indicatori.', 'error');
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Inserisci metriche mensili section */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+        <div 
+          className="flex items-center justify-between mb-4 cursor-pointer"
+          onClick={() => setMetricsExpanded(!metricsExpanded)}
+        >
           <h2 className="text-lg font-semibold text-gray-900">Inserisci metriche mensili</h2>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500">Prossimo mese proposto: {monthNames[mese].toLowerCase()} {anno}</span>
-            <button
-              onClick={() => setMetricsExpanded(!metricsExpanded)}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
+            <span className="text-sm text-gray-500 hover:text-gray-700">
               {metricsExpanded ? 'Nascondi' : 'Mostra'}
-            </button>
+            </span>
           </div>
         </div>
         
@@ -313,7 +335,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
             </div>
             <div className="flex justify-end">
               <button
-                onClick={handleSaveMetrics}
+                onClick={handleSaveMetricsLocal}
                 className="bg-primary text-white px-6 py-2 rounded text-sm font-medium hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 Salva indicatori

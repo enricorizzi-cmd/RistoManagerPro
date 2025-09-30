@@ -16,6 +16,7 @@ export const useFinancialPlanData = () => {
   const [loadingState, setLoadingState] = useState<boolean>(false);
   const [savingState, setSavingState] = useState<boolean>(false);
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
+  const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>([]);
 
   const basePlanByYear = useMemo(() => {
     const source = causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any;
@@ -38,6 +39,7 @@ export const useFinancialPlanData = () => {
       setPlanOverrides(payload.preventivoOverrides ?? {});
       setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
       setStatsOverrides(payload.statsOverrides ?? {});
+      setMonthlyMetrics(payload.monthlyMetrics ?? []);
       setCausaliCatalog(
         payload.causaliCatalog && payload.causaliCatalog.length > 0
           ? (payload.causaliCatalog as FinancialCausaleGroup[])
@@ -158,7 +160,7 @@ export const useFinancialPlanData = () => {
         preventivoOverrides: planOverrides,
         consuntivoOverrides: consuntivoOverrides,
         manualLog: [...buildAudit('preventivo'), ...buildAudit('consuntivo')],
-        monthlyMetrics: [],
+        monthlyMetrics: monthlyMetrics,
         statsOverrides,
         causaliCatalog: causaliCatalog,
         causaliVersion: null,
@@ -168,7 +170,7 @@ export const useFinancialPlanData = () => {
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics]);
 
   const handleCancelPlan = useCallback(async () => {
     setLoadingState(true);
@@ -178,6 +180,7 @@ export const useFinancialPlanData = () => {
         setPlanOverrides(payload.preventivoOverrides ?? {});
         setConsuntivoOverrides((payload as FinancialPlanStatePayload | null)?.consuntivoOverrides ?? {});
         setStatsOverrides(payload.statsOverrides ?? {});
+        setMonthlyMetrics(payload.monthlyMetrics ?? []);
         setCausaliCatalog(
           payload && payload.causaliCatalog && payload.causaliCatalog.length > 0
             ? (payload.causaliCatalog as FinancialCausaleGroup[])
@@ -200,7 +203,7 @@ export const useFinancialPlanData = () => {
         preventivoOverrides: planOverrides,
         consuntivoOverrides: consuntivoOverrides,
         manualLog: [],
-        monthlyMetrics: [],
+        monthlyMetrics: monthlyMetrics,
         statsOverrides,
         causaliCatalog: next,
         causaliVersion: String(Date.now()),
@@ -211,7 +214,28 @@ export const useFinancialPlanData = () => {
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, monthlyMetrics]);
+
+  const handleSaveMetrics = useCallback(async (metricsData: any) => {
+    setSavingState(true);
+    try {
+      const updatedMetrics = [...monthlyMetrics, metricsData];
+      const payload: FinancialPlanStatePayload = {
+        preventivoOverrides: planOverrides,
+        consuntivoOverrides: consuntivoOverrides,
+        manualLog: [],
+        monthlyMetrics: updatedMetrics,
+        statsOverrides,
+        causaliCatalog: causaliCatalog,
+        causaliVersion: null,
+      };
+      await persistFinancialPlanState(payload);
+      setMonthlyMetrics(updatedMetrics);
+      return true;
+    } finally {
+      setSavingState(false);
+    }
+  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics]);
 
   return {
     // State
@@ -221,6 +245,7 @@ export const useFinancialPlanData = () => {
     loadingState,
     savingState,
     causaliCatalog,
+    monthlyMetrics,
     basePlanByYear,
     yearMetrics,
     
@@ -230,6 +255,7 @@ export const useFinancialPlanData = () => {
     handleSavePlan,
     handleCancelPlan,
     handleCausaliPersist,
+    handleSaveMetrics,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
   };
