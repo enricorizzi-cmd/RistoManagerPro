@@ -125,6 +125,15 @@ const initializeDatabase = (db) => {
       FOREIGN KEY (reservation_id) REFERENCES reservations(id)
     )`);
 
+    // Business Plan Drafts Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS business_plan_drafts (
+      id TEXT PRIMARY KEY,
+      target_year INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
     // Customers Table (per company)
     db.run(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
@@ -154,6 +163,11 @@ masterDb.serialize(() => {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
+  
+  // Add status column if it doesn't exist (for existing databases)
+  masterDb.run(`ALTER TABLE locations ADD COLUMN status TEXT DEFAULT 'active'`, (err) => {
+    // Ignore error if column already exists
+  });
 
   // Users table
   masterDb.run(`CREATE TABLE IF NOT EXISTS users (
@@ -785,7 +799,19 @@ app.get('/api/sales/:locationId', async (req, res) => {
 // Business Plan Drafts API
 app.get('/api/business-plan-drafts', async (req, res) => {
   try {
-    const drafts = await dbQuery('SELECT * FROM business_plan_drafts ORDER BY target_year');
+    const locationId = req.query.locationId;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    const db = getDatabase(locationId);
+    const drafts = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM business_plan_drafts ORDER BY target_year', (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
     const draftsMap = {};
     drafts.forEach(draft => {
       draftsMap[draft.target_year] = JSON.parse(draft.data);
@@ -799,14 +825,25 @@ app.get('/api/business-plan-drafts', async (req, res) => {
 
 app.put('/api/business-plan-drafts', async (req, res) => {
   try {
-    const { targetYear, data } = req.body;
+    const { targetYear, data, locationId } = req.body;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
     const now = new Date().toISOString();
     const id = `draft-${targetYear}`;
     
-    await dbRun(
-      'INSERT INTO business_plan_drafts (id, target_year, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
-      [id, targetYear, JSON.stringify(data), now, now]
-    );
+    const db = getDatabase(locationId);
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO business_plan_drafts (id, target_year, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
+        [id, targetYear, JSON.stringify(data), now, now],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
     
     res.json({ success: true });
   } catch (error) {
