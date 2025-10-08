@@ -771,9 +771,10 @@ app.delete('/api/waitlist/:id', async (req, res) => {
 });
 
 // Menu Items API
-app.get('/api/menu-items', async (req, res) => {
+app.get('/api/menu-items/:locationId', async (req, res) => {
   try {
-    const menuItems = await dbQuery('SELECT * FROM menu_items ORDER BY category, name');
+    const { locationId } = req.params;
+    const menuItems = await dbQuery(locationId, 'SELECT * FROM menu_items ORDER BY category, name');
     res.json(menuItems);
   } catch (error) {
     console.error('Failed to get menu items', error);
@@ -858,19 +859,19 @@ app.post('/api/init-default-data', async (req, res) => {
     const now = new Date().toISOString();
     
     // Check if data already exists
-    const existingLocations = await dbQuery('SELECT COUNT(*) as count FROM locations');
+    const existingLocations = await masterDbQuery('SELECT COUNT(*) as count FROM locations');
     if (existingLocations[0].count > 0) {
       res.json({ message: 'Default data already exists' });
       return;
     }
     
     // Insert default locations
-    await dbRun(
+    await masterDbRun(
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['loc-1', 'Trattoria del Ponte', 50, '18:00', '23:00', now, now]
     );
     
-    await dbRun(
+    await masterDbRun(
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['loc-2', 'Pizzeria al Forno', 80, '19:00', '24:00', now, now]
     );
@@ -890,11 +891,15 @@ app.post('/api/init-default-data', async (req, res) => {
       { id: 'm11', name: 'Acqua Minerale', category: 'Bevanda', price: 3, cost: 0.5 },
     ];
     
-    for (const item of menuItems) {
-      await dbRun(
-        'INSERT INTO menu_items (id, name, category, price, cost, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [item.id, item.name, item.category, item.price, item.cost, now, now]
-      );
+    // Get all locations and insert menu items for each
+    const locations = await masterDbQuery('SELECT id FROM locations');
+    for (const location of locations) {
+      for (const item of menuItems) {
+        await dbRun(location.id,
+          'INSERT INTO menu_items (id, name, category, price, cost, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [item.id, item.name, item.category, item.price, item.cost, now, now]
+        );
+      }
     }
     
     res.json({ success: true, message: 'Default data initialized' });
