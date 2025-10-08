@@ -19,7 +19,7 @@ import { calculateAverageMonthlyRatios, distributeAnnualValueToMonths } from '..
 import type { TabKey } from '../types';
 
 const FinancialPlan: React.FC = () => {
-  const { showNotification } = useAppContext();
+  const { showNotification, currentLocation } = useAppContext();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
@@ -46,7 +46,7 @@ const FinancialPlan: React.FC = () => {
     handleCausaliPersist,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
-  } = useFinancialPlanData();
+  } = useFinancialPlanData(currentLocation?.id);
 
   const {
     businessPlanDrafts,

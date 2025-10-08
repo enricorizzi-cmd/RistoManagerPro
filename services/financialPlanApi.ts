@@ -47,9 +47,9 @@ function buildUrl(path: string): string {
   return `${API_BASE_URL.replace(/\/$/, '')}${trimmed}`;
 }
 
-export async function fetchFinancialPlanState(): Promise<FinancialPlanStatePayload | null> {
+export async function fetchFinancialPlanState(locationId: string): Promise<FinancialPlanStatePayload | null> {
   try {
-    const response = await fetch(buildUrl('/api/financial-plan/state'));
+    const response = await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`));
     if (!response.ok) {
       console.warn('Unable to fetch financial plan state, status', response.status);
       return null;
@@ -62,9 +62,9 @@ export async function fetchFinancialPlanState(): Promise<FinancialPlanStatePaylo
   }
 }
 
-export async function persistFinancialPlanState(state: FinancialPlanStatePayload): Promise<void> {
+export async function persistFinancialPlanState(state: FinancialPlanStatePayload, locationId: string): Promise<void> {
   try {
-    await fetch(buildUrl('/api/financial-plan/state'), {
+    await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

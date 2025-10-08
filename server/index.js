@@ -3,125 +3,242 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
-const DATABASE_FILE = process.env.DATABASE_FILE || path.join(__dirname, 'data', 'ristomanager.db');
-const DEFAULT_STATE_ID = 'financial-plan-global';
+const DATABASE_DIR = process.env.DATABASE_DIR || path.join(__dirname, 'data');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
-fs.mkdirSync(path.dirname(DATABASE_FILE), { recursive: true });
+// Ensure database directory exists
+fs.mkdirSync(DATABASE_DIR, { recursive: true });
 
-const db = new sqlite3.Database(DATABASE_FILE);
+// Database connection manager for multi-company support
+const dbConnections = new Map();
 
-db.serialize(() => {
-  // Financial Plan State Table
-  db.run(`CREATE TABLE IF NOT EXISTS financial_plan_state (
-    id TEXT PRIMARY KEY,
-    data TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
+const getDatabase = (locationId) => {
+  if (!dbConnections.has(locationId)) {
+    const dbFile = path.join(DATABASE_DIR, `ristomanager_${locationId}.db`);
+    const db = new sqlite3.Database(dbFile);
+    
+    // Initialize tables for this company
+    initializeDatabase(db);
+    dbConnections.set(locationId, db);
+  }
+  return dbConnections.get(locationId);
+};
 
-  // Locations Table
-  db.run(`CREATE TABLE IF NOT EXISTS locations (
+const initializeDatabase = (db) => {
+  db.serialize(() => {
+    // Financial Plan State Table (now per company)
+    db.run(`CREATE TABLE IF NOT EXISTS financial_plan_state (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    // Locations Table (master locations - shared)
+    db.run(`CREATE TABLE IF NOT EXISTS locations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      capacity INTEGER NOT NULL,
+      open_time TEXT NOT NULL,
+      close_time TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    // Reservations Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS reservations (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      guest_name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      reservation_time TEXT NOT NULL,
+      status TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      notes TEXT,
+      table_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (location_id) REFERENCES locations(id),
+      FOREIGN KEY (table_id) REFERENCES tables(id)
+    )`);
+
+    // Tables Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS tables (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      capacity INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      shape TEXT NOT NULL,
+      x REAL NOT NULL,
+      y REAL NOT NULL,
+      width REAL NOT NULL,
+      height REAL NOT NULL,
+      reservation_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (location_id) REFERENCES locations(id),
+      FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+    )`);
+
+    // Waitlist Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS waitlist (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      guest_name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      phone TEXT,
+      quoted_wait_time INTEGER,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (location_id) REFERENCES locations(id)
+    )`);
+
+    // Menu Items Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS menu_items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      price REAL NOT NULL,
+      cost REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    // Sales Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS sales (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      table_id TEXT,
+      reservation_id TEXT,
+      items TEXT NOT NULL,
+      total_amount REAL NOT NULL,
+      payment_method TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (location_id) REFERENCES locations(id),
+      FOREIGN KEY (table_id) REFERENCES tables(id),
+      FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+    )`);
+
+    // Customers Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS customers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      total_visits INTEGER DEFAULT 0,
+      total_spent REAL DEFAULT 0,
+      last_visit TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+  });
+};
+
+// Initialize master database for locations, users, and auth (shared across companies)
+const masterDb = new sqlite3.Database(path.join(DATABASE_DIR, 'master.db'));
+masterDb.serialize(() => {
+  // Locations table
+  masterDb.run(`CREATE TABLE IF NOT EXISTS locations (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     capacity INTEGER NOT NULL,
     open_time TEXT NOT NULL,
     close_time TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
 
-  // Reservations Table
-  db.run(`CREATE TABLE IF NOT EXISTS reservations (
+  // Users table
+  masterDb.run(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    guest_name TEXT NOT NULL,
-    party_size INTEGER NOT NULL,
-    reservation_time TEXT NOT NULL,
-    status TEXT NOT NULL,
-    phone TEXT,
-    email TEXT,
-    notes TEXT,
-    table_id TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    FOREIGN KEY (table_id) REFERENCES tables(id)
-  )`);
-
-  // Tables Table
-  db.run(`CREATE TABLE IF NOT EXISTS tables (
-    id TEXT PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    capacity INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    shape TEXT NOT NULL,
-    x REAL NOT NULL,
-    y REAL NOT NULL,
-    width REAL NOT NULL,
-    height REAL NOT NULL,
-    reservation_id TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    FOREIGN KEY (reservation_id) REFERENCES reservations(id)
-  )`);
-
-  // Waitlist Table
-  db.run(`CREATE TABLE IF NOT EXISTS waitlist (
-    id TEXT PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    guest_name TEXT NOT NULL,
-    party_size INTEGER NOT NULL,
-    phone TEXT,
-    quoted_wait_time INTEGER,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(id)
-  )`);
-
-  // Menu Items Table
-  db.run(`CREATE TABLE IF NOT EXISTS menu_items (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    price REAL NOT NULL,
-    cost REAL NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    is_active INTEGER DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
 
-  // Sales Table
-  db.run(`CREATE TABLE IF NOT EXISTS sales (
+  // User sessions table
+  masterDb.run(`CREATE TABLE IF NOT EXISTS user_sessions (
     id TEXT PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    reservation_id TEXT,
-    items TEXT NOT NULL,
-    total REAL NOT NULL,
+    user_id TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
     created_at TEXT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+    expires_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
   )`);
 
-  // Business Plan Drafts Table
-  db.run(`CREATE TABLE IF NOT EXISTS business_plan_drafts (
+  // User location permissions table
+  masterDb.run(`CREATE TABLE IF NOT EXISTS user_location_permissions (
     id TEXT PRIMARY KEY,
-    target_year INTEGER NOT NULL,
-    data TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    location_id TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (location_id) REFERENCES locations(id),
+    UNIQUE(user_id, location_id)
   )`);
 });
 
-function getState() {
+// Initialize default database for backward compatibility
+const defaultDb = getDatabase('default');
+
+// Authentication utilities
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Middleware to check authentication
+function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  masterDb.get(
+    'SELECT u.*, s.id as session_id FROM users u JOIN user_sessions s ON u.id = s.user_id WHERE s.token = ? AND u.is_active = 1',
+    [token],
+    (err, user) => {
+      if (err || !user) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+      req.user = user;
+      next();
+    }
+  );
+}
+
+// Middleware to check admin role
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+// Multi-company state management
+function getState(locationId) {
   return new Promise((resolve, reject) => {
+    const db = getDatabase(locationId);
+    const stateId = `financial-plan-${locationId}`;
     db.get(
       'SELECT data FROM financial_plan_state WHERE id = ?',
-      [DEFAULT_STATE_ID],
+      [stateId],
       (err, row) => {
         if (err) {
           reject(err);
@@ -142,15 +259,17 @@ function getState() {
   });
 }
 
-function saveState(payload) {
+function saveState(payload, locationId) {
   return new Promise((resolve, reject) => {
+    const db = getDatabase(locationId);
     const now = new Date().toISOString();
     const data = JSON.stringify(payload);
+    const stateId = `financial-plan-${locationId}`;
     db.run(
       `INSERT INTO financial_plan_state (id, data, updated_at)
        VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-      [DEFAULT_STATE_ID, data, now],
+      [stateId, data, now],
       (err) => {
         if (err) {
           reject(err);
@@ -204,9 +323,10 @@ function buildPayload(body) {
   return payload;
 }
 
-// Database helper functions
-function dbQuery(sql, params = []) {
+// Multi-company database helper functions
+function dbQuery(locationId, sql, params = []) {
   return new Promise((resolve, reject) => {
+    const db = getDatabase(locationId);
     db.all(sql, params, (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
@@ -214,8 +334,9 @@ function dbQuery(sql, params = []) {
   });
 }
 
-function dbGet(sql, params = []) {
+function dbGet(locationId, sql, params = []) {
   return new Promise((resolve, reject) => {
+    const db = getDatabase(locationId);
     db.get(sql, params, (err, row) => {
       if (err) reject(err);
       else resolve(row);
@@ -223,9 +344,38 @@ function dbGet(sql, params = []) {
   });
 }
 
-function dbRun(sql, params = []) {
+function dbRun(locationId, sql, params = []) {
   return new Promise((resolve, reject) => {
+    const db = getDatabase(locationId);
     db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve({ id: this.lastID, changes: this.changes });
+    });
+  });
+}
+
+// Master database functions (for locations)
+function masterDbQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    masterDb.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+
+function masterDbGet(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    masterDb.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+function masterDbRun(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    masterDb.run(sql, params, function(err) {
       if (err) reject(err);
       else resolve({ id: this.lastID, changes: this.changes });
     });
@@ -236,9 +386,136 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Authentication API
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+    
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await masterDbGet('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Check if this is the first user (make them admin)
+    const userCount = await masterDbQuery('SELECT COUNT(*) as count FROM users');
+    const isFirstUser = userCount[0].count === 0;
+    const role = isFirstUser ? 'admin' : 'user';
+
+    const userId = crypto.randomUUID();
+    const passwordHash = hashPassword(password);
+    const now = new Date().toISOString();
+
+    // Create user
+    await masterDbRun(
+      'INSERT INTO users (id, first_name, last_name, email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, firstName, lastName, email, passwordHash, role, now, now]
+    );
+
+    // Create session
+    const token = generateToken();
+    const sessionId = crypto.randomUUID();
+    await masterDbRun(
+      'INSERT INTO user_sessions (id, user_id, token, created_at) VALUES (?, ?, ?, ?)',
+      [sessionId, userId, token, now]
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: userId,
+        firstName,
+        lastName,
+        email,
+        role
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const passwordHash = hashPassword(password);
+    const user = await masterDbGet(
+      'SELECT id, first_name, last_name, email, role FROM users WHERE email = ? AND password_hash = ? AND is_active = 1',
+      [email, passwordHash]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Create new session
+    const token = generateToken();
+    const sessionId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
+    await masterDbRun(
+      'INSERT INTO user_sessions (id, user_id, token, created_at) VALUES (?, ?, ?, ?)',
+      [sessionId, user.id, token, now]
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+  try {
+    await masterDbRun('DELETE FROM user_sessions WHERE token = ?', [req.headers.authorization?.replace('Bearer ', '')]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.id,
+      firstName: req.user.first_name,
+      lastName: req.user.last_name,
+      email: req.user.email,
+      role: req.user.role
+    }
+  });
+});
+
 app.get('/api/financial-plan/state', async (req, res) => {
   try {
-    const state = await getState();
+    const locationId = req.query.locationId || req.headers['x-location-id'];
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    const state = await getState(locationId);
     if (!state) {
       res.json({
         preventivoOverrides: {},
@@ -260,8 +537,13 @@ app.get('/api/financial-plan/state', async (req, res) => {
 
 app.put('/api/financial-plan/state', async (req, res) => {
   try {
+    const locationId = req.query.locationId || req.headers['x-location-id'];
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
     const payload = buildPayload(req.body);
-    const updatedAt = await saveState(payload);
+    const updatedAt = await saveState(payload, locationId);
     res.json({ success: true, updatedAt });
   } catch (error) {
     console.error('Failed to save financial plan state', error);
@@ -269,14 +551,32 @@ app.put('/api/financial-plan/state', async (req, res) => {
   }
 });
 
-// Locations API
+// Locations API (Master database - shared across companies)
 app.get('/api/locations', async (req, res) => {
   try {
-    const locations = await dbQuery('SELECT * FROM locations ORDER BY name');
+    const locations = await masterDbQuery('SELECT * FROM locations ORDER BY name');
     res.json(locations);
   } catch (error) {
     console.error('Failed to get locations', error);
     res.status(500).json({ error: 'Failed to get locations' });
+  }
+});
+
+app.post('/api/locations', async (req, res) => {
+  try {
+    const { id, name, capacity, openTime, closeTime } = req.body;
+    const now = new Date().toISOString();
+    
+    await masterDbRun(
+      'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, name, capacity, openTime, closeTime, now, now]
+    );
+    
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
+    res.json(location);
+  } catch (error) {
+    console.error('Failed to create location', error);
+    res.status(500).json({ error: 'Failed to create location' });
   }
 });
 
@@ -286,12 +586,12 @@ app.put('/api/locations/:id', async (req, res) => {
     const { name, capacity, openTime, closeTime } = req.body;
     const now = new Date().toISOString();
     
-    await dbRun(
+    await masterDbRun(
       'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, updated_at = ? WHERE id = ?',
       [name, capacity, openTime, closeTime, now, id]
     );
     
-    const location = await dbGet('SELECT * FROM locations WHERE id = ?', [id]);
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
     res.json(location);
   } catch (error) {
     console.error('Failed to update location', error);
@@ -299,11 +599,11 @@ app.put('/api/locations/:id', async (req, res) => {
   }
 });
 
-// Reservations API
+// Reservations API (per company)
 app.get('/api/reservations/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const reservations = await dbQuery(
+    const reservations = await dbQuery(locationId,
       'SELECT * FROM reservations WHERE location_id = ? ORDER BY reservation_time',
       [locationId]
     );
@@ -320,12 +620,12 @@ app.post('/api/reservations', async (req, res) => {
     const id = Math.random().toString(36).substr(2, 9);
     const now = new Date().toISOString();
     
-    await dbRun(
+    await dbRun(locationId,
       'INSERT INTO reservations (id, location_id, guest_name, party_size, reservation_time, status, phone, email, notes, table_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, locationId, guestName, partySize, reservationTime, 'confirmed', phone, email, notes, tableId, now, now]
     );
     
-    const reservation = await dbGet('SELECT * FROM reservations WHERE id = ?', [id]);
+    const reservation = await dbGet(locationId, 'SELECT * FROM reservations WHERE id = ?', [id]);
     res.json(reservation);
   } catch (error) {
     console.error('Failed to create reservation', error);
@@ -336,15 +636,15 @@ app.post('/api/reservations', async (req, res) => {
 app.put('/api/reservations/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, locationId } = req.body;
     const now = new Date().toISOString();
     
-    await dbRun(
+    await dbRun(locationId,
       'UPDATE reservations SET status = ?, updated_at = ? WHERE id = ?',
       [status, now, id]
     );
     
-    const reservation = await dbGet('SELECT * FROM reservations WHERE id = ?', [id]);
+    const reservation = await dbGet(locationId, 'SELECT * FROM reservations WHERE id = ?', [id]);
     res.json(reservation);
   } catch (error) {
     console.error('Failed to update reservation status', error);
@@ -567,8 +867,164 @@ app.post('/api/init-default-data', async (req, res) => {
   }
 });
 
+// User Management API (Admin only)
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await masterDbQuery(`
+      SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.is_active, u.created_at,
+             GROUP_CONCAT(ulp.location_id) as location_ids
+      FROM users u
+      LEFT JOIN user_location_permissions ulp ON u.id = ulp.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    
+    const formattedUsers = users.map(user => ({
+      ...user,
+      locationIds: user.location_ids ? user.location_ids.split(',') : []
+    }));
+    
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error('Failed to get users', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+app.put('/api/users/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { locationIds } = req.body;
+    
+    // Remove existing permissions
+    await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
+    
+    // Add new permissions
+    const now = new Date().toISOString();
+    for (const locationId of locationIds) {
+      const permissionId = crypto.randomUUID();
+      await masterDbRun(
+        'INSERT INTO user_location_permissions (id, user_id, location_id, created_at) VALUES (?, ?, ?, ?)',
+        [permissionId, id, locationId, now]
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update user permissions', error);
+    res.status(500).json({ error: 'Failed to update user permissions' });
+  }
+});
+
+app.put('/api/users/:id/status', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    
+    await masterDbRun('UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?', 
+      [isActive ? 1 : 0, new Date().toISOString(), id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update user status', error);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// Settings API (Admin only)
+app.get('/api/settings/locations', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const locations = await masterDbQuery('SELECT * FROM locations ORDER BY name');
+    res.json(locations);
+  } catch (error) {
+    console.error('Failed to get locations for settings', error);
+    res.status(500).json({ error: 'Failed to get locations' });
+  }
+});
+
+app.post('/api/settings/locations', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, capacity, openTime, closeTime } = req.body;
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
+    await masterDbRun(
+      'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, capacity, openTime, closeTime, 'active', now, now]
+    );
+    
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
+    res.json(location);
+  } catch (error) {
+    console.error('Failed to create location', error);
+    res.status(500).json({ error: 'Failed to create location' });
+  }
+});
+
+app.put('/api/settings/locations/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, capacity, openTime, closeTime, status } = req.body;
+    const now = new Date().toISOString();
+    
+    await masterDbRun(
+      'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, status = ?, updated_at = ? WHERE id = ?',
+      [name, capacity, openTime, closeTime, status, now, id]
+    );
+    
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
+    res.json(location);
+  } catch (error) {
+    console.error('Failed to update location', error);
+    res.status(500).json({ error: 'Failed to update location' });
+  }
+});
+
+app.delete('/api/settings/locations/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Delete user permissions for this location
+    await masterDbRun('DELETE FROM user_location_permissions WHERE location_id = ?', [id]);
+    
+    // Delete location
+    await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete location', error);
+    res.status(500).json({ error: 'Failed to delete location' });
+  }
+});
+
+// Get user's accessible locations
+app.get('/api/user/locations', requireAuth, async (req, res) => {
+  try {
+    let locations;
+    
+    if (req.user.role === 'admin') {
+      // Admin can see all active locations
+      locations = await masterDbQuery('SELECT * FROM locations WHERE status = "active" ORDER BY name');
+    } else {
+      // Regular users can only see locations they have permission for
+      locations = await masterDbQuery(`
+        SELECT l.* FROM locations l
+        JOIN user_location_permissions ulp ON l.id = ulp.location_id
+        WHERE ulp.user_id = ? AND l.status = 'active'
+        ORDER BY l.name
+      `, [req.user.id]);
+    }
+    
+    res.json(locations);
+  } catch (error) {
+    console.error('Failed to get user locations', error);
+    res.status(500).json({ error: 'Failed to get locations' });
+  }
+});
+
 process.on('SIGINT', () => {
-  db.close();
+  masterDb.close();
+  dbConnections.forEach(db => db.close());
   process.exit(0);
 });
 

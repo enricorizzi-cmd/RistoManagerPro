@@ -2,6 +2,7 @@
 import React from 'react';
 import { UsersIcon, ChartBarIcon, CogIcon, CalendarIcon, MapIcon, IdentificationIcon, CashIcon, ChevronLeftIcon, ChevronRightIcon } from './icons/Icons';
 import { useAppContext } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   currentPage: string;
@@ -26,6 +27,7 @@ const NavLink: React.FC<{ href: string; icon: React.ReactNode; label: string; is
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
   const { sidebarCollapsed, toggleSidebar } = useAppContext();
+  const { user, logout } = useAuth();
 
   return (
     <aside className={`hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
@@ -88,6 +90,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
           isActive={currentPage === 'financial-plan'}
           collapsed={sidebarCollapsed}
         />
+        {user?.role === 'admin' && (
+          <NavLink
+            href="#users"
+            icon={<UsersIcon className="h-6 w-6" />}
+            label="Utenti"
+            isActive={currentPage === 'users'}
+            collapsed={sidebarCollapsed}
+          />
+        )}
         <NavLink
           href="#settings"
           icon={<CogIcon className="h-6 w-6" />}
@@ -96,6 +107,31 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
           collapsed={sidebarCollapsed}
         />
       </nav>
+      
+      {/* User info and logout */}
+      <div className={`border-t border-gray-200 p-4 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
+        {!sidebarCollapsed && (
+          <div className="mb-3">
+            <div className="text-sm font-medium text-gray-900">
+              {user?.firstName} {user?.lastName}
+            </div>
+            <div className="text-xs text-gray-500">{user?.email}</div>
+            <div className="text-xs text-gray-400 capitalize">{user?.role}</div>
+          </div>
+        )}
+        <button
+          onClick={logout}
+          className={`w-full flex items-center py-2 px-3 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-800 rounded-lg transition-colors duration-200 ${
+            sidebarCollapsed ? 'justify-center' : ''
+          }`}
+          title={sidebarCollapsed ? 'Logout' : undefined}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          {!sidebarCollapsed && <span className="ml-3">Logout</span>}
+        </button>
+      </div>
     </aside>
   );
 };

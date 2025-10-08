@@ -49,7 +49,7 @@ const normalizeCausaliCatalog = (catalog: FinancialCausaleGroup[]): FinancialCau
   });
 };
 
-export const useFinancialPlanData = () => {
+export const useFinancialPlanData = (locationId?: string) => {
   const [planOverrides, setPlanOverrides] = useState<PlanOverrides>({});
   const [consuntivoOverrides, setConsuntivoOverrides] = useState<PlanOverrides>({});
   const [statsOverrides, setStatsOverrides] = useState<StatsOverrides>({});
@@ -69,9 +69,11 @@ export const useFinancialPlanData = () => {
   );
 
   useEffect(() => {
+    if (!locationId) return;
+    
     let mounted = true;
     setLoadingState(true);
-    fetchFinancialPlanState().then((payload) => {
+    fetchFinancialPlanState(locationId).then((payload) => {
       if (!mounted || !payload) {
         setLoadingState(false);
         return;
@@ -84,7 +86,7 @@ export const useFinancialPlanData = () => {
       setLoadingState(false);
     }).catch(() => setLoadingState(false));
     return () => { mounted = false; };
-  }, []);
+  }, [locationId]);
 
   const getPlanPreventivoValue = useCallback(
     (
@@ -169,6 +171,8 @@ export const useFinancialPlanData = () => {
   }, []);
 
   const handleSavePlan = useCallback(async (selectedYear: number, dirtyKeys: Set<string>) => {
+    if (!locationId) return false;
+    
     setSavingState(true);
     try {
       // Build audit log entries for changed overrides in the selected year only
@@ -208,12 +212,12 @@ export const useFinancialPlanData = () => {
         causaliCatalog: causaliCatalog,
         causaliVersion: null,
       };
-      await persistFinancialPlanState(payload);
+      await persistFinancialPlanState(payload, locationId);
       return true;
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics, locationId]);
 
   const handleCancelPlan = useCallback(async () => {
     setLoadingState(true);

@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Reservation, ReservationStatus, RestaurantLocation, KPIs, AppContextType, WaitlistEntry, AppNotification, NotificationType, MenuItem, Sale, Table, TableStatus, Customer } from '../types';
 import * as api from '../services/apiService';
+import { useAuth } from './AuthContext';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { token } = useAuth();
   const [locations, setLocations] = useState<RestaurantLocation[]>([]);
   const [currentLocation, setInternalCurrentLocation] = useState<RestaurantLocation | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -95,18 +97,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   useEffect(() => {
     const initializeApp = async () => {
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        
         try {
             setLoading(true);
             setError(null);
             
-            // Initialize default data if needed
-            try {
-              await api.initializeDefaultData();
-            } catch (initError) {
-              console.log('Default data already exists or initialization failed:', initError);
+            // Get user's accessible locations
+            const response = await fetch('http://localhost:4000/api/user/locations', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to fetch user locations');
             }
             
-            const locs = await api.getLocations();
+            const locs = await response.json();
             setLocations(locs);
             
             if (locs.length > 0) {
@@ -136,7 +147,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
     initializeApp();
-  }, [calculateKPIs]);
+  }, [calculateKPIs, token]);
 
 
   const addReservation = async (reservationData: Omit<Reservation, 'id' | 'locationId'>) => {
