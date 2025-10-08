@@ -341,10 +341,44 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       unit: '%',
     });
 
+    // Filter data for current year and previous year
+    const monthlyData = allData.filter(d => d.year === currentYear);
+    const previousYearData = allData.filter(d => d.year === currentYear - 1);
+
+    // COSTI FISSI (calculate YTD and 12 months totals)
+    const costiFissiYTD = {
+      currentYTD: monthlyData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.costiFissi, 0),
+      previousYTD: previousYearData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.costiFissi, 0)
+    };
+    const costiFissi12Months = {
+      last12Months: monthlyData.reduce((sum, month) => sum + month.costiFissi, 0),
+      previous12Months: previousYearData.reduce((sum, month) => sum + month.costiFissi, 0)
+    };
+
+    // COSTI VARIABILI (calculate YTD and 12 months totals)
+    const costiVariabiliYTD = {
+      currentYTD: monthlyData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.costiVariabili, 0),
+      previousYTD: previousYearData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.costiVariabili, 0)
+    };
+    const costiVariabili12Months = {
+      last12Months: monthlyData.reduce((sum, month) => sum + month.costiVariabili, 0),
+      previous12Months: previousYearData.reduce((sum, month) => sum + month.costiVariabili, 0)
+    };
+
+    // UTILE (calculate YTD and 12 months totals)
+    const utileYTD = {
+      currentYTD: monthlyData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.utile, 0),
+      previousYTD: previousYearData.slice(0, currentMonth + 1).reduce((sum, month) => sum + month.utile, 0)
+    };
+    const utile12Months = {
+      last12Months: monthlyData.reduce((sum, month) => sum + month.utile, 0),
+      previous12Months: previousYearData.reduce((sum, month) => sum + month.utile, 0)
+    };
+
     // INCIDENZA COSTI FISSI
     const incidenzaCostiFissiLastMonth = lastCompiledMonth.incassato ? (lastCompiledMonth.costiFissi / lastCompiledMonth.incassato) * 100 : null;
-    const incidenzaCostiFissiYTD = incassatoYTD.currentYTD ? (fatturatoYTD.currentYTD - incassatoYTD.currentYTD + costiFissi) / incassatoYTD.currentYTD * 100 : null;
-    const incidenzaCostiFissi12Months = incassato12Months.last12Months ? (fatturato12Months.last12Months - incassato12Months.last12Months + costiFissi) / incassato12Months.last12Months * 100 : null;
+    const incidenzaCostiFissiYTD = incassatoYTD.currentYTD ? (fatturatoYTD.currentYTD - incassatoYTD.currentYTD + costiFissiYTD.currentYTD) / incassatoYTD.currentYTD * 100 : null;
+    const incidenzaCostiFissi12Months = incassato12Months.last12Months ? (fatturato12Months.last12Months - incassato12Months.last12Months + costiFissi12Months.last12Months) / incassato12Months.last12Months * 100 : null;
     
     indicators.push({
       label: 'INCIDENZA COSTI FISSI',
@@ -356,8 +390,8 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
 
     // INCIDENZA COSTI VARIABILI
     const incidenzaCostiVariabiliLastMonth = lastCompiledMonth.incassato ? (lastCompiledMonth.costiVariabili / lastCompiledMonth.incassato) * 100 : null;
-    const incidenzaCostiVariabiliYTD = incassatoYTD.currentYTD ? (costiVariabili / incassatoYTD.currentYTD) * 100 : null;
-    const incidenzaCostiVariabili12Months = incassato12Months.last12Months ? (costiVariabili / incassato12Months.last12Months) * 100 : null;
+    const incidenzaCostiVariabiliYTD = incassatoYTD.currentYTD ? (costiVariabiliYTD.currentYTD / incassatoYTD.currentYTD) * 100 : null;
+    const incidenzaCostiVariabili12Months = incassato12Months.last12Months ? (costiVariabili12Months.last12Months / incassato12Months.last12Months) * 100 : null;
     
     indicators.push({
       label: 'INCIDENZA COSTI VARIABILI',
@@ -369,8 +403,8 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
 
     // INCIDENZA UTILE
     const incidenzaUtileLastMonth = lastCompiledMonth.incassato ? (lastCompiledMonth.utile / lastCompiledMonth.incassato) * 100 : null;
-    const incidenzaUtileYTD = incassatoYTD.currentYTD ? (utile / incassatoYTD.currentYTD) * 100 : null;
-    const incidenzaUtile12Months = incassato12Months.last12Months ? (utile / incassato12Months.last12Months) * 100 : null;
+    const incidenzaUtileYTD = incassatoYTD.currentYTD ? (utileYTD.currentYTD / incassatoYTD.currentYTD) * 100 : null;
+    const incidenzaUtile12Months = incassato12Months.last12Months ? (utile12Months.last12Months / incassato12Months.last12Months) * 100 : null;
     
     indicators.push({
       label: 'INCIDENZA UTILE',

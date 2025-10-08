@@ -66,13 +66,54 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
     );
     
+    // Calcola il fatturato dalle statistiche (stessa logica del grafico 48 mesi)
+    const fatturato = MONTH_SHORT.reduce((acc, _, monthIndex) => {
+      const monthKey = buildMonthKey(selectedYear, monthIndex);
+      
+      // Helper function to get field value with overrides (same as grafico 48 mesi)
+      const getFieldValue = (field: string) => {
+        const overrideKey = `${monthKey}|${field}`;
+        const overrideValue = statsOverrides[overrideKey];
+        
+        // If we have an override, use it
+        if (overrideValue !== undefined) {
+          return overrideValue;
+        }
+        
+        // Find stats data using parsePlanMonthLabel logic
+        const statsRow = financialStatsRows.find(row => {
+          const parsed = parsePlanMonthLabel(row.month);
+          if (parsed) {
+            const { year, monthIndex: rowMonthIndex } = parsed;
+            return year === selectedYear && rowMonthIndex === monthIndex;
+          }
+          return false;
+        });
+        
+        // If we have statsData, use it
+        if (statsRow) {
+          return statsRow[field as keyof FinancialStatsRow];
+        }
+        
+        // No data available
+        return null;
+      };
+      
+      // Usa fatturatoImponibile come nel grafico 48 mesi
+      const fatturatoValue = getFieldValue('fatturatoImponibile') ?? 0;
+      
+      
+      return acc + (fatturatoValue || 0);
+    }, 0);
+    
     return {
       incassato,
       costiFissi,
       costiVariabili,
       utile,
+      fatturato,
     };
-  }, [planYear, causaliCatalog, getPlanConsuntivoValue, selectedYear]);
+  }, [planYear, causaliCatalog, getPlanConsuntivoValue, selectedYear, statsOverrides, financialStatsRows]);
 
   const overviewChartData = useMemo(() => {
     if (!planYear) {
@@ -92,6 +133,43 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex)
     );
 
+    // Calcola il fatturato mensile dalle statistiche (stessa logica del grafico 48 mesi)
+    const fatturato = MONTH_SHORT.map((_, monthIndex) => {
+      const monthKey = buildMonthKey(selectedYear, monthIndex);
+      
+      // Helper function to get field value with overrides (same as grafico 48 mesi)
+      const getFieldValue = (field: string) => {
+        const overrideKey = `${monthKey}|${field}`;
+        const overrideValue = statsOverrides[overrideKey];
+        
+        // If we have an override, use it
+        if (overrideValue !== undefined) {
+          return overrideValue;
+        }
+        
+        // Find stats data using parsePlanMonthLabel logic
+        const statsRow = financialStatsRows.find(row => {
+          const parsed = parsePlanMonthLabel(row.month);
+          if (parsed) {
+            const { year, monthIndex: rowMonthIndex } = parsed;
+            return year === selectedYear && rowMonthIndex === monthIndex;
+          }
+          return false;
+        });
+        
+        // If we have statsData, use it
+        if (statsRow) {
+          return statsRow[field as keyof FinancialStatsRow];
+        }
+        
+        // No data available
+        return null;
+      };
+      
+      // Usa fatturatoImponibile come nel grafico 48 mesi
+      return getFieldValue('fatturatoImponibile') ?? 0;
+    });
+
     // Calcolo del breakeven point
     const currentYear = new Date().getFullYear();
     const isCurrentYear = selectedYear === currentYear;
@@ -108,13 +186,14 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
 
     return MONTH_SHORT.map((label, index) => ({
       month: `${label} ${String(selectedYear).slice(-2)}`,
+      fatturato: fatturato[index] ?? 0,
       incassato: incassato[index] ?? 0,
       costiFissi: costiFissi[index] ?? 0,
       costiVariabili: costiVariabili[index] ?? 0,
       utile: calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, index),
       breakevenPoint: breakevenPoint,
     }));
-  }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue]);
+  }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue, statsOverrides, financialStatsRows]);
 
   // Helper function to find nice round numbers (like Excel)
   const findNiceNumber = (range: number): number => {
@@ -273,6 +352,14 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       <div className="flex flex-wrap gap-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase text-gray-500">
+            Fatturato {selectedYear}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-blue-700">
+            {formatCurrencyValue(overviewTotals.fatturato)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-gray-500">
             Incassato {selectedYear}
           </p>
           <p className="mt-1 text-2xl font-semibold text-gray-900">
@@ -311,6 +398,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip formatter={(value: number) => formatCurrencyValue(value)} />
+            <Line type="monotone" dataKey="fatturato" stroke="#1d4ed8" strokeWidth={3} />
             <Line type="monotone" dataKey="incassato" stroke="#2563eb" strokeWidth={2} />
             <Line type="monotone" dataKey="costiFissi" stroke="#f97316" strokeWidth={2} />
             <Line
