@@ -16,7 +16,7 @@ interface StatsTableProps {
   editMode: boolean;
   getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  onStatsOverride: (monthKey: string, field: string, value: number | null) => void;
+  onStatsOverride: (monthKey: string, field: string, value: number | null) => Promise<void>;
   causaliCatalog: any[];
   planYear: any;
 }
@@ -162,15 +162,15 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     return statsOverrides[overrideKey] ?? row[field];
   };
 
-  const handleFieldChange = (monthKey: string, field: string, value: string) => {
+  const handleFieldChange = async (monthKey: string, field: string, value: string) => {
     const numValue = value === '' ? null : Number(value);
-    onStatsOverride(monthKey, field, numValue);
+    await onStatsOverride(monthKey, field, numValue);
   };
 
   return (
     <div className="space-y-4">
-      <div className="overflow-y-auto rounded-2xl bg-white p-5 shadow-sm max-h-[80vh]">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto overflow-y-auto rounded-2xl bg-white p-5 shadow-sm max-h-[80vh]">
+        <table className="w-full text-sm min-w-max">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
               <tr>
               <th className="px-3 py-3 text-left bg-slate-50 sticky top-0 left-0 z-30 w-48">PERIODO</th>
@@ -226,7 +226,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                 <td className="px-3 py-2 text-right text-sm text-gray-700 bg-gray-50">
                     {formatCurrencyValue(row.fatturatoTotale)}
                   </td>
-                <td className="px-3 py-2 text-right text-sm text-sky-700 bg-gray-50">
+                <td className="px-3 py-2 text-right text-sm text-gray-700">
                   {editMode ? (
                     <input
                       type="number"

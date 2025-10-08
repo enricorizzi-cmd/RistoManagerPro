@@ -44,6 +44,7 @@ const FinancialPlan: React.FC = () => {
     handleSavePlan,
     handleCancelPlan,
     handleCausaliPersist,
+    handleSaveMetrics,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
   } = useFinancialPlanData(currentLocation?.id);
@@ -305,13 +306,24 @@ const FinancialPlan: React.FC = () => {
     showNotification(`Previsionale ${targetYear} ripristinato.`, 'info');
   };
 
-  // Statistics override handler
-  const handleStatsOverride = (monthKey: string, field: string, value: number | null) => {
+  // Statistics override handler with automatic save
+  const handleStatsOverride = async (monthKey: string, field: string, value: number | null) => {
     const overrideKey = `${monthKey}|${field}`;
+    
+    // Update local state
     setStatsOverrides(prev => ({
       ...prev,
       [overrideKey]: value
     }));
+    
+    // Save to database automatically
+    try {
+      await handleSaveMetrics({});
+      showNotification('Modifica salvata automaticamente', 'success');
+    } catch (error) {
+      console.error('Error saving stats override:', error);
+      showNotification('Errore nel salvataggio automatico', 'error');
+    }
   };
 
   const tabs = [

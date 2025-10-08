@@ -43,6 +43,10 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   const [causale, setCausale] = useState<string>('');
   const [valore, setValore] = useState<string>('0,00');
   
+  // Dropdown search state
+  const [causaleSearchTerm, setCausaleSearchTerm] = useState<string>('');
+  const [showCausaleDropdown, setShowCausaleDropdown] = useState<boolean>(false);
+  
   // Saved entries - loaded from database
   const [savedEntries, setSavedEntries] = useState<DataEntry[]>([]);
   
@@ -99,6 +103,17 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     return selectedCategory?.items || [];
   }, [causaliCatalog, tipologiaCausale, categoria]);
 
+  // Filter causali based on search term
+  const filteredCausali = useMemo(() => {
+    if (!causaleSearchTerm.trim()) {
+      return availableCausali;
+    }
+    
+    return availableCausali.filter(causaleItem =>
+      causaleItem.toLowerCase().includes(causaleSearchTerm.toLowerCase())
+    );
+  }, [availableCausali, causaleSearchTerm]);
+
   // Month names in Italian
   const monthNames = [
     'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -153,11 +168,15 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     setTipologiaCausale(value);
     setCategoria('');
     setCausale('');
+    setCausaleSearchTerm('');
+    setShowCausaleDropdown(false);
   };
 
   const handleCategoriaChange = (value: string) => {
     setCategoria(value);
     setCausale('');
+    setCausaleSearchTerm('');
+    setShowCausaleDropdown(false);
     
     // Auto-fill tipologia if not set
     if (!tipologiaCausale) {
@@ -172,6 +191,8 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   const handleCausaleChange = (value: string) => {
     setCausale(value);
+    setCausaleSearchTerm(value);
+    setShowCausaleDropdown(false);
     
     // Auto-fill tipologia and categoria if not set
     if (!tipologiaCausale || !categoria) {
@@ -190,6 +211,21 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
           }
         }
       }
+    }
+  };
+
+  const handleCausaleSearchChange = (value: string) => {
+    setCausaleSearchTerm(value);
+    setShowCausaleDropdown(true);
+    
+    // If exact match found, select it
+    const exactMatch = availableCausali.find(causaleItem => 
+      causaleItem.toLowerCase() === value.toLowerCase()
+    );
+    if (exactMatch) {
+      setCausale(exactMatch);
+    } else {
+      setCausale('');
     }
   };
 
@@ -259,6 +295,8 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       setCausale('');
       setCategoria('');
       setTipologiaCausale('');
+      setCausaleSearchTerm('');
+      setShowCausaleDropdown(false);
 
     } catch (error) {
       console.error('Error saving entry:', error);
@@ -518,22 +556,41 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
             </div>
 
             {/* CAUSALE */}
-            <div>
+            <div className="relative">
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 CAUSALE
               </label>
-              <select
-                value={causale}
-                onChange={(e) => handleCausaleChange(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Seleziona causale</option>
-                {availableCausali.map(causaleItem => (
-                  <option key={causaleItem} value={causaleItem}>
-                    {causaleItem}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={causaleSearchTerm}
+                  onChange={(e) => handleCausaleSearchChange(e.target.value)}
+                  onFocus={() => setShowCausaleDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowCausaleDropdown(false), 200)}
+                  className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Cerca o seleziona causale..."
+                />
+                {showCausaleDropdown && filteredCausali.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {filteredCausali.map(causaleItem => (
+                      <div
+                        key={causaleItem}
+                        className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                        onMouseDown={() => handleCausaleChange(causaleItem)}
+                      >
+                        {causaleItem}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showCausaleDropdown && filteredCausali.length === 0 && causaleSearchTerm.trim() && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      Nessuna causale trovata
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* VALORE */}
