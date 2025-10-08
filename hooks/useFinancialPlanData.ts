@@ -8,6 +8,7 @@ import type { FinancialCausaleGroup } from '../data/financialPlanData';
 import type { PlanOverrides, StatsOverrides } from '../types';
 import { computePlanData, computeYearMetrics, type PlanYearData, type BusinessPlanYearMetrics } from '../utils/financialCalculations';
 import { buildMonthKey, normalizeLabel, parseMonthKey } from '../utils/financialPlanUtils';
+import { useDataEntriesSums } from './useDataEntriesSums';
 
 const DEFAULT_CAUSALI_CATALOG: FinancialCausaleGroup[] = (financialCausali as unknown as FinancialCausaleGroup[]);
 
@@ -57,6 +58,9 @@ export const useFinancialPlanData = (locationId?: string) => {
   const [savingState, setSavingState] = useState<boolean>(false);
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
   const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>([]);
+  
+  // Load data entries sums for Piano Mensile
+  const { getSumForCausale } = useDataEntriesSums(locationId);
 
   const basePlanByYear = useMemo(() => {
     const source = causaliCatalog.length > 0 ? causaliCatalog : DEFAULT_CAUSALI_CATALOG;
@@ -126,6 +130,13 @@ export const useFinancialPlanData = (locationId?: string) => {
       if (override !== undefined) {
         return override;
       }
+      
+      // Get sum from data entries (InserisciDati)
+      const dataEntriesSum = getSumForCausale(macro, category, detail, year, monthIndex);
+      if (dataEntriesSum !== 0) {
+        return dataEntriesSum;
+      }
+      
       const planYear = basePlanByYear.get(year);
       const macroBlock = planYear?.macros.find(
         (item) => normalizeLabel(item.macro) === normalizeLabel(macro),
@@ -135,7 +146,7 @@ export const useFinancialPlanData = (locationId?: string) => {
       );
       return detailRow?.months[monthIndex].consuntivo ?? 0;
     },
-    [consuntivoOverrides, basePlanByYear],
+    [consuntivoOverrides, basePlanByYear, getSumForCausale],
   );
 
   const setOverride = useCallback((

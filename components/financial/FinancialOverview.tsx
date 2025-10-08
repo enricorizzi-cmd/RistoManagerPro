@@ -13,7 +13,7 @@ import {
   YAxis,
   Tooltip,
 } from 'recharts';
-import { formatCurrencyValue, MONTH_SHORT, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
+import { formatCurrencyValue, MONTH_SHORT, parsePlanMonthLabel, buildMonthKey } from '../../utils/financialPlanUtils';
 import { calculateUtileFromMacroTotals, getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../../utils/financialCalculations';
 import type { PlanYearData } from '../../utils/financialCalculations';
 import type { FinancialStatsRow, FinancialCausaleGroup } from '../../data/financialPlanData';
@@ -26,6 +26,7 @@ interface FinancialOverviewProps {
   financialStatsRows: FinancialStatsRow[];
   causaliCatalog: FinancialCausaleGroup[];
   getPlanConsuntivoValue: (macro: string, category: string, detail: string, selectedYear: number, monthIndex: number) => number;
+  statsOverrides?: any;
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
@@ -35,7 +36,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   onYearChange,
   financialStatsRows,
   causaliCatalog,
-  getPlanConsuntivoValue
+  getPlanConsuntivoValue,
+  statsOverrides = {}
 }) => {
   const overviewTotals = useMemo(() => {
     if (!planYear) {
@@ -114,6 +116,17 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }));
   }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue]);
 
+  // Helper function to find nice round numbers (like Excel)
+  const findNiceNumber = (range: number): number => {
+    const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
+    const normalizedRange = range / magnitude;
+    
+    if (normalizedRange < 1.5) return magnitude;
+    if (normalizedRange < 3) return 2 * magnitude;
+    if (normalizedRange < 7) return 5 * magnitude;
+    return 10 * magnitude;
+  };
+
   // Calcolo dati grafico fatturato 48 mesi
   const fatturatoChartData = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -130,24 +143,43 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       const parsed = parsePlanMonthLabel(row.month);
       if (parsed) {
         const { year, monthIndex } = parsed;
-        const key = `${year}-${monthIndex}`;
-        statsMap.set(key, row);
+        const monthKey = buildMonthKey(year, monthIndex);
+        statsMap.set(monthKey, row);
       }
     });
 
     // Generare 48 mesi (gennaio 3 anni fa - dicembre anno corrente)
     for (let year = startYear; year <= currentYear; year++) {
       for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-        const key = `${year}-${monthIndex}`;
-        const statsData = statsMap.get(key);
+        const monthKey = buildMonthKey(year, monthIndex);
+        const statsData = statsMap.get(monthKey);
         
         const monthLabel = `${MONTH_SHORT[monthIndex]} ${String(year).slice(-2)}`;
         
-        // Estrai dati reali dalle statistiche
-        const fatturatoReale = statsData?.fatturatoTotale ?? null;
+        // Helper function to get field value with overrides (same as StatsTable)
+        const getFieldValue = (field: string) => {
+          const overrideKey = `${monthKey}|${field}`;
+          const overrideValue = statsOverrides[overrideKey];
+          
+          // If we have an override, use it
+          if (overrideValue !== undefined) {
+            return overrideValue;
+          }
+          
+          // If we have statsData, use it
+          if (statsData) {
+            return statsData[field as keyof FinancialStatsRow];
+          }
+          
+          // No data available
+          return null;
+        };
         
-        // Estrai dati previsionali dalle statistiche
-        const fatturatoPrevisionale = statsData?.fatturatoPrevisionale ?? null;
+        // Estrai dati reali dalle statistiche (con override)
+        const fatturatoReale = getFieldValue('fatturatoImponibile');
+        
+        // Estrai dati previsionali dalle statistiche (con override)
+        const fatturatoPrevisionale = getFieldValue('fatturatoPrevisionale');
         
         data.push({
           month: monthLabel,
@@ -158,7 +190,67 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }
 
     return data;
-  }, [financialStatsRows]);
+  }, [financialStatsRows, statsOverrides]);
+
+  // Calculate dynamic Y-axis range for fatturato chart (Excel-like autoscaling)
+  const fatturatoYAxisDomain = useMemo(() => {
+    const allValues = fatturatoChartData
+      .flatMap(d => [d.fatturatoReale, d.fatturatoPrevisionale])
+      .filter(v => v !== null && v !== undefined) as number[];
+    
+    if (allValues.length === 0) return [0, 100];
+    
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    
+    // Remove outliers (values that are more than 3x the median)
+    const sortedValues = [...allValues].sort((a, b) => a - b);
+    const median = sortedValues[Math.floor(sortedValues.length / 2)];
+    const filteredValues = allValues.filter(v => v <= median * 3);
+    
+    if (filteredValues.length === 0) {
+      // Use original values if filtering removes everything
+      const range = max - min;
+      let padding;
+      if (range < 10) {
+        padding = range * 0.5;
+      } else if (range < 100) {
+        padding = range * 0.2;
+      } else {
+        padding = range * 0.1;
+      }
+      
+      const paddedMin = Math.max(0, min - padding);
+      const paddedMax = max + padding;
+      const niceRange = findNiceNumber(paddedMax - paddedMin);
+      const niceMin = Math.floor(paddedMin / niceRange) * niceRange;
+      const niceMax = Math.ceil(paddedMax / niceRange) * niceRange;
+      
+      return [Math.max(0, niceMin), niceMax];
+    } else {
+      // Use filtered values for better scaling
+      const filteredMin = Math.min(...filteredValues);
+      const filteredMax = Math.max(...filteredValues);
+      
+      const range = filteredMax - filteredMin;
+      let padding;
+      if (range < 10) {
+        padding = range * 0.5;
+      } else if (range < 100) {
+        padding = range * 0.2;
+      } else {
+        padding = range * 0.1;
+      }
+      
+      const paddedMin = Math.max(0, filteredMin - padding);
+      const paddedMax = filteredMax + padding;
+      const niceRange = findNiceNumber(paddedMax - paddedMin);
+      const niceMin = Math.floor(paddedMin / niceRange) * niceRange;
+      const niceMax = Math.ceil(paddedMax / niceRange) * niceRange;
+      
+      return [Math.max(0, niceMin), niceMax];
+    }
+  }, [fatturatoChartData]);
 
   return (
     <div className="space-y-4">
@@ -277,7 +369,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               tick={{ fontSize: 10 }}
               interval="preserveStartEnd"
             />
-            <YAxis />
+            <YAxis domain={[0, 'dataMax + 10']} />
             <Tooltip 
               formatter={(value: number) => formatCurrencyValue(value)}
               labelStyle={{ color: '#374151' }}

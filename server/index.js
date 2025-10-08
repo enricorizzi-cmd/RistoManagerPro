@@ -38,6 +38,21 @@ const initializeDatabase = (db) => {
       data TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    
+    // Data entries table for InserisciDati
+    db.run(`CREATE TABLE IF NOT EXISTS data_entries (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      data_inserimento TEXT NOT NULL,
+      mese INTEGER NOT NULL,
+      anno INTEGER NOT NULL,
+      tipologia_causale TEXT NOT NULL,
+      categoria TEXT NOT NULL,
+      causale TEXT NOT NULL,
+      valore REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
 
     // Locations Table (master locations - shared)
     db.run(`CREATE TABLE IF NOT EXISTS locations (
@@ -215,6 +230,7 @@ masterDb.serialize(() => {
     UNIQUE(location_id, tab_name)
   )`);
 });
+
 
 // Initialize default database for backward compatibility
 const defaultDb = getDatabase('default');
@@ -1291,6 +1307,177 @@ app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get enabled tabs', error);
     res.status(500).json({ error: 'Failed to get enabled tabs' });
+  }
+});
+
+// Data entries API for InserisciDati
+app.get('/api/data-entries/:locationId', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const entries = await dbQuery(locationId, `
+      SELECT * FROM data_entries 
+      WHERE location_id = ? 
+      ORDER BY created_at DESC
+    `, [locationId]);
+    
+    res.json(entries);
+  } catch (error) {
+    console.error('Failed to get data entries', error);
+    res.status(500).json({ error: 'Failed to get data entries' });
+  }
+});
+
+app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    const { dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore } = req.body;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const entryId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    
+    await dbRun(locationId, `
+      INSERT INTO data_entries (
+        id, location_id, data_inserimento, mese, anno, 
+        tipologia_causale, categoria, causale, valore, 
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [entryId, locationId, dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore, now, now]);
+    
+    res.json({ success: true, id: entryId });
+  } catch (error) {
+    console.error('Failed to create data entry', error);
+    res.status(500).json({ error: 'Failed to create data entry' });
+  }
+});
+
+app.put('/api/data-entries/:locationId/:entryId', requireAuth, async (req, res) => {
+  try {
+    const { locationId, entryId } = req.params;
+    const { dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore } = req.body;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const now = new Date().toISOString();
+    
+    await dbRun(locationId, `
+      UPDATE data_entries SET
+        data_inserimento = ?, mese = ?, anno = ?, 
+        tipologia_causale = ?, categoria = ?, causale = ?, valore = ?,
+        updated_at = ?
+      WHERE id = ? AND location_id = ?
+    `, [dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore, now, entryId, locationId]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update data entry', error);
+    res.status(500).json({ error: 'Failed to update data entry' });
+  }
+});
+
+app.delete('/api/data-entries/:locationId/:entryId', requireAuth, async (req, res) => {
+  try {
+    const { locationId, entryId } = req.params;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    
+    await dbRun(locationId, `
+      DELETE FROM data_entries 
+      WHERE id = ? AND location_id = ?
+    `, [entryId, locationId]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete data entry', error);
+    res.status(500).json({ error: 'Failed to delete data entry' });
+  }
+});
+
+// Get data entries sums for Piano Mensile
+app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const sums = await dbQuery(locationId, `
+      SELECT 
+        tipologia_causale,
+        categoria,
+        causale,
+        anno,
+        mese,
+        SUM(valore) as total_value
+      FROM data_entries 
+      WHERE location_id = ? 
+      GROUP BY tipologia_causale, categoria, causale, anno, mese
+      ORDER BY anno DESC, mese DESC
+    `, [locationId]);
+    
+    res.json(sums);
+  } catch (error) {
+    console.error('Failed to get data entries sums', error);
+    res.status(500).json({ error: 'Failed to get data entries sums' });
   }
 });
 

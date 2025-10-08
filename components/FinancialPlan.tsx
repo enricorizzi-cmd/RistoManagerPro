@@ -306,24 +306,13 @@ const FinancialPlan: React.FC = () => {
     showNotification(`Previsionale ${targetYear} ripristinato.`, 'info');
   };
 
-  // Statistics override handler with automatic save
-  const handleStatsOverride = async (monthKey: string, field: string, value: number | null) => {
+  // Statistics override handler
+  const handleStatsOverride = (monthKey: string, field: string, value: number | null) => {
     const overrideKey = `${monthKey}|${field}`;
-    
-    // Update local state
     setStatsOverrides(prev => ({
       ...prev,
       [overrideKey]: value
     }));
-    
-    // Save to database automatically
-    try {
-      await handleSaveMetrics({});
-      showNotification('Modifica salvata automaticamente', 'success');
-    } catch (error) {
-      console.error('Error saving stats override:', error);
-      showNotification('Errore nel salvataggio automatico', 'error');
-    }
   };
 
   const tabs = [
@@ -364,6 +353,7 @@ const FinancialPlan: React.FC = () => {
           financialStatsRows={financialStatsRows}
           causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
           getPlanConsuntivoValue={getPlanConsuntivoValue}
+          statsOverrides={statsOverrides}
         />
       )}
 
@@ -517,7 +507,18 @@ const FinancialPlan: React.FC = () => {
               <div className="ml-auto flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setStatsEditMode(false)}
+                  onClick={async () => {
+                    try {
+                      const success = await handleSavePlan(selectedYear, new Set());
+                      if (success) {
+                        setStatsEditMode(false);
+                        showNotification('Statistiche salvate con successo.', 'success');
+                      }
+                    } catch (error) {
+                      console.error('Error saving statistics:', error);
+                      showNotification('Errore nel salvataggio delle statistiche.', 'error');
+                    }
+                  }}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                 >
                   Salva

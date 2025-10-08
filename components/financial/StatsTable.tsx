@@ -16,7 +16,7 @@ interface StatsTableProps {
   editMode: boolean;
   getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  onStatsOverride: (monthKey: string, field: string, value: number | null) => Promise<void>;
+  onStatsOverride: (monthKey: string, field: string, value: number | null) => void;
   causaliCatalog: any[];
   planYear: any;
 }
@@ -162,9 +162,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     return statsOverrides[overrideKey] ?? row[field];
   };
 
-  const handleFieldChange = async (monthKey: string, field: string, value: string) => {
+  const handleFieldChange = (monthKey: string, field: string, value: string) => {
     const numValue = value === '' ? null : Number(value);
-    await onStatsOverride(monthKey, field, numValue);
+    onStatsOverride(monthKey, field, numValue);
   };
 
   return (

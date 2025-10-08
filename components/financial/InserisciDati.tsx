@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useAppContext } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useFinancialPlanData } from '../../hooks/useFinancialPlanData';
 import { buildMonthKey, parseMonthKey } from '../../utils/financialPlanUtils';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
@@ -32,7 +33,8 @@ interface InserisciDatiProps {
 }
 
 export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
-  const { showNotification } = useAppContext();
+  const { showNotification, currentLocation } = useAppContext();
+  const { token } = useAuth();
   const { setOverride, handleSavePlan, handleSaveMetrics, consuntivoOverrides } = useFinancialPlanData();
   
   // Form state
@@ -122,43 +124,37 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Load existing data from database on component mount
   useEffect(() => {
-    const loadExistingData = () => {
-      const entries: DataEntry[] = [];
+    const loadExistingData = async () => {
+      if (!currentLocation?.id || !token) return;
       
-      // Convert consuntivoOverrides to DataEntry format
-      Object.entries(consuntivoOverrides).forEach(([tipologia, categories]) => {
-        Object.entries(categories).forEach(([categoria, details]) => {
-          Object.entries(details).forEach(([causale, months]) => {
-            Object.entries(months).forEach(([monthKey, value]) => {
-              const parsed = parseMonthKey(monthKey);
-              if (parsed && value !== 0) {
-                entries.push({
-                  id: `${tipologia}-${categoria}-${causale}-${monthKey}`,
-                  dataInserimento: format(new Date(), 'dd/MM/yyyy HH:mm', { locale: it }),
-                  mese: parsed.monthIndex,
-                  anno: parsed.year,
-                  tipologiaCausale: tipologia,
-                  categoria: categoria,
-                  causale: causale,
-                  valore: value
-                });
-              }
-            });
-          });
+      try {
+        const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
-      });
-      
-      // Sort by date (newest first)
-      entries.sort((a, b) => {
-        if (a.anno !== b.anno) return b.anno - a.anno;
-        return b.mese - a.mese;
-      });
-      
-      setSavedEntries(entries);
+        
+        if (response.ok) {
+          const entries = await response.json();
+          setSavedEntries(entries.map((entry: any) => ({
+            id: entry.id,
+            dataInserimento: entry.data_inserimento,
+            mese: entry.mese,
+            anno: entry.anno,
+            tipologiaCausale: entry.tipologia_causale,
+            categoria: entry.categoria,
+            causale: entry.causale,
+            valore: entry.valore
+          })));
+        }
+      } catch (error) {
+        console.error('Error loading data entries:', error);
+        showNotification('Errore nel caricamento delle righe registrate', 'error');
+      }
     };
-
+    
     loadExistingData();
-  }, [consuntivoOverrides]);
+  }, [currentLocation?.id, token]);
 
   // Format current date for display
   const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm');
@@ -271,33 +267,63 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       return;
     }
 
-    const monthKey = buildMonthKey(anno, mese);
-    const category = categoria;
-    const existingValue = consuntivoOverrides?.[tipologiaCausale]?.[category]?.[causale]?.[monthKey] ?? 0;
-    const delta = numericValue - existingValue;
-
-    if (delta === 0) {
-      showNotification('Il valore inserito e\' gia\' presente.', 'info');
+    if (!currentLocation?.id || !token) {
+      showNotification('Errore di autenticazione.', 'error');
       return;
     }
 
     try {
-      setOverride('consuntivo', tipologiaCausale, category, causale, anno, mese, delta);
+      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          dataInserimento: currentDate,
+          mese: mese,
+          anno: anno,
+          tipologiaCausale: tipologiaCausale,
+          categoria: categoria,
+          causale: causale,
+          valore: numericValue
+        })
+      });
 
-      await waitForStateFlush();
-
-      const saveKey = `consuntivo|${tipologiaCausale}|${category}|${causale}|${monthKey}`;
-      await handleSavePlan(anno, new Set([saveKey]));
-
-      showNotification('Riga salvata con successo.', 'success');
-
-      setValore('0,00');
-      setCausale('');
-      setCategoria('');
-      setTipologiaCausale('');
-      setCausaleSearchTerm('');
-      setShowCausaleDropdown(false);
-
+      if (response.ok) {
+        showNotification('Riga salvata con successo.', 'success');
+        
+        // Reset form
+        setValore('0,00');
+        setCausale('');
+        setCategoria('');
+        setTipologiaCausale('');
+        setCausaleSearchTerm('');
+        setShowCausaleDropdown(false);
+        
+        // Reload entries
+        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (loadResponse.ok) {
+          const entries = await loadResponse.json();
+          setSavedEntries(entries.map((entry: any) => ({
+            id: entry.id,
+            dataInserimento: entry.data_inserimento,
+            mese: entry.mese,
+            anno: entry.anno,
+            tipologiaCausale: entry.tipologia_causale,
+            categoria: entry.categoria,
+            causale: entry.causale,
+            valore: entry.valore
+          })));
+        }
+      } else {
+        showNotification('Errore nel salvataggio della riga.', 'error');
+      }
     } catch (error) {
       console.error('Error saving entry:', error);
       showNotification('Errore nel salvataggio della riga.', 'error');
@@ -306,20 +332,45 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Delete entry
   const handleDeleteEntry = async (entryId: string) => {
-    const entry = savedEntries.find(e => e.id === entryId);
-    if (!entry) return;
+    if (!currentLocation?.id || !token) {
+      showNotification('Errore di autenticazione.', 'error');
+      return;
+    }
 
     try {
-      const monthKey = buildMonthKey(entry.anno, entry.mese);
-      const category = entry.categoria;
+      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      setOverride('consuntivo', entry.tipologiaCausale, category, entry.causale, entry.anno, entry.mese, null);
-
-      await waitForStateFlush();
-
-      await handleSavePlan(entry.anno, new Set([`consuntivo|${entry.tipologiaCausale}|${category}|${entry.causale}|${monthKey}`]));
-
-      showNotification('Riga eliminata con successo.', 'success');
+      if (response.ok) {
+        showNotification('Riga eliminata con successo.', 'success');
+        
+        // Reload entries
+        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (loadResponse.ok) {
+          const entries = await loadResponse.json();
+          setSavedEntries(entries.map((entry: any) => ({
+            id: entry.id,
+            dataInserimento: entry.data_inserimento,
+            mese: entry.mese,
+            anno: entry.anno,
+            tipologiaCausale: entry.tipologia_causale,
+            categoria: entry.categoria,
+            causale: entry.causale,
+            valore: entry.valore
+          })));
+        }
+      } else {
+        showNotification('Errore nell\'eliminazione della riga.', 'error');
+      }
     } catch (error) {
       console.error('Error deleting entry:', error);
       showNotification('Errore nell\'eliminazione della riga.', 'error');
@@ -341,29 +392,56 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Save inline edit
   const handleSaveEdit = async (entryId: string) => {
-    const entry = savedEntries.find(e => e.id === entryId);
-    if (!entry || !editingValues) return;
+    if (!currentLocation?.id || !token || !editingValues) return;
 
     try {
-      // Update the entry with new values
-      const updatedEntry = {
-        ...entry,
-        ...editingValues,
-        dataInserimento: new Date().toLocaleDateString('it-IT')
-      };
+      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          dataInserimento: currentDate,
+          mese: editingValues.mese,
+          anno: editingValues.anno,
+          tipologiaCausale: editingValues.tipologiaCausale,
+          categoria: editingValues.categoria,
+          causale: editingValues.causale,
+          valore: editingValues.valore
+        })
+      });
 
-      // Update in database
-      const monthKey = buildMonthKey(updatedEntry.anno, updatedEntry.mese);
-      await setOverride('consuntivo', updatedEntry.tipologiaCausale, updatedEntry.categoria, updatedEntry.causale, updatedEntry.anno, updatedEntry.mese, updatedEntry.valore);
-
-      // Update local state
-      setSavedEntries(prev => prev.map(e => e.id === entryId ? updatedEntry : e));
-      
-      // Clear editing state
-      setEditingEntryId(null);
-      setEditingValues({});
-      
-      showNotification('Riga modificata con successo', 'success');
+      if (response.ok) {
+        showNotification('Riga modificata con successo', 'success');
+        
+        // Clear editing state
+        setEditingEntryId(null);
+        setEditingValues({});
+        
+        // Reload entries
+        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (loadResponse.ok) {
+          const entries = await loadResponse.json();
+          setSavedEntries(entries.map((entry: any) => ({
+            id: entry.id,
+            dataInserimento: entry.data_inserimento,
+            mese: entry.mese,
+            anno: entry.anno,
+            tipologiaCausale: entry.tipologia_causale,
+            categoria: entry.categoria,
+            causale: entry.causale,
+            valore: entry.valore
+          })));
+        }
+      } else {
+        showNotification('Errore nella modifica della riga', 'error');
+      }
     } catch (error) {
       console.error('Error updating entry:', error);
       showNotification('Errore durante la modifica della riga', 'error');
@@ -623,7 +701,9 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         {/* Saved entries */}
         {savedEntries.length > 0 && (
           <div className="space-y-2">
-            {savedEntries.map((entry) => {
+            {savedEntries
+              .sort((a, b) => new Date(b.dataInserimento).getTime() - new Date(a.dataInserimento).getTime())
+              .map((entry) => {
               const isEditing = editingEntryId === entry.id;
               const currentValues = isEditing ? editingValues : entry;
               
