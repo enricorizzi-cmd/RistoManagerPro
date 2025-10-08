@@ -27,6 +27,14 @@ const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    role: 'user' as 'admin' | 'user'
+  });
 
   const API_BASE_URL = 'http://localhost:4000';
 
@@ -132,6 +140,98 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const deleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Sei sicuro di voler eliminare l'utente "${userName}"? Questa azione non può essere annullata.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        fetchUsers(); // Refresh users list
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Errore nell\'eliminazione dell\'utente');
+      }
+    } catch (error) {
+      setError('Errore di connessione');
+    }
+  };
+
+  const changeUserRole = async (userId: string, newRole: 'admin' | 'user', userName: string) => {
+    const roleText = newRole === 'admin' ? 'amministratore' : 'utente';
+    if (!confirm(`Sei sicuro di voler rendere "${userName}" ${roleText}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/role`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+
+      if (response.ok) {
+        fetchUsers(); // Refresh users list
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Errore nel cambio ruolo');
+      }
+    } catch (error) {
+      setError('Errore di connessione');
+    }
+  };
+
+  const createUser = async () => {
+    if (!newUser.firstName || !newUser.lastName || !newUser.email || !newUser.password) {
+      setError('Tutti i campi sono obbligatori');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          password: newUser.password,
+          role: newUser.role
+        })
+      });
+
+      if (response.ok) {
+        setShowAddUserModal(false);
+        setNewUser({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          role: 'user'
+        });
+        fetchUsers(); // Refresh users list
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Errore nella creazione dell\'utente');
+      }
+    } catch (error) {
+      setError('Errore di connessione');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -144,6 +244,12 @@ const UserManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Gestione Utenti</h2>
+        <button
+          onClick={() => setShowAddUserModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+        >
+          Aggiungi Utente
+        </button>
       </div>
 
       {error && (
@@ -196,6 +302,16 @@ const UserManagement: React.FC = () => {
                     Permessi Aziende
                   </button>
                   <button
+                    onClick={() => changeUserRole(user.id, user.role === 'admin' ? 'user' : 'admin', `${user.first_name} ${user.last_name}`)}
+                    className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+                      user.role === 'admin'
+                        ? 'border-orange-300 text-orange-700 bg-white hover:bg-orange-50'
+                        : 'border-purple-300 text-purple-700 bg-white hover:bg-purple-50'
+                    }`}
+                  >
+                    {user.role === 'admin' ? 'Rimuovi Admin' : 'Rendi Admin'}
+                  </button>
+                  <button
                     onClick={() => handleUserStatusToggle(user.id, !user.is_active)}
                     className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                       user.is_active
@@ -204,6 +320,12 @@ const UserManagement: React.FC = () => {
                     }`}
                   >
                     {user.is_active ? 'Sospendi' : 'Riattiva'}
+                  </button>
+                  <button
+                    onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)}
+                    className="inline-flex items-center px-3 py-1 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Elimina
                   </button>
                 </div>
               </div>
@@ -247,6 +369,101 @@ const UserManagement: React.FC = () => {
                   className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   Salva
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Aggiungi Nuovo Utente
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <input
+                    type="text"
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Inserisci nome"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Cognome</label>
+                  <input
+                    type="text"
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Inserisci cognome"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Inserisci email"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Inserisci password"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Ruolo</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({...newUser, role: e.target.value as 'admin' | 'user'})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="user">Utente</option>
+                    <option value="admin">Amministratore</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setNewUser({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      password: '',
+                      role: 'user'
+                    });
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={createUser}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  Crea Utente
                 </button>
               </div>
             </div>

@@ -60,7 +60,7 @@ const FinancialPlan: React.FC = () => {
     handleSaveBusinessPlanDraft,
     handleApplyBusinessPlanToOverrides,
     handleDeleteBusinessPlanDraft,
-  } = useBusinessPlan(yearMetrics);
+  } = useBusinessPlan(yearMetrics, currentLocation?.id);
 
   const {
     editMode,

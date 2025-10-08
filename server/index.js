@@ -202,6 +202,18 @@ masterDb.serialize(() => {
     FOREIGN KEY (location_id) REFERENCES locations(id),
     UNIQUE(user_id, location_id)
   )`);
+
+  // Location enabled tabs table
+  masterDb.run(`CREATE TABLE IF NOT EXISTS location_enabled_tabs (
+    id TEXT PRIMARY KEY,
+    location_id TEXT NOT NULL,
+    tab_name TEXT NOT NULL,
+    is_enabled INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (location_id) REFERENCES locations(id),
+    UNIQUE(location_id, tab_name)
+  )`);
 });
 
 // Initialize default database for backward compatibility
@@ -670,7 +682,7 @@ app.put('/api/reservations/:id/status', async (req, res) => {
 app.get('/api/tables/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const tables = await dbQuery(
+    const tables = await dbQuery(locationId,
       'SELECT * FROM tables WHERE location_id = ? ORDER BY name',
       [locationId]
     );
@@ -717,7 +729,7 @@ app.put('/api/tables/:locationId/layout', async (req, res) => {
       );
     }
     
-    const updatedTables = await dbQuery('SELECT * FROM tables WHERE location_id = ?', [locationId]);
+    const updatedTables = await dbQuery(locationId, 'SELECT * FROM tables WHERE location_id = ?', [locationId]);
     res.json(updatedTables);
   } catch (error) {
     console.error('Failed to save table layout', error);
@@ -729,7 +741,7 @@ app.put('/api/tables/:locationId/layout', async (req, res) => {
 app.get('/api/waitlist/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const waitlist = await dbQuery(
+    const waitlist = await dbQuery(locationId,
       'SELECT * FROM waitlist WHERE location_id = ? ORDER BY created_at',
       [locationId]
     );
@@ -786,7 +798,7 @@ app.get('/api/menu-items/:locationId', async (req, res) => {
 app.get('/api/sales/:locationId', async (req, res) => {
   try {
     const { locationId } = req.params;
-    const sales = await dbQuery(
+    const sales = await dbQuery(locationId,
       'SELECT * FROM sales WHERE location_id = ? ORDER BY created_at DESC',
       [locationId]
     );
@@ -973,6 +985,128 @@ app.put('/api/users/:id/status', requireAuth, requireAdmin, async (req, res) => 
   }
 });
 
+app.put('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    
+    // Prevent admin from changing their own role
+    if (id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot change your own role' });
+    }
+    
+    await masterDbRun('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', 
+      [role, new Date().toISOString(), id]);
+    
+    // If user is promoted to admin, give them access to all locations
+    if (role === 'admin') {
+      // Remove existing permissions
+      await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
+      
+      // Get all active locations
+      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active"');
+      
+      // Add permissions for all locations
+      const now = new Date().toISOString();
+      for (const location of locations) {
+        const permissionId = crypto.randomUUID();
+        await masterDbRun(
+          'INSERT INTO user_location_permissions (id, user_id, location_id, created_at) VALUES (?, ?, ?, ?)',
+          [permissionId, id, location.id, now]
+        );
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update user role', error);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if user exists and is not the current admin
+    const user = await masterDbGet('SELECT * FROM users WHERE id = ?', [id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Prevent admin from deleting themselves
+    if (user.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+    
+    // Delete user sessions
+    await masterDbRun('DELETE FROM user_sessions WHERE user_id = ?', [id]);
+    
+    // Delete user permissions
+    await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
+    
+    // Delete user
+    await masterDbRun('DELETE FROM users WHERE id = ?', [id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete user', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, role } = req.body;
+    
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await masterDbGet('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+    
+    const userId = crypto.randomUUID();
+    const passwordHash = hashPassword(password);
+    const now = new Date().toISOString();
+    
+    // Create user with specified role
+    await masterDbRun(
+      'INSERT INTO users (id, first_name, last_name, email, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, firstName, lastName, email, passwordHash, role || 'user', 1, now, now]
+    );
+    
+    // If user is created as admin, give them access to all locations
+    if (role === 'admin') {
+      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active"');
+      for (const location of locations) {
+        const permissionId = crypto.randomUUID();
+        await masterDbRun(
+          'INSERT INTO user_location_permissions (id, user_id, location_id, created_at) VALUES (?, ?, ?, ?)',
+          [permissionId, userId, location.id, now]
+        );
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: userId,
+        firstName,
+        lastName,
+        email,
+        role: role || 'user'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to create user', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
 // Settings API (Admin only)
 app.get('/api/settings/locations', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -1029,6 +1163,9 @@ app.delete('/api/settings/locations/:id', requireAuth, requireAdmin, async (req,
     // Delete user permissions for this location
     await masterDbRun('DELETE FROM user_location_permissions WHERE location_id = ?', [id]);
     
+    // Delete enabled tabs for this location
+    await masterDbRun('DELETE FROM location_enabled_tabs WHERE location_id = ?', [id]);
+    
     // Delete location
     await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
     
@@ -1036,6 +1173,52 @@ app.delete('/api/settings/locations/:id', requireAuth, requireAdmin, async (req,
   } catch (error) {
     console.error('Failed to delete location', error);
     res.status(500).json({ error: 'Failed to delete location' });
+  }
+});
+
+// Get enabled tabs for a location
+app.get('/api/settings/locations/:id/tabs', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const tabs = await masterDbQuery(`
+      SELECT tab_name, is_enabled 
+      FROM location_enabled_tabs 
+      WHERE location_id = ? 
+      ORDER BY tab_name
+    `, [id]);
+    
+    res.json(tabs);
+  } catch (error) {
+    console.error('Failed to get location tabs', error);
+    res.status(500).json({ error: 'Failed to get location tabs' });
+  }
+});
+
+// Update enabled tabs for a location
+app.put('/api/settings/locations/:id/tabs', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tabs } = req.body;
+    
+    const now = new Date().toISOString();
+    
+    // Delete existing tabs for this location
+    await masterDbRun('DELETE FROM location_enabled_tabs WHERE location_id = ?', [id]);
+    
+    // Insert new tabs
+    for (const tab of tabs) {
+      const tabId = crypto.randomUUID();
+      await masterDbRun(
+        'INSERT INTO location_enabled_tabs (id, location_id, tab_name, is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [tabId, id, tab.tab_name, tab.is_enabled ? 1 : 0, now, now]
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update location tabs', error);
+    res.status(500).json({ error: 'Failed to update location tabs' });
   }
 });
 
@@ -1061,6 +1244,53 @@ app.get('/api/user/locations', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get user locations', error);
     res.status(500).json({ error: 'Failed to get locations' });
+  }
+});
+
+// Get enabled tabs for current user's location
+app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.params;
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    // Get enabled tabs for this location
+    const enabledTabs = await masterDbQuery(`
+      SELECT tab_name, is_enabled 
+      FROM location_enabled_tabs 
+      WHERE location_id = ? AND is_enabled = 1
+      ORDER BY tab_name
+    `, [locationId]);
+    
+    // If no custom tabs are set, return default enabled tabs
+    if (enabledTabs.length === 0) {
+      const defaultTabs = [
+        { tab_name: 'dashboard', is_enabled: 1 },
+        { tab_name: 'reservations', is_enabled: 1 },
+        { tab_name: 'waitlist', is_enabled: 1 },
+        { tab_name: 'tables', is_enabled: 1 },
+        { tab_name: 'menu', is_enabled: 1 },
+        { tab_name: 'sales', is_enabled: 1 },
+        { tab_name: 'customers', is_enabled: 1 },
+        { tab_name: 'financial-plan', is_enabled: 1 }
+      ];
+      res.json(defaultTabs);
+    } else {
+      res.json(enabledTabs);
+    }
+  } catch (error) {
+    console.error('Failed to get enabled tabs', error);
+    res.status(500).json({ error: 'Failed to get enabled tabs' });
   }
 });
 

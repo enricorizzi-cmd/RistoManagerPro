@@ -15,9 +15,9 @@ import {
 } from '../utils/businessPlanLogic';
 
 // API functions for business plan drafts
-const fetchBusinessPlanDrafts = async (): Promise<BusinessPlanDrafts> => {
+const fetchBusinessPlanDrafts = async (locationId: string): Promise<BusinessPlanDrafts> => {
   try {
-    const response = await fetch('http://localhost:4000/api/business-plan-drafts');
+    const response = await fetch(`http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`);
     if (!response.ok) throw new Error('Failed to fetch drafts');
     return await response.json();
   } catch (error) {
@@ -26,12 +26,12 @@ const fetchBusinessPlanDrafts = async (): Promise<BusinessPlanDrafts> => {
   }
 };
 
-const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft): Promise<void> => {
+const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft, locationId: string): Promise<void> => {
   try {
     const response = await fetch('http://localhost:4000/api/business-plan-drafts', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetYear, data }),
+      body: JSON.stringify({ targetYear, data, locationId }),
     });
     if (!response.ok) throw new Error('Failed to save draft');
   } catch (error) {
@@ -40,7 +40,7 @@ const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft
   }
 };
 
-export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics>) => {
+export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics>, locationId?: string) => {
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
@@ -83,18 +83,20 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
 
   // Load drafts from database
   useEffect(() => {
-    fetchBusinessPlanDrafts().then(setBusinessPlanDrafts);
-  }, []);
+    if (locationId) {
+      fetchBusinessPlanDrafts(locationId).then(setBusinessPlanDrafts);
+    }
+  }, [locationId]);
 
   // Save drafts to database
   useEffect(() => {
-    if (Object.keys(businessPlanDrafts).length > 0) {
+    if (Object.keys(businessPlanDrafts).length > 0 && locationId) {
       // Save each draft to database
       Object.entries(businessPlanDrafts).forEach(([targetYear, draft]) => {
-        saveBusinessPlanDraft(parseInt(targetYear), draft).catch(console.error);
+        saveBusinessPlanDraft(parseInt(targetYear), draft, locationId).catch(console.error);
       });
     }
-  }, [businessPlanDrafts]);
+  }, [businessPlanDrafts, locationId]);
 
   // Initialize form
   useEffect(() => {
@@ -226,8 +228,9 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
     };
     
     // Save to database
-    saveBusinessPlanDraft(draft.targetYear, draft)
-      .then(() => {
+    if (locationId) {
+      saveBusinessPlanDraft(draft.targetYear, draft, locationId)
+        .then(() => {
         setBusinessPlanDrafts((prev) => ({
           ...prev,
           [String(draft.targetYear)]: draft,
@@ -237,15 +240,16 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
           type: 'success',
           text: `Previsionale ${normalized.targetYear} salvato come bozza.`,
         });
-      })
-      .catch((error) => {
-        setBusinessPlanMessage({
-          type: 'error',
-          text: 'Errore nel salvataggio della bozza.',
+        })
+        .catch((error) => {
+          setBusinessPlanMessage({
+            type: 'error',
+            text: 'Errore nel salvataggio della bozza.',
+          });
+          console.error('Failed to save business plan draft:', error);
         });
-        console.error('Failed to save business plan draft:', error);
-      });
-  }, [businessPlanForm, yearMetrics]);
+    }
+  }, [businessPlanForm, yearMetrics, locationId]);
 
   const handleApplyBusinessPlanToOverrides = useCallback(() => {
     if (!businessPlanForm || businessPlanForm.baseYear === null) {

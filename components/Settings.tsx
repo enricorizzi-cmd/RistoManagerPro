@@ -24,10 +24,22 @@ const Settings: React.FC = () => {
     openTime: '18:00',
     closeTime: '23:00'
   });
+  const [showTabsModal, setShowTabsModal] = useState(false);
+  const [selectedLocationForTabs, setSelectedLocationForTabs] = useState<Location | null>(null);
+  const [availableTabs, setAvailableTabs] = useState([
+    { tab_name: 'dashboard', label: 'Dashboard', is_enabled: true },
+    { tab_name: 'reservations', label: 'Prenotazioni', is_enabled: true },
+    { tab_name: 'waitlist', label: 'Lista d\'attesa', is_enabled: true },
+    { tab_name: 'tables', label: 'Tavoli', is_enabled: true },
+    { tab_name: 'menu', label: 'Menu', is_enabled: true },
+    { tab_name: 'sales', label: 'Vendite', is_enabled: true },
+    { tab_name: 'customers', label: 'Clienti', is_enabled: true },
+    { tab_name: 'financial-plan', label: 'Piano Finanziario', is_enabled: true }
+  ]);
 
   const API_BASE_URL = 'http://localhost:4000';
 
-  useEffect(() => {
+    useEffect(() => {
     fetchLocations();
   }, []);
 
@@ -78,7 +90,7 @@ const Settings: React.FC = () => {
   };
 
   const handleUpdateLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
+        e.preventDefault();
     if (!editingLocation) return;
     
     try {
@@ -138,6 +150,66 @@ const Settings: React.FC = () => {
     }
   };
 
+  const openTabsModal = async (location: Location) => {
+    setSelectedLocationForTabs(location);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/settings/locations/${location.id}/tabs`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const tabs = await response.json();
+        const updatedTabs = availableTabs.map(tab => {
+          const foundTab = tabs.find((t: any) => t.tab_name === tab.tab_name);
+          return {
+            ...tab,
+            is_enabled: foundTab ? foundTab.is_enabled === 1 : true
+          };
+        });
+        setAvailableTabs(updatedTabs);
+      }
+    } catch (error) {
+      setError('Errore nel caricamento delle tab');
+    }
+    
+    setShowTabsModal(true);
+  };
+
+  const handleTabToggle = (tabName: string) => {
+    setAvailableTabs(prev => prev.map(tab => 
+      tab.tab_name === tabName 
+        ? { ...tab, is_enabled: !tab.is_enabled }
+        : tab
+    ));
+  };
+
+  const saveTabs = async () => {
+    if (!selectedLocationForTabs) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/settings/locations/${selectedLocationForTabs.id}/tabs`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ tabs: availableTabs })
+      });
+
+      if (response.ok) {
+        setShowTabsModal(false);
+        setSelectedLocationForTabs(null);
+      } else {
+        setError('Errore nel salvataggio delle tab');
+      }
+    } catch (error) {
+      setError('Errore di connessione');
+    }
+  };
+
   const handleDeleteLocation = async (locationId: string) => {
     if (!confirm('Sei sicuro di voler eliminare questa azienda? Questa azione non può essere annullata.')) {
       return;
@@ -177,10 +249,10 @@ const Settings: React.FC = () => {
         <div className="text-lg text-gray-600">Caricamento impostazioni...</div>
       </div>
     );
-  }
+    }
 
-  return (
-    <div className="space-y-6">
+    return (
+        <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Impostazioni Aziende</h2>
         <button
@@ -234,6 +306,12 @@ const Settings: React.FC = () => {
                     Modifica
                   </button>
                   <button
+                    onClick={() => openTabsModal(location)}
+                    className="inline-flex items-center px-3 py-1 border border-blue-300 shadow-sm text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Gestisci Tab
+                  </button>
+                  <button
                     onClick={() => handleStatusToggle(location.id, location.status)}
                     className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                       location.status === 'active'
@@ -267,54 +345,54 @@ const Settings: React.FC = () => {
               
               <form onSubmit={editingLocation ? handleUpdateLocation : handleCreateLocation}>
                 <div className="space-y-4">
-                  <div>
+                    <div>
                     <label className="block text-sm font-medium text-gray-700">Nome Azienda</label>
-                    <input
-                      type="text"
+                        <input
+                            type="text"
                       required
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div>
+                        />
+                    </div>
+
+                    <div>
                     <label className="block text-sm font-medium text-gray-700">Capacità</label>
-                    <input
-                      type="number"
+                        <input
+                            type="number"
                       min="1"
                       required
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       value={formData.capacity}
                       onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
-                    />
-                  </div>
-                  
+                        />
+                    </div>
+                    
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                        <div>
                       <label className="block text-sm font-medium text-gray-700">Apertura</label>
-                      <input
-                        type="time"
+                            <input
+                                type="time"
                         required
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                         value={formData.openTime}
                         onChange={(e) => setFormData({ ...formData, openTime: e.target.value })}
-                      />
-                    </div>
+                            />
+                        </div>
                     
-                    <div>
+                        <div>
                       <label className="block text-sm font-medium text-gray-700">Chiusura</label>
-                      <input
-                        type="time"
+                            <input
+                                type="time"
                         required
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                         value={formData.closeTime}
                         onChange={(e) => setFormData({ ...formData, closeTime: e.target.value })}
                       />
                     </div>
-                  </div>
-                </div>
-
+                        </div>
+                    </div>
+                    
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
                     type="button"
@@ -327,20 +405,65 @@ const Settings: React.FC = () => {
                   >
                     Annulla
                   </button>
-                  <button
-                    type="submit"
+                            <button
+                                type="submit"
                     className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
+                            >
                     {editingLocation ? 'Aggiorna' : 'Crea'}
-                  </button>
-                </div>
-              </form>
+                            </button>
+                    </div>
+                </form>
             </div>
           </div>
         </div>
       )}
-    </div>
-  );
+
+      {/* Tabs Management Modal */}
+      {showTabsModal && selectedLocationForTabs && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Gestisci Tab - {selectedLocationForTabs.name}
+              </h3>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {availableTabs.map((tab) => (
+                  <label key={tab.tab_name} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={tab.is_enabled}
+                      onChange={() => handleTabToggle(tab.tab_name)}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{tab.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowTabsModal(false);
+                    setSelectedLocationForTabs(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={saveTabs}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  Salva
+                </button>
+              </div>
+            </div>
+            </div>
+        </div>
+      )}
+        </div>
+    );
 };
 
 export default Settings;

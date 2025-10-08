@@ -126,7 +126,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const [resData, waitlistData, menuData, salesData, tablesData, customersData] = await Promise.all([
                     api.getReservations(firstLocation.id),
                     api.getWaitlist(firstLocation.id),
-                    api.getMenuItems(),
+                    api.getMenuItems(firstLocation.id),
                     api.getSales(firstLocation.id),
                     api.getTables(firstLocation.id),
                     api.getCustomers(firstLocation.id),

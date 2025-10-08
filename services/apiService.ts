@@ -74,8 +74,8 @@ export const removeWaitlistEntry = (id: string): Promise<{ success: boolean }> =
 };
 
 // Menu & Sales
-export const getMenuItems = (): Promise<MenuItem[]> => {
-  return apiCall<MenuItem[]>('/menu-items');
+export const getMenuItems = (locationId: string): Promise<MenuItem[]> => {
+  return apiCall<MenuItem[]>(`/menu-items/${locationId}`);
 };
 
 export const getSales = (locationId: string): Promise<Sale[]> => {
