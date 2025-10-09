@@ -4,6 +4,8 @@
 import React from 'react';
 import { formatCurrencyValue, parseNumberInput, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
 import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal, calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
+import { useAppContext } from '../../contexts/AppContext';
+import { calculateFatturatoTotale } from '../../services/financialPlanApi';
 import type { BusinessPlanFormState, BusinessPlanMessage } from '../../utils/businessPlanLogic';
 
 interface BusinessPlanFormProps {
@@ -58,7 +60,27 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   onReset,
   onDeleteDraft,
 }) => {
+  const { currentLocation } = useAppContext();
   const [showMissingDataModal, setShowMissingDataModal] = React.useState(false);
+
+  // Automatic calculation of fatturato totale when component mounts or location changes
+  React.useEffect(() => {
+    const autoCalculateFatturatoTotale = async () => {
+      if (!currentLocation?.id) {
+        return;
+      }
+
+      try {
+        await calculateFatturatoTotale(currentLocation.id);
+        console.log('✅ Fatturato totale calcolato automaticamente per azienda:', currentLocation.id);
+      } catch (error) {
+        console.error('❌ Errore durante il calcolo automatico del fatturato totale:', error);
+      }
+    };
+
+    autoCalculateFatturatoTotale();
+  }, [currentLocation?.id]);
+
 
   // Funzione per calcolare i dati mancanti per l'anno base selezionato usando gli stessi dati di AnalisiFP
   const getMissingDataForBaseYear = React.useMemo(() => {
@@ -67,35 +89,22 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
     const missingMonths: number[] = [];
     const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
     
-    // Helper function per ottenere il fatturato dalle statistiche (stessa logica di AnalisiFP)
+    // Helper function per ottenere il fatturato dal database
     const getFatturatoFromStats = (year: number, monthIndex: number) => {
       const monthKey = buildMonthKey(year, monthIndex);
       
-      // Find stats data
-      const statsRow = financialStatsRows.find(row => {
-        const parsed = parsePlanMonthLabel(row.month);
-        if (parsed) {
-          const { year: rowYear, monthIndex: rowMonthIndex } = parsed;
-          return rowYear === year && rowMonthIndex === monthIndex;
-        }
-        return false;
-      });
+      // First try to get fatturatoTotale directly from statsOverrides (saved by StatsTable)
+      const fatturatoTotale = statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
       
-      if (statsRow) {
-        // Use the same logic as AnalisiFP's getFieldValue
-        const dataWithKey = { ...statsRow, monthKey };
-        const overrideKey = `${monthKey}|fatturatoTotale`;
-        const fatturatoFromStats = statsOverrides[overrideKey] ?? dataWithKey.fatturatoTotale;
-        const fatturatoImponibile = statsOverrides[`${monthKey}|fatturatoImponibile`] ?? dataWithKey.fatturatoImponibile;
-        
-        let fatturatoTotale = fatturatoFromStats;
-        if (fatturatoTotale === null || fatturatoTotale === undefined) {
-          fatturatoTotale = fatturatoImponibile;
-        }
-        
-        return fatturatoTotale ?? 0;
+      if (fatturatoTotale !== null) {
+        return fatturatoTotale;
       }
-      return 0;
+      
+      // Fallback: calculate from individual components
+      const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0; // Default to 0 if missing
+      const fatturatoImponibile = statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
+      
+      return fatturatoImponibile + corrispettivi;
     };
     
     // Verifica i dati mensili per ogni mese usando le stesse funzioni di AnalisiFP

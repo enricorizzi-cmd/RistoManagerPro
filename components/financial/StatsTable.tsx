@@ -165,6 +165,15 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   const handleFieldChange = (monthKey: string, field: string, value: string) => {
     const numValue = value === '' ? null : Number(value);
     onStatsOverride(monthKey, field, numValue);
+    
+    // Auto-save fatturatoTotale when fatturatoImponibile or corrispettivi change
+    if (field === 'fatturatoImponibile' || field === 'corrispettivi') {
+      const currentCorrispettivi = field === 'corrispettivi' ? numValue : (statsOverrides[`${monthKey}|corrispettivi`] ?? null);
+      const currentFatturatoImponibile = field === 'fatturatoImponibile' ? numValue : (statsOverrides[`${monthKey}|fatturatoImponibile`] ?? null);
+      
+      const fatturatoTotale = (currentFatturatoImponibile ?? 0) + (currentCorrispettivi ?? 0);
+      onStatsOverride(monthKey, 'fatturatoTotale', fatturatoTotale);
+    }
   };
 
   return (

@@ -214,7 +214,8 @@ export const calculateUtileFromMacroTotals = (
 // Compute year metrics from plan data and financial stats
 export const computeYearMetrics = (
   basePlanByYear: Map<number, PlanYearData>,
-  financialStatsRows: FinancialStatsRow[]
+  financialStatsRows: FinancialStatsRow[],
+  statsOverrides?: Record<string, any>
 ): Map<number, BusinessPlanYearMetrics> => {
   const yearMetrics = new Map<number, BusinessPlanYearMetrics>();
   
@@ -253,6 +254,13 @@ export const computeYearMetrics = (
         const fatturatoImponibile = statsData.fatturatoImponibile;
         
         monthFatturato = fatturatoFromStats ?? fatturatoImponibile ?? 0;
+      } else if (statsOverrides) {
+        // Fallback to statsOverrides if financialStatsRows is empty
+        const fatturatoTotale = statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
+        const fatturatoImponibile = statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
+        const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
+        
+        monthFatturato = fatturatoTotale ?? (fatturatoImponibile + corrispettivi);
       }
       
       // Get macro totals from plan data using consuntivo values

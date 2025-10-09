@@ -1599,6 +1599,137 @@ app.put('/api/financial-stats', requireAuth, async (req, res) => {
   }
 });
 
+// Endpoint to migrate default stats to database
+app.post('/api/financial-stats/migrate', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.body;
+    
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    // Default stats data (sample data for 2024)
+    const defaultStats = [
+      { month: "Gen. 24", fatturatoImponibile: 15000.0, fatturatoTotale: 15000.0, incassato: 18000.0, saldoConto: 5000.0, saldoSecondoConto: 1000.0, saldoTotale: 6000.0, creditiPendenti: 2000.0, creditiScaduti: 500.0, debitiFornitore: 3000.0, debitiBancari: 1500.0 },
+      { month: "Feb. 24", fatturatoImponibile: 16000.0, fatturatoTotale: 16000.0, incassato: 19000.0, saldoConto: 5500.0, saldoSecondoConto: 1200.0, saldoTotale: 6700.0, creditiPendenti: 2200.0, creditiScaduti: 600.0, debitiFornitore: 3200.0, debitiBancari: 1600.0 },
+      { month: "Mar. 24", fatturatoImponibile: 17000.0, fatturatoTotale: 17000.0, incassato: 20000.0, saldoConto: 6000.0, saldoSecondoConto: 1400.0, saldoTotale: 7400.0, creditiPendenti: 2400.0, creditiScaduti: 700.0, debitiFornitore: 3400.0, debitiBancari: 1700.0 },
+      { month: "Apr. 24", fatturatoImponibile: 18000.0, fatturatoTotale: 18000.0, incassato: 21000.0, saldoConto: 6500.0, saldoSecondoConto: 1600.0, saldoTotale: 8100.0, creditiPendenti: 2600.0, creditiScaduti: 800.0, debitiFornitore: 3600.0, debitiBancari: 1800.0 },
+      { month: "Mag. 24", fatturatoImponibile: 19000.0, fatturatoTotale: 19000.0, incassato: 22000.0, saldoConto: 7000.0, saldoSecondoConto: 1800.0, saldoTotale: 8800.0, creditiPendenti: 2800.0, creditiScaduti: 900.0, debitiFornitore: 3800.0, debitiBancari: 1900.0 },
+      { month: "Giu. 24", fatturatoImponibile: 20000.0, fatturatoTotale: 20000.0, incassato: 23000.0, saldoConto: 7500.0, saldoSecondoConto: 2000.0, saldoTotale: 9500.0, creditiPendenti: 3000.0, creditiScaduti: 1000.0, debitiFornitore: 4000.0, debitiBancari: 2000.0 }
+    ];
+    
+    const db = getDatabase(locationId);
+    const now = new Date().toISOString();
+    
+    // Clear existing stats for this location
+    await dbRun(locationId, 'DELETE FROM financial_stats WHERE location_id = ?', [locationId]);
+    
+    // Insert default stats
+    for (const stat of defaultStats) {
+      const statId = crypto.randomUUID();
+      await dbRun(locationId, `
+        INSERT INTO financial_stats (
+          id, location_id, month, fatturato_totale, fatturato_imponibile, 
+          fatturato_previsionale, incassato, incassato_previsionale, 
+          utile, utile_previsionale, debiti_fornitore, debiti_bancari,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        statId, locationId, stat.month, 
+        stat.fatturatoTotale || null, stat.fatturatoImponibile || null,
+        null, stat.incassato || null, null, null, null,
+        stat.debitiFornitore || null, stat.debitiBancari || null, now, now
+      ]);
+    }
+    
+    res.json({ success: true, message: `Migrated ${defaultStats.length} stats records for location ${locationId}` });
+  } catch (error) {
+    console.error('Failed to migrate financial stats', error);
+    res.status(500).json({ error: 'Failed to migrate financial stats' });
+  }
+});
+
+// Calculate and save fatturatoTotale for existing records
+app.post('/api/financial-stats/calculate-fatturato-totale', requireAuth, async (req, res) => {
+  try {
+    const { locationId } = req.body;
+    
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const now = new Date().toISOString();
+    
+    // First, calculate fatturatoTotale in financial_plan_state statsOverrides
+    const stateResult = await dbGet(locationId, 'SELECT * FROM financial_plan_state WHERE id = ?', [`financial-plan-${locationId}`]);
+    
+    if (stateResult) {
+      const stateData = JSON.parse(stateResult.data);
+      const statsOverrides = stateData.statsOverrides || {};
+      
+      let updatedCount = 0;
+      
+      // Calculate fatturatoTotale for all months that have fatturatoImponibile
+      Object.keys(statsOverrides).forEach(key => {
+        if (key.includes('|fatturatoImponibile')) {
+          const monthKey = key.split('|')[0];
+          const fatturatoImponibile = statsOverrides[key] || 0;
+          const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] || 0;
+          const fatturatoTotale = fatturatoImponibile + corrispettivi;
+          
+          statsOverrides[`${monthKey}|fatturatoTotale`] = fatturatoTotale;
+          updatedCount++;
+        }
+      });
+      
+      // Save updated state
+      await dbRun(locationId, 'UPDATE financial_plan_state SET data = ?, updated_at = ? WHERE id = ?', [
+        JSON.stringify(stateData), now, `financial-plan-${locationId}`
+      ]);
+      
+      res.json({ 
+        success: true,
+        message: `Fatturato totale calculated successfully in statsOverrides`, 
+        updatedRecords: updatedCount 
+      });
+    } else {
+      res.json({ 
+        success: true,
+        message: 'No financial plan state found', 
+        updatedRecords: 0 
+      });
+    }
+  } catch (error) {
+    console.error('Error calculating fatturato totale:', error);
+    res.status(500).json({ error: 'Failed to calculate fatturato totale' });
+  }
+});
+
 process.on('SIGINT', () => {
   masterDb.close();
   dbConnections.forEach(db => db.close());

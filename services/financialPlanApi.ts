@@ -161,6 +161,25 @@ export async function saveFinancialStats(locationId: string, stats: any[]): Prom
   }
 }
 
+export async function calculateFatturatoTotale(locationId: string): Promise<boolean> {
+  try {
+    const response = await fetch(buildUrl('/api/financial-stats/calculate-fatturato-totale'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locationId }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to calculate fatturato totale: ${response.statusText}`);
+    }
+    const result = await response.json();
+    console.log('Fatturato totale calculated:', result.message, `Updated ${result.updatedRecords} records`);
+    return true;
+  } catch (error) {
+    console.error('Failed to calculate fatturato totale:', error);
+    return false;
+  }
+}
+
 
 
 
