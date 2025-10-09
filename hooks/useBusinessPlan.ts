@@ -2,6 +2,7 @@
 // Manages business plan form state and calculations
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { debounce } from 'lodash';
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 import { parseNumberInput, buildMonthKey, parsePlanMonthLabel } from '../utils/financialPlanUtils';
 import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../utils/financialCalculations';
@@ -218,10 +219,9 @@ export const useBusinessPlan = (
       
       // Helper function to clean currency values
       const cleanCurrencyValue = (val: string): string => {
-        // Remove € symbol, spaces, and convert to number then back to string
+        // Remove € symbol, spaces, but keep the raw number as string
         const cleaned = val.replace(/[€\s,]/g, '');
-        const num = parseFloat(cleaned);
-        return isNaN(num) ? '0.00' : num.toFixed(2);
+        return cleaned === '' ? '' : cleaned;
       };
       
       switch (field) {
@@ -252,9 +252,18 @@ export const useBusinessPlan = (
         default:
           break;
       }
-      return recalcBusinessPlan(next, yearMetrics, field);
+      // Don't recalculate during typing - just update the field
+      return next;
     });
-  }, [yearMetrics]);
+  }, []);
+
+  // Manual recalculation function - call when needed
+  const recalculateForm = useCallback(() => {
+    if (businessPlanForm) {
+      const recalculated = recalcBusinessPlan(businessPlanForm, yearMetrics);
+      setBusinessPlanForm(recalculated);
+    }
+  }, [businessPlanForm, yearMetrics]);
 
   const handleBusinessPlanBaseYearChange = useCallback((year: number) => {
     const metrics = yearMetrics.get(year);
@@ -262,7 +271,7 @@ export const useBusinessPlan = (
     const form = stored
       ? createBusinessPlanFormFromDraft(stored)
       : createBusinessPlanFormFromMetrics(metrics, year, year + 1);
-    setBusinessPlanForm(recalcBusinessPlan(form, yearMetrics));
+    setBusinessPlanForm(form); // Don't recalculate automatically
   }, [yearMetrics, businessPlanDrafts]);
 
   const handleBusinessPlanTargetYearChange = useCallback((value: string) => {
@@ -277,12 +286,12 @@ export const useBusinessPlan = (
       }
       const stored = businessPlanDrafts[String(targetYear)];
       if (stored && stored.baseYear === prev.baseYear) {
-        return recalcBusinessPlan(createBusinessPlanFormFromDraft(stored), yearMetrics);
+        return createBusinessPlanFormFromDraft(stored); // Don't recalculate automatically
       }
-      return recalcBusinessPlan({
+      return {
         ...prev,
         targetYear,
-      }, yearMetrics);
+      }; // Don't recalculate automatically
     });
   }, [yearMetrics, businessPlanDrafts]);
 
@@ -394,5 +403,6 @@ export const useBusinessPlan = (
     handleResetBusinessPlan,
     handleDeleteBusinessPlanDraft,
     clearBusinessPlanMessage,
+    recalculateForm,
   };
 };

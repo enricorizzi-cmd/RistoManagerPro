@@ -38,6 +38,7 @@ interface BusinessPlanFormProps {
   onApplyToOverrides: () => void;
   onReset: () => void;
   onDeleteDraft: (targetYear: number) => void;
+  onRecalculate?: () => void;
 }
 
 export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
@@ -59,6 +60,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   onApplyToOverrides,
   onReset,
   onDeleteDraft,
+  onRecalculate,
 }) => {
   const { currentLocation } = useAppContext();
   const [showMissingDataModal, setShowMissingDataModal] = React.useState(false);
@@ -247,12 +249,12 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             <label className="block text-xs font-semibold uppercase text-gray-500">
               Fatturato previsionale (€)
             </label>
-            <input
-              type="text"
-              value={formatCurrencyValue(parseNumberInput(businessPlanForm.fatturatoPrevisionale))}
-              onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+              <input
+                type="text"
+                value={businessPlanForm.fatturatoPrevisionale}
+                onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
           </div>
         </div>
         {businessPlanMessage && (
@@ -273,16 +275,27 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Incassato</h3>
-          <div className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza incassato / fatturato (%)
+                Incassato anno base (€)
               </label>
               <input
                 type="text"
-                value={businessPlanForm.incassatoPercent}
-                onChange={(event) => onFieldChange('incassatoPercent', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.incassatoAnnoBase || '0'))}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Incidenza incassato / fatturato anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.incassatoPercentAnnoBase || '0.00'}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
               />
             </div>
             <div>
@@ -291,8 +304,20 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               </label>
               <input
                 type="text"
-                value={formatCurrencyValue(parseNumberInput(businessPlanForm.incassatoPrevisionale))}
+                value={businessPlanForm.incassatoPrevisionale}
                 onChange={(event) => onFieldChange('incassatoValue', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Incidenza incassato / fatturato (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.incassatoPercent}
+                onChange={(event) => onFieldChange('incassatoPercent', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -300,7 +325,40 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Costi fissi</h3>
-          <div className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Costi fissi anno base (€)
+              </label>
+              <input
+                type="text"
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiFissiAnnoBase || '0'))}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Incidenza costi fissi / incassato anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiFissiPercentAnnoBase || '0.00'}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Costi fissi previsionali (€)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiFissiPrevisionale}
+                onChange={(event) => onFieldChange('costiFissiValue', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
             <div>
               <label className="block text-xs font-semibold uppercase text-gray-500">
                 Incidenza costi fissi / incassato (%)
@@ -312,22 +370,44 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi fissi previsionali (€)
-              </label>
-              <input
-                type="text"
-                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiFissiPrevisionale))}
-                onChange={(event) => onFieldChange('costiFissiValue', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
           </div>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Costi variabili</h3>
-          <div className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Costi variabili anno base (€)
+              </label>
+              <input
+                type="text"
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiVariabiliAnnoBase || '0'))}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Incidenza costi variabili / incassato anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiVariabiliPercentAnnoBase || '0.00'}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                Costi variabili previsionali (€)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiVariabiliPrevisionale}
+                onChange={(event) => onFieldChange('costiVariabiliValue', event.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
             <div>
               <label className="block text-xs font-semibold uppercase text-gray-500">
                 Incidenza costi variabili / incassato (%)
@@ -339,22 +419,27 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi variabili previsionali (€)
-              </label>
-              <input
-                type="text"
-                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiVariabiliPrevisionale))}
-                onChange={(event) => onFieldChange('costiVariabiliValue', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
           </div>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Utile</h3>
           <div className="grid gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                Utile anno base (€)
+              </p>
+              <p className="text-lg font-semibold text-gray-600">
+                {formatCurrencyValue(parseNumberInput(businessPlanForm.utileAnnoBase || '0'))}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                Incidenza utile / incassato anno base (%)
+              </p>
+              <p className="text-lg font-semibold text-gray-600">
+                {parseNumberInput(businessPlanForm.utilePercentAnnoBase || '0')?.toFixed(2) ?? '0.00'}%
+              </p>
+            </div>
             <div>
               <p className="text-xs font-semibold uppercase text-gray-500">
                 Utile previsionale (€)
@@ -404,6 +489,13 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
       )}
 
       <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={onRecalculate}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        >
+          Ricalcola
+        </button>
         <button
           type="button"
           onClick={onSaveDraft}

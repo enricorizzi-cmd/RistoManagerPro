@@ -97,6 +97,7 @@ const FinancialPlan: React.FC = () => {
     handleSaveBusinessPlanDraft,
     handleApplyBusinessPlanToOverrides,
     handleDeleteBusinessPlanDraft,
+    recalculateForm,
   } = useBusinessPlan(
     yearMetrics, 
     currentLocation?.id,
@@ -557,6 +558,7 @@ const FinancialPlan: React.FC = () => {
           onApplyToOverrides={applyBusinessPlanToOverrides}
           onReset={handleResetBusinessPlan}
           onDeleteDraft={handleDeleteBusinessPlanDraft}
+          onRecalculate={recalculateForm}
         />
       )}
 

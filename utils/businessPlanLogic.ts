@@ -27,12 +27,20 @@ export interface BusinessPlanFormState {
   fatturatoAnnoBase: string;
   fatturatoIncrement: string;
   fatturatoPrevisionale: string;
+  incassatoAnnoBase: string;
+  incassatoPercentAnnoBase: string;
   incassatoPercent: string;
   incassatoPrevisionale: string;
+  costiFissiAnnoBase: string;
+  costiFissiPercentAnnoBase: string;
   costiFissiPercent: string;
   costiFissiPrevisionale: string;
+  costiVariabiliAnnoBase: string;
+  costiVariabiliPercentAnnoBase: string;
   costiVariabiliPercent: string;
   costiVariabiliPrevisionale: string;
+  utileAnnoBase: string;
+  utilePercentAnnoBase: string;
   utilePrevisionale: string;
   utilePercent: string;
 }
@@ -54,12 +62,20 @@ export const createBusinessPlanFormFromMetrics = (
       fatturatoAnnoBase: '0.00',
       fatturatoIncrement: '0',
       fatturatoPrevisionale: '0.00',
+      incassatoAnnoBase: '0.00',
+      incassatoPercentAnnoBase: '0.00',
       incassatoPercent: '0.00',
       incassatoPrevisionale: '0.00',
+      costiFissiAnnoBase: '0.00',
+      costiFissiPercentAnnoBase: '0.00',
       costiFissiPercent: '0.00',
       costiFissiPrevisionale: '0.00',
+      costiVariabiliAnnoBase: '0.00',
+      costiVariabiliPercentAnnoBase: '0.00',
       costiVariabiliPercent: '0.00',
       costiVariabiliPrevisionale: '0.00',
+      utileAnnoBase: '0.00',
+      utilePercentAnnoBase: '0.00',
       utilePrevisionale: '0.00',
       utilePercent: '0.00',
     };
@@ -77,15 +93,23 @@ export const createBusinessPlanFormFromMetrics = (
     fatturatoAnnoBase: round2(fatturato).toFixed(2),
     fatturatoIncrement: '0',
     fatturatoPrevisionale: round2(fatturato).toFixed(2),
+    incassatoAnnoBase: round2(incassato).toFixed(2),
+    incassatoPercentAnnoBase: fatturato === 0 ? '0.00' : round2((incassato / fatturato) * 100).toFixed(2),
     incassatoPercent:
       fatturato === 0 ? '0.00' : round2((incassato / fatturato) * 100).toFixed(2),
     incassatoPrevisionale: round2(incassato).toFixed(2),
+    costiFissiAnnoBase: round2(costiFissi).toFixed(2),
+    costiFissiPercentAnnoBase: incassato === 0 ? '0.00' : round2((costiFissi / incassato) * 100).toFixed(2),
     costiFissiPercent:
       incassato === 0 ? '0.00' : round2((costiFissi / incassato) * 100).toFixed(2),
     costiFissiPrevisionale: round2(costiFissi).toFixed(2),
+    costiVariabiliAnnoBase: round2(costiVariabili).toFixed(2),
+    costiVariabiliPercentAnnoBase: incassato === 0 ? '0.00' : round2((costiVariabili / incassato) * 100).toFixed(2),
     costiVariabiliPercent:
       incassato === 0 ? '0.00' : round2((costiVariabili / incassato) * 100).toFixed(2),
     costiVariabiliPrevisionale: round2(costiVariabili).toFixed(2),
+    utileAnnoBase: round2(utile).toFixed(2),
+    utilePercentAnnoBase: incassato === 0 ? '0.00' : round2((utile / incassato) * 100).toFixed(2),
     utilePrevisionale: round2(utile).toFixed(2),
     utilePercent:
       incassato === 0 ? '0.00' : round2((utile / incassato) * 100).toFixed(2),
@@ -106,12 +130,20 @@ export const createBusinessPlanFormFromDraft = (
     fatturatoAnnoBase: draft.fatturatoAnnoBase.toFixed(2),
     fatturatoIncrement: draft.fatturatoIncrement.toFixed(2),
     fatturatoPrevisionale: draft.fatturatoPrevisionale.toFixed(2),
+    incassatoAnnoBase: '0.00', // Non disponibile nei draft
+    incassatoPercentAnnoBase: '0.00', // Non disponibile nei draft
     incassatoPercent: draft.incassatoPercent.toFixed(2),
     incassatoPrevisionale: draft.incassatoPrevisionale.toFixed(2),
+    costiFissiAnnoBase: '0.00', // Non disponibile nei draft
+    costiFissiPercentAnnoBase: '0.00', // Non disponibile nei draft
     costiFissiPercent: draft.costiFissiPercent.toFixed(2),
     costiFissiPrevisionale: draft.costiFissiPrevisionale.toFixed(2),
+    costiVariabiliAnnoBase: '0.00', // Non disponibile nei draft
+    costiVariabiliPercentAnnoBase: '0.00', // Non disponibile nei draft
     costiVariabiliPercent: draft.costiVariabiliPercent.toFixed(2),
     costiVariabiliPrevisionale: draft.costiVariabiliPrevisionale.toFixed(2),
+    utileAnnoBase: '0.00', // Non disponibile nei draft
+    utilePercentAnnoBase: '0.00', // Non disponibile nei draft
     utilePrevisionale: round2(utile).toFixed(2),
     utilePercent:
       draft.incassatoPrevisionale === 0
@@ -337,12 +369,20 @@ export const recalcBusinessPlan = (
     fatturatoAnnoBase: round2(fatturatoBase).toFixed(2),
     fatturatoIncrement: fatturatoIncrement.toFixed(2),
     fatturatoPrevisionale: fatturatoPrevisionale.toFixed(2),
+    incassatoAnnoBase: round2(incassatoBase).toFixed(2),
+    incassatoPercentAnnoBase: fatturatoBase === 0 ? '0.00' : round2((incassatoBase / fatturatoBase) * 100).toFixed(2),
     incassatoPercent: (incPercent ?? 0).toFixed(2),
     incassatoPrevisionale: incassatoFinal.toFixed(2),
+    costiFissiAnnoBase: round2(costiFissiBase).toFixed(2),
+    costiFissiPercentAnnoBase: incassatoBase === 0 ? '0.00' : round2((costiFissiBase / incassatoBase) * 100).toFixed(2),
     costiFissiPercent: costiFissiCalc.percent.toFixed(2),
     costiFissiPrevisionale: costiFissiCalc.amount.toFixed(2),
+    costiVariabiliAnnoBase: round2(costiVariabiliBase).toFixed(2),
+    costiVariabiliPercentAnnoBase: incassatoBase === 0 ? '0.00' : round2((costiVariabiliBase / incassatoBase) * 100).toFixed(2),
     costiVariabiliPercent: costiVariabiliCalc.percent.toFixed(2),
     costiVariabiliPrevisionale: costiVariabiliCalc.amount.toFixed(2),
+    utileAnnoBase: round2(incassatoBase - costiFissiBase - costiVariabiliBase).toFixed(2),
+    utilePercentAnnoBase: incassatoBase === 0 ? '0.00' : round2(((incassatoBase - costiFissiBase - costiVariabiliBase) / incassatoBase) * 100).toFixed(2),
     utilePrevisionale: utile.toFixed(2),
     utilePercent: utilePercent.toFixed(2),
   };
