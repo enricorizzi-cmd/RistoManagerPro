@@ -80,9 +80,15 @@ export const parsePlanMonthLabel = (
   if (parts.length < 2) {
     return null;
   }
-  const year = Number(parts[parts.length - 1]);
+  let year = Number(parts[parts.length - 1]);
   const monthName = normalizeLabel(parts.slice(0, parts.length - 1).join(' '));
   const monthIndex = MONTH_MAP[monthName];
+  
+  // Handle 2-digit years (e.g., "24" -> 2024)
+  if (year < 100) {
+    year += 2000;
+  }
+  
   if (Number.isNaN(year) || monthIndex === undefined) {
     return null;
   }

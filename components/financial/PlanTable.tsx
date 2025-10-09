@@ -10,6 +10,11 @@ import type { PlanYearData } from '../../utils/financialCalculations';
 interface PlanTableProps {
   planYear: PlanYearData | undefined;
   selectedYear: number;
+  periodoMode: boolean;
+  selectedFromMonth: number;
+  selectedFromYear: number;
+  selectedToMonth: number;
+  selectedToYear: number;
   causaliCatalog: FinancialCausaleGroup[];
   editMode: boolean;
   onlyValued: boolean;
@@ -25,6 +30,11 @@ interface PlanTableProps {
 export const PlanTable: React.FC<PlanTableProps> = ({
   planYear,
   selectedYear,
+  periodoMode,
+  selectedFromMonth,
+  selectedFromYear,
+  selectedToMonth,
+  selectedToYear,
   causaliCatalog,
   editMode,
   onlyValued,
@@ -36,19 +46,59 @@ export const PlanTable: React.FC<PlanTableProps> = ({
   setOverride,
   consuntivoOverrides = {},
 }) => {
+  // Generate months based on periodo mode
+  const getMonthsToShow = () => {
+    if (!periodoMode) {
+      // Default: show all 12 months of selected year
+      return MONTH_NAMES.map((name, index) => ({ name, monthIndex: index, year: selectedYear }));
+    } else {
+      // Periodo mode: show months from selectedFrom to selectedTo
+      const months = [];
+      let currentYear = selectedFromYear;
+      let currentMonth = selectedFromMonth;
+      
+      while (currentYear < selectedToYear || (currentYear === selectedToYear && currentMonth <= selectedToMonth)) {
+        months.push({
+          name: MONTH_NAMES[currentMonth],
+          monthIndex: currentMonth,
+          year: currentYear
+        });
+        
+        currentMonth++;
+        if (currentMonth >= 12) {
+          currentMonth = 0;
+          currentYear++;
+        }
+      }
+      
+      return months;
+    }
+  };
+
+  const monthsToShow = getMonthsToShow();
   const rowHasAnyValue = useCallback((
     macro: string,
     category: string,
     detail: string,
     year: number,
   ): boolean => {
-    for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
-      const p = getPlanPreventivoValue(macro, category, detail, year, monthIndex);
-      const c = getPlanConsuntivoValue(macro, category, detail, year, monthIndex);
-      if ((p ?? 0) !== 0 || (c ?? 0) !== 0) return true;
+    if (!periodoMode) {
+      // Default: check all 12 months of the year
+      for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+        const p = getPlanPreventivoValue(macro, category, detail, year, monthIndex);
+        const c = getPlanConsuntivoValue(macro, category, detail, year, monthIndex);
+        if ((p ?? 0) !== 0 || (c ?? 0) !== 0) return true;
+      }
+    } else {
+      // Periodo mode: check only months in the selected period
+      for (const month of monthsToShow) {
+        const p = getPlanPreventivoValue(macro, category, detail, month.year, month.monthIndex);
+        const c = getPlanConsuntivoValue(macro, category, detail, month.year, month.monthIndex);
+        if ((p ?? 0) !== 0 || (c ?? 0) !== 0) return true;
+      }
     }
     return false;
-  }, [getPlanPreventivoValue, getPlanConsuntivoValue]);
+  }, [getPlanPreventivoValue, getPlanConsuntivoValue, periodoMode, monthsToShow]);
 
   const getMacroColor = (macro: string) => {
     switch (macro) {
@@ -89,9 +139,9 @@ export const PlanTable: React.FC<PlanTableProps> = ({
             <th className="px-3 py-3 text-left bg-slate-50 sticky top-0 left-0 z-30 w-48">CATEGORIA</th>
             <th className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20">SOMMA PROGRESSIVA</th>
             <th className="px-3 py-3 text-center bg-slate-50 sticky top-0 z-20">INCIDENZA PROGRESSIVA</th>
-            {MONTH_NAMES.map((name) => (
-              <th key={name} className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20" colSpan={onlyConsuntivo ? 1 : 2}>
-                {name}
+            {monthsToShow.map((month) => (
+              <th key={`${month.year}-${month.monthIndex}`} className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20" colSpan={onlyConsuntivo ? 1 : 2}>
+                {month.name} {month.year}
               </th>
             ))}
           </tr>
@@ -99,8 +149,8 @@ export const PlanTable: React.FC<PlanTableProps> = ({
             <th className="px-3 py-2 bg-slate-50 sticky top-[3rem] left-0 z-30 w-48"></th>
             <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">TOTALE</th>
             <th className="px-3 py-2 text-center text-xs font-normal bg-slate-50 sticky top-[3rem] z-20">%</th>
-            {MONTH_NAMES.map((name) => (
-              <React.Fragment key={name}>
+            {monthsToShow.map((month) => (
+              <React.Fragment key={`${month.year}-${month.monthIndex}`}>
                 {!onlyConsuntivo && (
                   <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">PREVENTIVO</th>
                 )}
@@ -119,8 +169,8 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
                     const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
                     return acc + categoryDetails.reduce((catAcc, d) => 
-                      catAcc + MONTH_NAMES.reduce((monthAcc, _, monthIndex) => 
-                        monthAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                      catAcc + monthsToShow.reduce((monthAcc, month) => 
+                        monthAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, month.year, month.monthIndex), 0
                       ), 0
                     );
                   }, 0);
@@ -133,8 +183,8 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     totalIncassato = macroSum; // Use the macroSum itself
                   } else {
                     // Calculate total INCASSATO from all months
-                    totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                    totalIncassato = monthsToShow.reduce((acc, month) => 
+                      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex), 0
                     );
                   }
                   
@@ -151,24 +201,24 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                     </>
                   );
                 })()}
-                {MONTH_NAMES.map((_, monthIndex) => {
+                {monthsToShow.map((month) => {
                   const p = group.categories.reduce((acc, cat) => {
                     const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
                     const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
                     return acc + categoryDetails.reduce((catAcc, d) => 
-                      catAcc + getPlanPreventivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                      catAcc + getPlanPreventivoValue(group.macroCategory, cat.name, d.detail, month.year, month.monthIndex), 0
                     );
                   }, 0);
                   const c = group.categories.reduce((acc, cat) => {
                     const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
                     const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
                     return acc + categoryDetails.reduce((catAcc, d) => 
-                      catAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, selectedYear, monthIndex), 0
+                      catAcc + getPlanConsuntivoValue(group.macroCategory, cat.name, d.detail, month.year, month.monthIndex), 0
                     );
                   }, 0);
                   
                   return (
-                    <React.Fragment key={`macro-header-${monthIndex}`}>
+                    <React.Fragment key={`macro-header-${month.year}-${month.monthIndex}`}>
                       {!onlyConsuntivo && (
                         <td className="px-3 py-3 text-right border-l-2 border-gray-300">
                           {formatCurrencyValue(p)}
@@ -196,14 +246,14 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                       <td className="px-3 py-2 text-sm text-gray-700 sticky left-0 bg-slate-50 z-10 w-48">{category.name}</td>
                       {(() => {
                         const categorySum = categoryDetails.reduce((acc, d) => 
-                          acc + MONTH_NAMES.reduce((monthAcc, _, monthIndex) => 
-                            monthAcc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0
+                          acc + monthsToShow.reduce((monthAcc, month) => 
+                            monthAcc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0
                           ), 0
                         );
                         
                         // Calculate progressive incidence: (categorySum / totalIncassato) * 100
-                        const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                          acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                        const totalIncassato = monthsToShow.reduce((acc, month) => 
+                          acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex), 0
                         );
                         const totalPercentage = totalIncassato === 0 ? 0 : (categorySum / totalIncassato) * 100;
                         
@@ -218,11 +268,11 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                           </>
                         );
                       })()}
-                      {MONTH_NAMES.map((_, monthIndex) => {
-                        const p = categoryDetails.reduce((acc, d) => acc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
-                        const c = categoryDetails.reduce((acc, d) => acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, selectedYear, monthIndex), 0);
+                      {monthsToShow.map((month) => {
+                        const p = categoryDetails.reduce((acc, d) => acc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0);
+                        const c = categoryDetails.reduce((acc, d) => acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0);
                         return (
-                          <React.Fragment key={`subtotal-${monthIndex}`}>
+                          <React.Fragment key={`subtotal-${month.year}-${month.monthIndex}`}>
                             {!onlyConsuntivo && (
                               <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
                                 <div className="font-semibold text-sky-700">{formatCurrencyValue(p)}</div>
@@ -248,13 +298,13 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                         <tr key={`${category.name}-${causale}`} className="hover:bg-slate-50">
                           <td className="px-3 py-2 text-sm text-gray-700 pl-6 sticky left-0 bg-white z-10 w-48 hover:bg-slate-50">{causale}</td>
                           {(() => {
-                            const causaleSum = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                              acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, monthIndex), 0
+                            const causaleSum = monthsToShow.reduce((acc, month) => 
+                              acc + getPlanConsuntivoValue(group.macroCategory, category.name, causale, month.year, month.monthIndex), 0
                             );
                             
                             // Calculate progressive incidence: (causaleSum / totalIncassato) * 100
-                            const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                              acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+                            const totalIncassato = monthsToShow.reduce((acc, month) => 
+                              acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex), 0
                             );
                             const totalPercentage = totalIncassato === 0 ? 0 : (causaleSum / totalIncassato) * 100;
                             
@@ -269,25 +319,25 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                               </>
                             );
                           })()}
-                          {detail.months.map((month) => (
-                            <React.Fragment key={month.monthIndex}>
+                          {monthsToShow.map((month) => (
+                            <React.Fragment key={`${month.year}-${month.monthIndex}`}>
                               {!onlyConsuntivo && (
                                 <td className="px-3 py-2 text-right text-sm text-gray-700 border-l-2 border-gray-200">
                                   {!editMode ? (
-                                    <div className="text-sky-700">{formatCurrencyValue(getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
+                                    <div className="text-sky-700">{formatCurrencyValue(getPlanPreventivoValue(group.macroCategory, category.name, causale, month.year, month.monthIndex))}</div>
                                   ) : (
                                     <input 
                                       type="number" 
                                       step="0.01" 
-                                      className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`preventivo|${group.macroCategory}|${category.name}|${causale}|${buildMonthKey(selectedYear, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} 
-                                      value={getPlanPreventivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex)} 
-                                      onChange={(e) => setOverride('preventivo', group.macroCategory, category.name, causale, selectedYear, month.monthIndex, Number(e.target.value))} 
+                                      className={`w-28 rounded border px-2 py-1 text-right text-sm ${dirtyKeys.has(`preventivo|${group.macroCategory}|${category.name}|${causale}|${buildMonthKey(month.year, month.monthIndex)}`) ? 'border-sky-400 ring-1 ring-sky-200' : 'border-gray-300'}`} 
+                                      value={getPlanPreventivoValue(group.macroCategory, category.name, causale, month.year, month.monthIndex)} 
+                                      onChange={(e) => setOverride('preventivo', group.macroCategory, category.name, causale, month.year, month.monthIndex, Number(e.target.value))} 
                                     />
                                   )}
                                 </td>
                               )}
                               <td className="px-3 py-2 text-right text-sm text-gray-700">
-                                <div className="text-gray-800">{formatCurrencyValue(getPlanConsuntivoValue(group.macroCategory, category.name, causale, selectedYear, month.monthIndex))}</div>
+                                <div className="text-gray-800">{formatCurrencyValue(getPlanConsuntivoValue(group.macroCategory, category.name, causale, month.year, month.monthIndex))}</div>
                               </td>
                             </React.Fragment>
                           ))}
@@ -302,20 +352,20 @@ export const PlanTable: React.FC<PlanTableProps> = ({
           
           {/* UTILE DI CASSA - Calcolato automaticamente */}
           <tr className="bg-emerald-50 text-sm font-bold uppercase text-emerald-800">
-            <td className="px-3 py-3 sticky left-0 bg-emerald-50 z-10 w-48" colSpan={3 + MONTH_NAMES.length * (onlyConsuntivo ? 1 : 2)}>
+            <td className="px-3 py-3 sticky left-0 bg-emerald-50 z-10 w-48" colSpan={3 + monthsToShow.length * (onlyConsuntivo ? 1 : 2)}>
               UTILE DI CASSA
             </td>
           </tr>
           <tr className="bg-emerald-100 font-semibold">
             <td className="px-3 py-2 text-sm text-gray-700 sticky left-0 bg-emerald-100 z-10 w-48">Utile di cassa</td>
             {(() => {
-              const utileCassaSum = MONTH_NAMES.reduce((acc, _, monthIndex) => {
-                return acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
+              const utileCassaSum = monthsToShow.reduce((acc, month) => {
+                return acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex);
               }, 0);
               
               // Calculate progressive incidence: (utileCassaSum / totalIncassato) * 100
-              const totalIncassato = MONTH_NAMES.reduce((acc, _, monthIndex) => 
-                acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+              const totalIncassato = monthsToShow.reduce((acc, month) => 
+                acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex), 0
               );
               const totalPercentage = totalIncassato === 0 ? 0 : (utileCassaSum / totalIncassato) * 100;
               
@@ -330,15 +380,15 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                 </>
               );
             })()}
-            {MONTH_NAMES.map((_, monthIndex) => {
+            {monthsToShow.map((month) => {
               // Calcolo per PREVENTIVO - using the same logic but with preventivo values
-              const utileCassaPreventivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, selectedYear, monthIndex);
+              const utileCassaPreventivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex);
 
               // Calcolo per CONSUNTIVO
-              const utileCassaConsuntivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex);
+              const utileCassaConsuntivo = calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, month.year, month.monthIndex);
               
               return (
-                <React.Fragment key={`utile-cassa-${monthIndex}`}>
+                <React.Fragment key={`utile-cassa-${month.year}-${month.monthIndex}`}>
                   {!onlyConsuntivo && (
                     <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
                       <div className="font-semibold text-sky-700">{formatCurrencyValue(utileCassaPreventivo)}</div>

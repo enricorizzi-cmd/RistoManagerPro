@@ -22,6 +22,11 @@ const FinancialPlan: React.FC = () => {
   const { showNotification, currentLocation } = useAppContext();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [periodoMode, setPeriodoMode] = useState<boolean>(false);
+  const [selectedFromMonth, setSelectedFromMonth] = useState<number>(0);
+  const [selectedFromYear, setSelectedFromYear] = useState<number>(new Date().getFullYear());
+  const [selectedToMonth, setSelectedToMonth] = useState<number>(11);
+  const [selectedToYear, setSelectedToYear] = useState<number>(new Date().getFullYear());
   
   // Statistics year range state
   const currentYear = new Date().getFullYear();
@@ -360,20 +365,85 @@ const FinancialPlan: React.FC = () => {
       {activeTab === 'plan' && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <label className="text-xs font-semibold uppercase text-gray-500">
-              Anno
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={periodoMode}
+                onChange={(e) => setPeriodoMode(e.target.checked)}
+              />
+              Periodo
             </label>
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(Number(event.target.value))}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            {!periodoMode ? (
+              <>
+                <label className="text-xs font-semibold uppercase text-gray-500">
+                  Anno
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <label className="text-xs font-semibold uppercase text-gray-500">
+                  Da
+                </label>
+                <select
+                  value={selectedFromMonth}
+                  onChange={(event) => setSelectedFromMonth(Number(event.target.value))}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'].map((month, index) => (
+                    <option key={index} value={index}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedFromYear}
+                  onChange={(event) => setSelectedFromYear(Number(event.target.value))}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <label className="text-xs font-semibold uppercase text-gray-500">
+                  A
+                </label>
+                <select
+                  value={selectedToMonth}
+                  onChange={(event) => setSelectedToMonth(Number(event.target.value))}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'].map((month, index) => (
+                    <option key={index} value={index}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedToYear}
+                  onChange={(event) => setSelectedToYear(Number(event.target.value))}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <label className="ml-4 flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
@@ -426,6 +496,11 @@ const FinancialPlan: React.FC = () => {
           <PlanTable
             planYear={planYear}
             selectedYear={selectedYear}
+            periodoMode={periodoMode}
+            selectedFromMonth={selectedFromMonth}
+            selectedFromYear={selectedFromYear}
+            selectedToMonth={selectedToMonth}
+            selectedToYear={selectedToYear}
             causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
             editMode={editMode}
             onlyValued={onlyValued}
