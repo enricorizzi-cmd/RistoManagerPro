@@ -13,7 +13,7 @@ import { StatsTable } from './financial/StatsTable';
 import { CausaliManager } from './financial/CausaliManager';
 import { InserisciDati } from './financial/InserisciDati';
 import { AnalisiFP } from './financial/AnalisiFP';
-import { financialCausali, financialStats as financialStatsRows } from '../data/financialPlanData';
+import { financialCausali } from '../data/financialPlanData';
 import { calcRatios, round2, parseNumberInput, buildMonthKey, parseMonthKey } from '../utils/financialPlanUtils';
 import { calculateAverageMonthlyRatios, distributeAnnualValueToMonths } from '../utils/businessPlanLogic';
 import type { TabKey } from '../types';
@@ -44,6 +44,7 @@ const FinancialPlan: React.FC = () => {
     causaliCatalog,
     basePlanByYear,
     yearMetrics,
+    financialStatsRows,
     setOverride,
     setStatsOverrides,
     handleSavePlan,

@@ -259,3 +259,98 @@ export const calculateUtileFromMacroTotals = (
   return incassato - costiFissi - costiVariabili;
 };
 
+// Compute year metrics from plan data and financial stats
+export const computeYearMetrics = (
+  basePlanByYear: Map<number, PlanYearData>,
+  financialStatsRows: FinancialStatsRow[]
+): Map<number, BusinessPlanYearMetrics> => {
+  const yearMetrics = new Map<number, BusinessPlanYearMetrics>();
+  
+  // Build stats map for efficient lookup
+  const statsMap = new Map<string, FinancialStatsRow & { year: number; monthIndex: number }>();
+  
+  financialStatsRows.forEach((row) => {
+    const parsed = parsePlanMonthLabel(row.month);
+    if (!parsed) return;
+    const { year, monthIndex } = parsed;
+    const monthKey = buildMonthKey(year, monthIndex);
+    statsMap.set(monthKey, { ...row, year, monthIndex });
+  });
+
+  // Process each year
+  basePlanByYear.forEach((planYear, year) => {
+    const monthlyFatturato: number[] = [];
+    const monthlyIncassato: number[] = [];
+    const monthlyCostiFissi: number[] = [];
+    const monthlyCostiVariabili: number[] = [];
+
+    let fatturatoTotale = 0;
+    let incassato = 0;
+    let costiFissi = 0;
+    let costiVariabili = 0;
+
+    // Process each month
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      const monthKey = buildMonthKey(year, monthIndex);
+      const statsData = statsMap.get(monthKey);
+      
+      // Get fatturato from stats (same logic as AnalisiFP)
+      let monthFatturato = 0;
+      if (statsData) {
+        const fatturatoFromStats = statsData.fatturatoTotale;
+        const fatturatoImponibile = statsData.fatturatoImponibile;
+        
+        monthFatturato = fatturatoFromStats ?? fatturatoImponibile ?? 0;
+      }
+      
+      // Get macro totals from plan data using consuntivo values
+      const monthIncassato = planYear.macros
+        .filter(macro => macro.macro === 'INCASSATO')
+        .reduce((acc, macro) => {
+          return acc + macro.details.reduce((detailAcc, detail) => {
+            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+          }, 0);
+        }, 0);
+        
+      const monthCostiFissi = planYear.macros
+        .filter(macro => macro.macro === 'COSTI FISSI')
+        .reduce((acc, macro) => {
+          return acc + macro.details.reduce((detailAcc, detail) => {
+            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+          }, 0);
+        }, 0);
+        
+      const monthCostiVariabili = planYear.macros
+        .filter(macro => macro.macro === 'COSTI VARIABILI')
+        .reduce((acc, macro) => {
+          return acc + macro.details.reduce((detailAcc, detail) => {
+            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+          }, 0);
+        }, 0);
+      
+      monthlyFatturato.push(monthFatturato);
+      monthlyIncassato.push(monthIncassato);
+      monthlyCostiFissi.push(monthCostiFissi);
+      monthlyCostiVariabili.push(monthCostiVariabili);
+      
+      fatturatoTotale += monthFatturato;
+      incassato += monthIncassato;
+      costiFissi += monthCostiFissi;
+      costiVariabili += monthCostiVariabili;
+    }
+
+    yearMetrics.set(year, {
+      fatturatoTotale,
+      monthlyFatturato,
+      incassato,
+      monthlyIncassato,
+      costiFissi,
+      monthlyCostiFissi,
+      costiVariabili,
+      monthlyCostiVariabili,
+    });
+  });
+
+  return yearMetrics;
+};
+

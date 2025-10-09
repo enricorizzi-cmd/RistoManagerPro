@@ -2,8 +2,8 @@
 // Manages financial plan data, overrides, and calculations
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchFinancialPlanState, persistFinancialPlanState, type FinancialPlanStatePayload } from '../services/financialPlanApi';
-import { financialCausali, financialStats as financialStatsRows } from '../data/financialPlanData';
+import { fetchFinancialPlanState, persistFinancialPlanState, fetchFinancialStats, saveFinancialStats, type FinancialPlanStatePayload } from '../services/financialPlanApi';
+import { financialCausali, financialStats as defaultFinancialStatsRows } from '../data/financialPlanData';
 import type { FinancialCausaleGroup } from '../data/financialPlanData';
 import type { PlanOverrides, StatsOverrides } from '../types';
 import { computePlanData, computeYearMetrics, type PlanYearData, type BusinessPlanYearMetrics } from '../utils/financialCalculations';
@@ -58,6 +58,7 @@ export const useFinancialPlanData = (locationId?: string) => {
   const [savingState, setSavingState] = useState<boolean>(false);
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
   const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>([]);
+  const [financialStatsRows, setFinancialStatsRows] = useState<any[]>([]);
   
   // Load data entries sums for Piano Mensile
   const { getSumForCausale } = useDataEntriesSums(locationId);
@@ -68,8 +69,8 @@ export const useFinancialPlanData = (locationId?: string) => {
   }, [causaliCatalog]);
 
   const yearMetrics = useMemo(
-    () => computeYearMetrics(basePlanByYear, [...financialStatsRows]),
-    [basePlanByYear],
+    () => computeYearMetrics(basePlanByYear, financialStatsRows),
+    [basePlanByYear, financialStatsRows],
   );
 
   useEffect(() => {
@@ -77,18 +78,36 @@ export const useFinancialPlanData = (locationId?: string) => {
     
     let mounted = true;
     setLoadingState(true);
-    fetchFinancialPlanState(locationId).then((payload) => {
-      if (!mounted || !payload) {
+    
+    // Load both financial plan state and financial stats
+    Promise.all([
+      fetchFinancialPlanState(locationId),
+      fetchFinancialStats(locationId)
+    ]).then(([payload, stats]) => {
+      if (!mounted) {
         setLoadingState(false);
         return;
       }
-      setPlanOverrides(payload.preventivoOverrides ?? {});
-      setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
-      setStatsOverrides(payload.statsOverrides ?? {});
-      setMonthlyMetrics(payload.monthlyMetrics ?? []);
-      setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
+      
+      // Set financial plan data
+      if (payload) {
+        setPlanOverrides(payload.preventivoOverrides ?? {});
+        setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
+        setStatsOverrides(payload.statsOverrides ?? {});
+        setMonthlyMetrics(payload.monthlyMetrics ?? []);
+        setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
+      }
+      
+      // Set financial stats data (use default if no stats found for this location)
+      setFinancialStatsRows(stats && stats.length > 0 ? stats : defaultFinancialStatsRows);
+      
       setLoadingState(false);
-    }).catch(() => setLoadingState(false));
+    }).catch(() => {
+      // Fallback to default data if API fails
+      setFinancialStatsRows(defaultFinancialStatsRows);
+      setLoadingState(false);
+    });
+    
     return () => { mounted = false; };
   }, [locationId]);
 
@@ -224,16 +243,26 @@ export const useFinancialPlanData = (locationId?: string) => {
         causaliVersion: null,
       };
       await persistFinancialPlanState(payload, locationId);
+      
+      // Save financial stats
+      await saveFinancialStats(locationId, financialStatsRows);
+      
       return true;
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics, locationId]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics, financialStatsRows, locationId]);
 
   const handleCancelPlan = useCallback(async () => {
+    if (!locationId) return false;
+    
     setLoadingState(true);
     try {
-      const payload = await fetchFinancialPlanState();
+      const [payload, stats] = await Promise.all([
+        fetchFinancialPlanState(locationId),
+        fetchFinancialStats(locationId)
+      ]);
+      
       if (payload) {
         setPlanOverrides(payload.preventivoOverrides ?? {});
         setConsuntivoOverrides((payload as FinancialPlanStatePayload | null)?.consuntivoOverrides ?? {});
@@ -241,6 +270,10 @@ export const useFinancialPlanData = (locationId?: string) => {
         setMonthlyMetrics(payload.monthlyMetrics ?? []);
         setCausaliCatalog(() => normalizeCausaliCatalog((payload && payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
       }
+      
+      // Reload financial stats
+      setFinancialStatsRows(stats && stats.length > 0 ? stats : defaultFinancialStatsRows);
+      
       return true;
     } catch (error) {
       console.error('Failed to cancel plan:', error);
@@ -248,7 +281,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     } finally {
       setLoadingState(false);
     }
-  }, []);
+  }, [locationId]);
 
   const handleCausaliPersist = useCallback(async (next: FinancialCausaleGroup[]) => {
     setSavingState(true);
@@ -263,15 +296,21 @@ export const useFinancialPlanData = (locationId?: string) => {
         causaliCatalog: normalizedCatalog,
         causaliVersion: String(Date.now()),
       };
-      await persistFinancialPlanState(payload);
+      await persistFinancialPlanState(payload, locationId);
+      
+      // Save financial stats
+      await saveFinancialStats(locationId, financialStatsRows);
+      
       setCausaliCatalog(normalizedCatalog);
       return true;
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides, monthlyMetrics]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, monthlyMetrics, financialStatsRows, locationId]);
 
   const handleSaveMetrics = useCallback(async (metricsData: any) => {
+    if (!locationId) return false;
+    
     setSavingState(true);
     try {
       const updatedMetrics = [...monthlyMetrics, metricsData];
@@ -284,13 +323,17 @@ export const useFinancialPlanData = (locationId?: string) => {
         causaliCatalog: causaliCatalog,
         causaliVersion: null,
       };
-      await persistFinancialPlanState(payload);
+      await persistFinancialPlanState(payload, locationId);
+      
+      // Save financial stats
+      await saveFinancialStats(locationId, financialStatsRows);
+      
       setMonthlyMetrics(updatedMetrics);
       return true;
     } finally {
       setSavingState(false);
     }
-  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics]);
+  }, [planOverrides, consuntivoOverrides, statsOverrides, causaliCatalog, monthlyMetrics, financialStatsRows, locationId]);
 
   return {
     // State
@@ -303,6 +346,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     monthlyMetrics,
     basePlanByYear,
     yearMetrics,
+    financialStatsRows,
     
     // Actions
     setOverride,

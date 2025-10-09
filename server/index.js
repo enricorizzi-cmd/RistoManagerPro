@@ -161,6 +161,25 @@ const initializeDatabase = (db) => {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+
+    // Financial Stats Table (per company)
+    db.run(`CREATE TABLE IF NOT EXISTS financial_stats (
+      id TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      month TEXT NOT NULL,
+      fatturato_totale REAL,
+      fatturato_imponibile REAL,
+      fatturato_previsionale REAL,
+      incassato REAL,
+      incassato_previsionale REAL,
+      utile REAL,
+      utile_previsionale REAL,
+      debiti_fornitore REAL,
+      debiti_bancari REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(location_id, month)
+    )`);
   });
 };
 
@@ -1478,6 +1497,105 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get data entries sums', error);
     res.status(500).json({ error: 'Failed to get data entries sums' });
+  }
+});
+
+// Financial Stats API
+app.get('/api/financial-stats', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.query.locationId;
+    
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const stats = await dbQuery(locationId, `
+      SELECT 
+        month,
+        fatturato_totale as fatturatoTotale,
+        fatturato_imponibile as fatturatoImponibile,
+        fatturato_previsionale as fatturatoPrevisionale,
+        incassato,
+        incassato_previsionale as incassatoPrevisionale,
+        utile,
+        utile_previsionale as utilePrevisionale,
+        debiti_fornitore as debitiFornitore,
+        debiti_bancari as debitiBancari
+      FROM financial_stats 
+      WHERE location_id = ? 
+      ORDER BY month
+    `, [locationId]);
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Failed to get financial stats', error);
+    res.status(500).json({ error: 'Failed to get financial stats' });
+  }
+});
+
+app.put('/api/financial-stats', requireAuth, async (req, res) => {
+  try {
+    const { locationId, stats } = req.body;
+    
+    if (!locationId || !Array.isArray(stats)) {
+      return res.status(400).json({ error: 'Location ID and stats array are required' });
+    }
+    
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+    
+    const db = getDatabase(locationId);
+    const now = new Date().toISOString();
+    
+    // Clear existing stats for this location
+    await dbRun(locationId, 'DELETE FROM financial_stats WHERE location_id = ?', [locationId]);
+    
+    // Insert new stats
+    for (const stat of stats) {
+      const statId = crypto.randomUUID();
+      await dbRun(locationId, `
+        INSERT INTO financial_stats (
+          id, location_id, month, fatturato_totale, fatturato_imponibile, 
+          fatturato_previsionale, incassato, incassato_previsionale, 
+          utile, utile_previsionale, debiti_fornitore, debiti_bancari,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        statId, locationId, stat.month, 
+        stat.fatturatoTotale || null, stat.fatturatoImponibile || null,
+        stat.fatturatoPrevisionale || null, stat.incassato || null, 
+        stat.incassatoPrevisionale || null, stat.utile || null, 
+        stat.utilePrevisionale || null, stat.debitiFornitore || null, 
+        stat.debitiBancari || null, now, now
+      ]);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to save financial stats', error);
+    res.status(500).json({ error: 'Failed to save financial stats' });
   }
 });
 

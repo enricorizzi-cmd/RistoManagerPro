@@ -217,7 +217,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             </label>
             <input
               type="text"
-              value={businessPlanForm.fatturatoAnnoBase || '0.00'}
+              value={formatCurrencyValue(parseNumberInput(businessPlanForm.fatturatoAnnoBase))}
               readOnly
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
             />
@@ -227,7 +227,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               Incremento fatturato (%)
             </label>
             <input
-              type="text"
+              type="number"
+              step="0.01"
               value={businessPlanForm.fatturatoIncrement}
               onChange={(event) => onFieldChange('fatturatoIncrement', event.target.value)}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -239,7 +240,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             </label>
             <input
               type="text"
-              value={businessPlanForm.fatturatoPrevisionale}
+              value={formatCurrencyValue(parseNumberInput(businessPlanForm.fatturatoPrevisionale))}
               onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -281,7 +282,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               </label>
               <input
                 type="text"
-                value={businessPlanForm.incassatoPrevisionale}
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.incassatoPrevisionale))}
                 onChange={(event) => onFieldChange('incassatoValue', event.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -308,7 +309,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               </label>
               <input
                 type="text"
-                value={businessPlanForm.costiFissiPrevisionale}
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiFissiPrevisionale))}
                 onChange={(event) => onFieldChange('costiFissiValue', event.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -335,7 +336,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               </label>
               <input
                 type="text"
-                value={businessPlanForm.costiVariabiliPrevisionale}
+                value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiVariabiliPrevisionale))}
                 onChange={(event) => onFieldChange('costiVariabiliValue', event.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />

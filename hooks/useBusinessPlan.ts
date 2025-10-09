@@ -215,30 +215,39 @@ export const useBusinessPlan = (
         return prev;
       }
       const next: BusinessPlanFormState = { ...prev };
+      
+      // Helper function to clean currency values
+      const cleanCurrencyValue = (val: string): string => {
+        // Remove € symbol, spaces, and convert to number then back to string
+        const cleaned = val.replace(/[€\s,]/g, '');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? '0.00' : num.toFixed(2);
+      };
+      
       switch (field) {
         case 'fatturatoIncrement':
           next.fatturatoIncrement = value;
           break;
         case 'fatturatoValue':
-          next.fatturatoPrevisionale = value;
+          next.fatturatoPrevisionale = cleanCurrencyValue(value);
           break;
         case 'incassatoPercent':
           next.incassatoPercent = value;
           break;
         case 'incassatoValue':
-          next.incassatoPrevisionale = value;
+          next.incassatoPrevisionale = cleanCurrencyValue(value);
           break;
         case 'costiFissiPercent':
           next.costiFissiPercent = value;
           break;
         case 'costiFissiValue':
-          next.costiFissiPrevisionale = value;
+          next.costiFissiPrevisionale = cleanCurrencyValue(value);
           break;
         case 'costiVariabiliPercent':
           next.costiVariabiliPercent = value;
           break;
         case 'costiVariabiliValue':
-          next.costiVariabiliPrevisionale = value;
+          next.costiVariabiliPrevisionale = cleanCurrencyValue(value);
           break;
         default:
           break;

@@ -125,6 +125,42 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+// Financial Stats API functions
+export async function fetchFinancialStats(locationId: string): Promise<any[] | null> {
+  try {
+    const response = await fetch(buildUrl(`/api/financial-stats?locationId=${locationId}`));
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Return empty array if no stats found for this location
+        return [];
+      }
+      throw new Error(`Failed to fetch financial stats: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch financial stats:', error);
+    // Return empty array as fallback
+    return [];
+  }
+}
+
+export async function saveFinancialStats(locationId: string, stats: any[]): Promise<boolean> {
+  try {
+    const response = await fetch(buildUrl('/api/financial-stats'), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locationId, stats }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to save financial stats: ${response.statusText}`);
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to save financial stats:', error);
+    return false;
+  }
+}
+
 
 
 
