@@ -21,8 +21,11 @@ interface AnalisiFPProps {
 
 interface IndicatorData {
   label: string;
+  lastMonthValues: { currentValue: number | null; previousValue: number | null };
   lastMonth: number | null;
+  ytdValues: { currentValue: number | null; previousValue: number | null };
   ytd: number | null;
+  last12MonthsValues: { currentValue: number | null; previousValue: number | null };
   last12Months: number | null;
   unit: string;
 }
@@ -111,13 +114,33 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
 
         const dataWithKey = { ...data, monthKey };
         
+        // Get fatturato from statistics, fallback to incassato if not available
+        const fatturatoFromStats = getFieldValue(dataWithKey, 'fatturatoTotale');
+        const fatturatoImponibile = getFieldValue(dataWithKey, 'fatturatoImponibile');
+        let fatturatoTotale = fatturatoFromStats;
+        if (fatturatoTotale === null || fatturatoTotale === undefined) {
+          fatturatoTotale = fatturatoImponibile;
+        }
+        if (fatturatoTotale === null || fatturatoTotale === undefined) {
+          fatturatoTotale = incassato;
+        }
+        
+        // Get saldo from statistics
+        const saldoConto = getFieldValue(dataWithKey, 'saldoConto');
+        const saldoSecondoConto = getFieldValue(dataWithKey, 'saldoSecondoConto');
+        let saldoTotale = getFieldValue(dataWithKey, 'saldoTotale');
+        if (saldoTotale === null || saldoTotale === undefined) {
+          const saldoSum = (saldoConto ?? 0) + (saldoSecondoConto ?? 0);
+          saldoTotale = saldoSum > 0 ? saldoSum : null;
+        }
+        
         allData.push({
           year,
           monthIndex,
           monthKey,
-          fatturatoTotale: getFieldValue(dataWithKey, 'fatturatoTotale') ?? null,
+          fatturatoTotale,
           incassato,
-          saldoTotale: getFieldValue(dataWithKey, 'saldoTotale') ?? null,
+          saldoTotale,
           creditiPendenti: getFieldValue(dataWithKey, 'creditiPendenti') ?? null,
           creditiScaduti: getFieldValue(dataWithKey, 'creditiScaduti') ?? null,
           debitiFornitore: getFieldValue(dataWithKey, 'debitiFornitore') ?? null,
@@ -134,6 +157,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       .filter(d => d.incassato !== null && d.incassato !== 0)
       .sort((a, b) => b.year - a.year || b.monthIndex - a.monthIndex)[0] 
       || allData.sort((a, b) => b.year - a.year || b.monthIndex - a.monthIndex)[0];
+
 
     if (!lastCompiledMonth) {
       return {
@@ -156,6 +180,79 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const getSameMonthPreviousYear = (field: keyof typeof lastCompiledMonth) => {
       const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
       return prevYearData?.[field] ?? null;
+    };
+
+    // Helper function to get current and previous year values for last month
+    const getLastMonthValues = (field: keyof typeof lastCompiledMonth) => {
+      const currentValue = lastCompiledMonth[field];
+      const previousValue = getSameMonthPreviousYear(field);
+      return { currentValue, previousValue };
+    };
+
+    // Helper function to get debiti pendenti values (sum of debitiFornitore + debitiBancari)
+    const getDebitiPendentiValues = () => {
+      const currentValue = (lastCompiledMonth.debitiFornitore ?? 0) + (lastCompiledMonth.debitiBancari ?? 0);
+      const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
+      const previousValue = prevYearData ? (prevYearData.debitiFornitore ?? 0) + (prevYearData.debitiBancari ?? 0) : null;
+      return { currentValue, previousValue };
+    };
+
+    // Helper function to get incidenza values (ratio of field to incassato)
+    const getIncidenzaValues = (field: keyof typeof lastCompiledMonth) => {
+      const currentValue = lastCompiledMonth.incassato ? (lastCompiledMonth[field] / lastCompiledMonth.incassato) * 100 : null;
+      const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
+      const previousValue = prevYearData && prevYearData.incassato ? (prevYearData[field] / prevYearData.incassato) * 100 : null;
+      return { currentValue, previousValue };
+    };
+
+    // Helper function to get YTD values with averages for saldo/crediti/debiti
+    const getYTDAverageValues = (field: keyof typeof lastCompiledMonth) => {
+      const ytdData = getYTDValues(field);
+      const currentAvg = ytdData.currentYTD / (currentMonth + 1);
+      const previousAvg = ytdData.previousYTD / (currentMonth + 1);
+      return { currentValue: currentAvg, previousValue: previousAvg };
+    };
+
+    // Helper function to get 12 months values with averages for saldo/crediti/debiti
+    const get12MonthsAverageValues = (field: keyof typeof lastCompiledMonth) => {
+      const months12Data = getLast12MonthsValues(field);
+      const currentAvg = months12Data.last12Months / 12;
+      const previousAvg = months12Data.previous12Months / 12;
+      return { currentValue: currentAvg, previousValue: previousAvg };
+    };
+
+    // Helper function to get debiti pendenti YTD values (sum of debitiFornitore + debitiBancari)
+    const getDebitiPendentiYTDValues = () => {
+      const ytdData = debitiPendentiYTD;
+      const currentAvg = ytdData.currentYTD / (currentMonth + 1);
+      const previousAvg = ytdData.previousYTD / (currentMonth + 1);
+      return { currentValue: currentAvg, previousValue: previousAvg };
+    };
+
+    // Helper function to get debiti pendenti 12 months values (sum of debitiFornitore + debitiBancari)
+    const getDebitiPendenti12MonthsValues = () => {
+      const months12Data = debitiPendenti12Months;
+      const currentAvg = months12Data.last12Months / 12;
+      const previousAvg = months12Data.previous12Months / 12;
+      return { currentValue: currentAvg, previousValue: previousAvg };
+    };
+
+    // Helper function to get incidenza YTD values (ratio of field to incassato)
+    const getIncidenzaYTDValues = (field: keyof typeof lastCompiledMonth) => {
+      const ytdData = getYTDValues(field);
+      const incassatoYTDData = getYTDValues('incassato');
+      const currentValue = incassatoYTDData.currentYTD ? (ytdData.currentYTD / incassatoYTDData.currentYTD) * 100 : null;
+      const previousValue = incassatoYTDData.previousYTD ? (ytdData.previousYTD / incassatoYTDData.previousYTD) * 100 : null;
+      return { currentValue, previousValue };
+    };
+
+    // Helper function to get incidenza 12 months values (ratio of field to incassato)
+    const getIncidenza12MonthsValues = (field: keyof typeof lastCompiledMonth) => {
+      const months12Data = getLast12MonthsValues(field);
+      const incassato12MonthsData = getLast12MonthsValues('incassato');
+      const currentValue = incassato12MonthsData.last12Months ? (months12Data.last12Months / incassato12MonthsData.last12Months) * 100 : null;
+      const previousValue = incassato12MonthsData.previous12Months ? (months12Data.previous12Months / incassato12MonthsData.previous12Months) * 100 : null;
+      return { currentValue, previousValue };
     };
 
     // Helper function to get YTD values
@@ -201,11 +298,15 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const fatturatoLastMonth = getSameMonthPreviousYear('fatturatoTotale');
     const fatturatoYTD = getYTDValues('fatturatoTotale');
     const fatturato12Months = getLast12MonthsValues('fatturatoTotale');
+    const fatturatoValues = getLastMonthValues('fatturatoTotale');
     
     indicators.push({
       label: 'FATTURATO',
+      lastMonthValues: fatturatoValues,
       lastMonth: fatturatoLastMonth ? calculatePercentageChange(lastCompiledMonth.fatturatoTotale ?? 0, fatturatoLastMonth) : null,
+      ytdValues: { currentValue: fatturatoYTD.currentYTD, previousValue: fatturatoYTD.previousYTD },
       ytd: fatturatoYTD.previousYTD ? calculatePercentageChange(fatturatoYTD.currentYTD, fatturatoYTD.previousYTD) : null,
+      last12MonthsValues: { currentValue: fatturato12Months.last12Months, previousValue: fatturato12Months.previous12Months },
       last12Months: fatturato12Months.previous12Months ? calculatePercentageChange(fatturato12Months.last12Months, fatturato12Months.previous12Months) : null,
       unit: '%',
     });
@@ -214,11 +315,15 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const incassatoLastMonth = getSameMonthPreviousYear('incassato');
     const incassatoYTD = getYTDValues('incassato');
     const incassato12Months = getLast12MonthsValues('incassato');
+    const incassatoValues = getLastMonthValues('incassato');
     
     indicators.push({
       label: 'INCASSATO',
+      lastMonthValues: incassatoValues,
       lastMonth: incassatoLastMonth ? calculatePercentageChange(lastCompiledMonth.incassato ?? 0, incassatoLastMonth) : null,
+      ytdValues: { currentValue: incassatoYTD.currentYTD, previousValue: incassatoYTD.previousYTD },
       ytd: incassatoYTD.previousYTD ? calculatePercentageChange(incassatoYTD.currentYTD, incassatoYTD.previousYTD) : null,
+      last12MonthsValues: { currentValue: incassato12Months.last12Months, previousValue: incassato12Months.previous12Months },
       last12Months: incassato12Months.previous12Months ? calculatePercentageChange(incassato12Months.last12Months, incassato12Months.previous12Months) : null,
       unit: '%',
     });
@@ -234,10 +339,19 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const saldoCC12MonthsCurrentAvg = saldoCC12Months.last12Months / 12;
     const saldoCC12MonthsPreviousAvg = saldoCC12Months.previous12Months / 12;
     
+    
+    const saldoCCValues = getLastMonthValues('saldoTotale');
+    
+    const saldoCCYTDValues = getYTDAverageValues('saldoTotale');
+    const saldoCC12MonthsValues = get12MonthsAverageValues('saldoTotale');
+    
     indicators.push({
       label: 'SALDO CC',
+      lastMonthValues: saldoCCValues,
       lastMonth: saldoCCLastMonth ? calculatePercentageChange(lastCompiledMonth.saldoTotale ?? 0, saldoCCLastMonth) : null,
+      ytdValues: saldoCCYTDValues,
       ytd: saldoCCYTDPreviousAvg ? calculatePercentageChange(saldoCCYTDCurrentAvg, saldoCCYTDPreviousAvg) : null,
+      last12MonthsValues: saldoCC12MonthsValues,
       last12Months: saldoCC12MonthsPreviousAvg ? calculatePercentageChange(saldoCC12MonthsCurrentAvg, saldoCC12MonthsPreviousAvg) : null,
       unit: '%',
     });
@@ -252,10 +366,19 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const creditiPendenti12MonthsCurrentAvg = creditiPendenti12Months.last12Months / 12;
     const creditiPendenti12MonthsPreviousAvg = creditiPendenti12Months.previous12Months / 12;
     
+    
+    const creditiPendentiValues = getLastMonthValues('creditiPendenti');
+    
+    const creditiPendentiYTDValues = getYTDAverageValues('creditiPendenti');
+    const creditiPendenti12MonthsValues = get12MonthsAverageValues('creditiPendenti');
+    
     indicators.push({
       label: 'CREDITI PENDENTI',
+      lastMonthValues: creditiPendentiValues,
       lastMonth: creditiPendentiLastMonth ? calculatePercentageChange(lastCompiledMonth.creditiPendenti ?? 0, creditiPendentiLastMonth) : null,
+      ytdValues: creditiPendentiYTDValues,
       ytd: creditiPendentiYTDPreviousAvg ? calculatePercentageChange(creditiPendentiYTDCurrentAvg, creditiPendentiYTDPreviousAvg) : null,
+      last12MonthsValues: creditiPendenti12MonthsValues,
       last12Months: creditiPendenti12MonthsPreviousAvg ? calculatePercentageChange(creditiPendenti12MonthsCurrentAvg, creditiPendenti12MonthsPreviousAvg) : null,
       unit: '%',
     });
@@ -270,10 +393,19 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const creditiScaduti12MonthsCurrentAvg = creditiScaduti12Months.last12Months / 12;
     const creditiScaduti12MonthsPreviousAvg = creditiScaduti12Months.previous12Months / 12;
     
+    
+    const creditiScadutiValues = getLastMonthValues('creditiScaduti');
+    
+    const creditiScadutiYTDValues = getYTDAverageValues('creditiScaduti');
+    const creditiScaduti12MonthsValues = get12MonthsAverageValues('creditiScaduti');
+    
     indicators.push({
       label: 'CREDITI SCADUTI',
+      lastMonthValues: creditiScadutiValues,
       lastMonth: creditiScadutiLastMonth ? calculatePercentageChange(lastCompiledMonth.creditiScaduti ?? 0, creditiScadutiLastMonth) : null,
+      ytdValues: creditiScadutiYTDValues,
       ytd: creditiScadutiYTDPreviousAvg ? calculatePercentageChange(creditiScadutiYTDCurrentAvg, creditiScadutiYTDPreviousAvg) : null,
+      last12MonthsValues: creditiScaduti12MonthsValues,
       last12Months: creditiScaduti12MonthsPreviousAvg ? calculatePercentageChange(creditiScaduti12MonthsCurrentAvg, creditiScaduti12MonthsPreviousAvg) : null,
       unit: '%',
     });
@@ -324,20 +456,47 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const debitiPendenti12MonthsCurrentAvg = debitiPendenti12Months.last12Months / 12;
     const debitiPendenti12MonthsPreviousAvg = debitiPendenti12Months.previous12Months / 12;
     
+    
+    const debitiPendentiValues = getDebitiPendentiValues();
+    
+    const debitiPendentiYTDValues = getDebitiPendentiYTDValues();
+    const debitiPendenti12MonthsValues = getDebitiPendenti12MonthsValues();
+    
     indicators.push({
       label: 'DEBITI PENDENTI',
+      lastMonthValues: debitiPendentiValues,
       lastMonth: debitiPendentiLastMonth ? calculatePercentageChange((lastCompiledMonth.debitiFornitore ?? 0) + (lastCompiledMonth.debitiBancari ?? 0), debitiPendentiLastMonth) : null,
+      ytdValues: debitiPendentiYTDValues,
       ytd: debitiPendentiYTDPreviousAvg ? calculatePercentageChange(debitiPendentiYTDCurrentAvg, debitiPendentiYTDPreviousAvg) : null,
+      last12MonthsValues: debitiPendenti12MonthsValues,
       last12Months: debitiPendenti12MonthsPreviousAvg ? calculatePercentageChange(debitiPendenti12MonthsCurrentAvg, debitiPendenti12MonthsPreviousAvg) : null,
       unit: '%',
     });
 
-    // DEBITI SCADUTI (same as pendenti for now, as we don't have separate data)
+    // DEBITI SCADUTI (using debitiFornitore as proxy since no separate field exists in DB)
+    const debitiScadutiLastMonth = getSameMonthPreviousYear('debitiFornitore');
+    const debitiScadutiYTD = getYTDValues('debitiFornitore');
+    const debitiScaduti12Months = getLast12MonthsValues('debitiFornitore');
+    
+    const debitiScadutiYTDCurrentAvg = debitiScadutiYTD.currentYTD / (currentMonth + 1);
+    const debitiScadutiYTDPreviousAvg = debitiScadutiYTD.previousYTD / (currentMonth + 1);
+    const debitiScaduti12MonthsCurrentAvg = debitiScaduti12Months.last12Months / 12;
+    const debitiScaduti12MonthsPreviousAvg = debitiScaduti12Months.previous12Months / 12;
+    
+    
+    const debitiScadutiValues = getLastMonthValues('debitiFornitore');
+    
+    const debitiScadutiYTDValues = getYTDAverageValues('debitiFornitore');
+    const debitiScaduti12MonthsValues = get12MonthsAverageValues('debitiFornitore');
+    
     indicators.push({
       label: 'DEBITI SCADUTI',
-      lastMonth: debitiPendentiLastMonth ? calculatePercentageChange((lastCompiledMonth.debitiFornitore ?? 0) + (lastCompiledMonth.debitiBancari ?? 0), debitiPendentiLastMonth) : null,
-      ytd: debitiPendentiYTDPreviousAvg ? calculatePercentageChange(debitiPendentiYTDCurrentAvg, debitiPendentiYTDPreviousAvg) : null,
-      last12Months: debitiPendenti12MonthsPreviousAvg ? calculatePercentageChange(debitiPendenti12MonthsCurrentAvg, debitiPendenti12MonthsPreviousAvg) : null,
+      lastMonthValues: debitiScadutiValues,
+      lastMonth: debitiScadutiLastMonth ? calculatePercentageChange(lastCompiledMonth.debitiFornitore ?? 0, debitiScadutiLastMonth) : null,
+      ytdValues: debitiScadutiYTDValues,
+      ytd: debitiScadutiYTDPreviousAvg ? calculatePercentageChange(debitiScadutiYTDCurrentAvg, debitiScadutiYTDPreviousAvg) : null,
+      last12MonthsValues: debitiScaduti12MonthsValues,
+      last12Months: debitiScaduti12MonthsPreviousAvg ? calculatePercentageChange(debitiScaduti12MonthsCurrentAvg, debitiScaduti12MonthsPreviousAvg) : null,
       unit: '%',
     });
 
@@ -377,13 +536,22 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
 
     // INCIDENZA COSTI FISSI
     const incidenzaCostiFissiLastMonth = lastCompiledMonth.incassato ? (lastCompiledMonth.costiFissi / lastCompiledMonth.incassato) * 100 : null;
-    const incidenzaCostiFissiYTD = incassatoYTD.currentYTD ? (fatturatoYTD.currentYTD - incassatoYTD.currentYTD + costiFissiYTD.currentYTD) / incassatoYTD.currentYTD * 100 : null;
-    const incidenzaCostiFissi12Months = incassato12Months.last12Months ? (fatturato12Months.last12Months - incassato12Months.last12Months + costiFissi12Months.last12Months) / incassato12Months.last12Months * 100 : null;
+    const incidenzaCostiFissiYTD = incassatoYTD.currentYTD ? (costiFissiYTD.currentYTD / incassatoYTD.currentYTD) * 100 : null;
+    const incidenzaCostiFissi12Months = incassato12Months.last12Months ? (costiFissi12Months.last12Months / incassato12Months.last12Months) * 100 : null;
+    
+    
+    const incidenzaCostiFissiValues = getIncidenzaValues('costiFissi');
+    
+    const incidenzaCostiFissiYTDValues = getIncidenzaYTDValues('costiFissi');
+    const incidenzaCostiFissi12MonthsValues = getIncidenza12MonthsValues('costiFissi');
     
     indicators.push({
       label: 'INCIDENZA COSTI FISSI',
+      lastMonthValues: incidenzaCostiFissiValues,
       lastMonth: incidenzaCostiFissiLastMonth,
+      ytdValues: incidenzaCostiFissiYTDValues,
       ytd: incidenzaCostiFissiYTD,
+      last12MonthsValues: incidenzaCostiFissi12MonthsValues,
       last12Months: incidenzaCostiFissi12Months,
       unit: '%',
     });
@@ -393,10 +561,19 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const incidenzaCostiVariabiliYTD = incassatoYTD.currentYTD ? (costiVariabiliYTD.currentYTD / incassatoYTD.currentYTD) * 100 : null;
     const incidenzaCostiVariabili12Months = incassato12Months.last12Months ? (costiVariabili12Months.last12Months / incassato12Months.last12Months) * 100 : null;
     
+    
+    const incidenzaCostiVariabiliValues = getIncidenzaValues('costiVariabili');
+    
+    const incidenzaCostiVariabiliYTDValues = getIncidenzaYTDValues('costiVariabili');
+    const incidenzaCostiVariabili12MonthsValues = getIncidenza12MonthsValues('costiVariabili');
+    
     indicators.push({
       label: 'INCIDENZA COSTI VARIABILI',
+      lastMonthValues: incidenzaCostiVariabiliValues,
       lastMonth: incidenzaCostiVariabiliLastMonth,
+      ytdValues: incidenzaCostiVariabiliYTDValues,
       ytd: incidenzaCostiVariabiliYTD,
+      last12MonthsValues: incidenzaCostiVariabili12MonthsValues,
       last12Months: incidenzaCostiVariabili12Months,
       unit: '%',
     });
@@ -406,10 +583,19 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const incidenzaUtileYTD = incassatoYTD.currentYTD ? (utileYTD.currentYTD / incassatoYTD.currentYTD) * 100 : null;
     const incidenzaUtile12Months = incassato12Months.last12Months ? (utile12Months.last12Months / incassato12Months.last12Months) * 100 : null;
     
+    
+    const incidenzaUtileValues = getIncidenzaValues('utile');
+    
+    const incidenzaUtileYTDValues = getIncidenzaYTDValues('utile');
+    const incidenzaUtile12MonthsValues = getIncidenza12MonthsValues('utile');
+    
     indicators.push({
       label: 'INCIDENZA UTILE',
+      lastMonthValues: incidenzaUtileValues,
       lastMonth: incidenzaUtileLastMonth,
+      ytdValues: incidenzaUtileYTDValues,
       ytd: incidenzaUtileYTD,
+      last12MonthsValues: incidenzaUtile12MonthsValues,
       last12Months: incidenzaUtile12Months,
       unit: '%',
     });
@@ -474,6 +660,11 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     return `${value.toFixed(1)}%`;
   };
 
+  const formatIncidenzaPercentage = (value: number | null): string => {
+    if (value === null) return '-';
+    return `${value.toFixed(1)}%`;
+  };
+
   const formatCurrency = (value: number | null): string => {
     if (value === null) return '-';
     return formatCurrencyValue(value);
@@ -498,27 +689,65 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
               <tr>
                 <th className="px-4 py-3 text-left">INDICATORE</th>
+                <th className="px-4 py-3 text-right">Valori Ultimo Mese</th>
                 <th className="px-4 py-3 text-right">Ultimo Mese</th>
+                <th className="px-4 py-3 text-right">Valori YTD</th>
                 <th className="px-4 py-3 text-right">Progressivo YTD</th>
+                <th className="px-4 py-3 text-right">Valori 12 Mesi</th>
                 <th className="px-4 py-3 text-right">Progressivo 12 Mesi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {analysisData.indicators.length > 0 ? (
-                analysisData.indicators.map((indicator) => (
-                  <tr key={indicator.label} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{indicator.label}</td>
-                    <td className={`px-4 py-3 text-right ${getChangeColor(indicator.lastMonth)}`}>
-                      {formatPercentage(indicator.lastMonth)}
-                    </td>
-                    <td className={`px-4 py-3 text-right ${getChangeColor(indicator.ytd)}`}>
-                      {formatPercentage(indicator.ytd)}
-                    </td>
-                    <td className={`px-4 py-3 text-right ${getChangeColor(indicator.last12Months)}`}>
-                      {formatPercentage(indicator.last12Months)}
-                    </td>
-                  </tr>
-                ))
+                analysisData.indicators.map((indicator) => {
+                  const isIncidenza = indicator.label.includes('INCIDENZA');
+                  const formatFunc = isIncidenza ? formatIncidenzaPercentage : formatPercentage;
+                  
+                  return (
+                    <tr key={indicator.label} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">{indicator.label}</td>
+                      <td className="px-4 py-3 text-right text-xs">
+                        <div className="space-y-1">
+                          <div className="text-gray-700">
+                            2025: {indicator.lastMonthValues.currentValue !== null ? formatCurrency(indicator.lastMonthValues.currentValue) : '-'}
+                          </div>
+                          <div className="text-gray-500">
+                            2024: {indicator.lastMonthValues.previousValue !== null ? formatCurrency(indicator.lastMonthValues.previousValue) : '-'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.lastMonth)}`}>
+                        {formatFunc(indicator.lastMonth)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs">
+                        <div className="space-y-1">
+                          <div className="text-gray-700">
+                            2025: {indicator.ytdValues.currentValue !== null ? formatCurrency(indicator.ytdValues.currentValue) : '-'}
+                          </div>
+                          <div className="text-gray-500">
+                            2024: {indicator.ytdValues.previousValue !== null ? formatCurrency(indicator.ytdValues.previousValue) : '-'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.ytd)}`}>
+                        {formatFunc(indicator.ytd)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs">
+                        <div className="space-y-1">
+                          <div className="text-gray-700">
+                            2025: {indicator.last12MonthsValues.currentValue !== null ? formatCurrency(indicator.last12MonthsValues.currentValue) : '-'}
+                          </div>
+                          <div className="text-gray-500">
+                            2024: {indicator.last12MonthsValues.previousValue !== null ? formatCurrency(indicator.last12MonthsValues.previousValue) : '-'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.last12Months)}`}>
+                        {formatFunc(indicator.last12Months)}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 // Show all indicators even if no data
                 [
@@ -528,8 +757,26 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
                 ].map((label) => (
                   <tr key={label} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{label}</td>
+                    <td className="px-4 py-3 text-right text-xs">
+                      <div className="space-y-1">
+                        <div className="text-gray-500">2025: -</div>
+                        <div className="text-gray-500">2024: -</div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-500">-</td>
+                    <td className="px-4 py-3 text-right text-xs">
+                      <div className="space-y-1">
+                        <div className="text-gray-500">2025: -</div>
+                        <div className="text-gray-500">2024: -</div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-500">-</td>
+                    <td className="px-4 py-3 text-right text-xs">
+                      <div className="space-y-1">
+                        <div className="text-gray-500">2025: -</div>
+                        <div className="text-gray-500">2024: -</div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-500">-</td>
                   </tr>
                 ))
