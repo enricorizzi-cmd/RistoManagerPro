@@ -86,6 +86,7 @@ export const createBusinessPlanFormFromMetrics = (
   const costiFissi = metrics.costiFissi;
   const costiVariabili = metrics.costiVariabili;
   const utile = incassato - costiFissi - costiVariabili;
+  
 
   return {
     baseYear,

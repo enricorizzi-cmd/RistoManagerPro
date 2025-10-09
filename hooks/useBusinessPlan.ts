@@ -19,7 +19,15 @@ import {
 // API functions for business plan drafts
 const fetchBusinessPlanDrafts = async (locationId: string): Promise<BusinessPlanDrafts> => {
   try {
-    const response = await fetch(`http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`);
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`, {
+      headers
+    });
     if (!response.ok) throw new Error('Failed to fetch drafts');
     return await response.json();
   } catch (error) {
@@ -30,9 +38,15 @@ const fetchBusinessPlanDrafts = async (locationId: string): Promise<BusinessPlan
 
 const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft, locationId: string): Promise<void> => {
   try {
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch('http://localhost:4000/api/business-plan-drafts', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ targetYear, data, locationId }),
     });
     if (!response.ok) throw new Error('Failed to save draft');
@@ -80,80 +94,16 @@ export const useBusinessPlan = (
   const completeYears = useMemo(() => {
     const years: number[] = [];
     
-    // Se abbiamo i dati necessari, usiamo la stessa logica di AnalisiFP
-    if (causaliCatalog && planYear && getPlanConsuntivoValue && financialStatsRows) {
-      
-      // Helper function per ottenere il fatturato dalle statistiche (stessa logica di AnalisiFP)
-      const getFatturatoFromStats = (year: number, monthIndex: number) => {
-        const monthKey = buildMonthKey(year, monthIndex);
-        
-        // Find stats data
-        const statsRow = financialStatsRows.find(row => {
-          const parsed = parsePlanMonthLabel(row.month);
-          if (parsed) {
-            const { year: rowYear, monthIndex: rowMonthIndex } = parsed;
-            return rowYear === year && rowMonthIndex === monthIndex;
-          }
-          return false;
-        });
-        
-        if (statsRow) {
-          // Use the same logic as AnalisiFP's getFieldValue
-          const dataWithKey = { ...statsRow, monthKey };
-          const overrideKey = `${monthKey}|fatturatoTotale`;
-          const fatturatoFromStats = statsOverrides?.[overrideKey] ?? dataWithKey.fatturatoTotale;
-          const fatturatoImponibile = statsOverrides?.[`${monthKey}|fatturatoImponibile`] ?? dataWithKey.fatturatoImponibile;
-          
-          let fatturatoTotale = fatturatoFromStats;
-          if (fatturatoTotale === null || fatturatoTotale === undefined) {
-            fatturatoTotale = fatturatoImponibile;
-          }
-          
-          return fatturatoTotale ?? 0;
-        }
-        
-        return 0;
-      };
-      
-      // Verifica ogni anno disponibile
-      yearMetrics.forEach((_, year) => {
-        let hasAllMonths = true;
-        
-        // Verifica tutti i 12 mesi
-        for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-          const incassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
-          const costiFissi = getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
-          const costiVariabili = getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
-          const fatturato = getFatturatoFromStats(year, monthIndex);
-          
-          if (incassato === null || incassato === undefined || incassato === 0 || 
-              costiFissi === null || costiFissi === undefined || costiFissi === 0 || 
-              costiVariabili === null || costiVariabili === undefined || costiVariabili === 0 || 
-              fatturato === null || fatturato === undefined || fatturato === 0) {
-            hasAllMonths = false;
-            break;
-          }
-        }
-        
-        if (hasAllMonths) {
-          years.push(year);
-        }
-      });
-    } else {
-      // Fallback alla logica originale se non abbiamo tutti i dati
-      yearMetrics.forEach((metrics, year) => {
-        const hasMonths =
-          (metrics as any).monthlyIncassato?.length === 12 &&
-          (metrics as any).monthlyCostiFissi?.length === 12 &&
-          metrics.monthlyCostiVariabili.length === 12;
-        if (hasMonths) {
-          years.push(year);
-        }
-      });
-    }
+    // Use yearMetrics to determine complete years - if yearMetrics has data for a year, consider it complete
+    yearMetrics.forEach((metrics, year) => {
+      // Consider a year complete if it has non-zero values
+      if (metrics.fatturatoTotale > 0 || metrics.incassato > 0 || metrics.costiFissi > 0 || metrics.costiVariabili > 0) {
+        years.push(year);
+      }
+    });
     
     return years.sort((a, b) => a - b);
-  }, [yearMetrics, causaliCatalog, planYear, getPlanConsuntivoValue, financialStatsRows, statsOverrides]);
+  }, [yearMetrics]);
 
   // Load drafts from database
   useEffect(() => {
@@ -174,29 +124,32 @@ export const useBusinessPlan = (
 
   // Initialize form
   useEffect(() => {
-    if (businessPlanForm) {
+    // Non eseguire se yearMetrics è vuoto o se il form è già stato inizializzato
+    if (yearMetrics.size === 0 || businessPlanForm) {
       return;
     }
+    
     const defaultBaseYear =
       completeYears.length > 0
         ? completeYears[completeYears.length - 1]
         : currentYear;
     const defaultTarget = defaultBaseYear + 1;
+    
+    const metrics = yearMetrics.get(defaultBaseYear);
+    
     const stored = businessPlanDrafts[String(defaultTarget)];
     const form = stored
       ? createBusinessPlanFormFromDraft(stored)
-      : createBusinessPlanFormFromMetrics(
-          yearMetrics.get(defaultBaseYear),
-          defaultBaseYear,
-          defaultTarget,
-        );
-    setBusinessPlanForm(recalcBusinessPlan(form, yearMetrics));
+      : createBusinessPlanFormFromMetrics(metrics, defaultBaseYear, defaultTarget);
+    
+    // Inizializza il form senza ricalcolo automatico
+    setBusinessPlanForm(form);
   }, [
-    businessPlanForm,
     businessPlanDrafts,
     completeYears,
     currentYear,
     yearMetrics,
+    businessPlanForm,
   ]);
 
   const handleBusinessPlanFieldChange = useCallback((
@@ -227,27 +180,59 @@ export const useBusinessPlan = (
       switch (field) {
         case 'fatturatoIncrement':
           next.fatturatoIncrement = value;
+          // Calculate fatturato previsionale from increment
+          const fatturatoAnnoBase = parseNumberInput(next.fatturatoAnnoBase) ?? 0;
+          const increment = parseNumberInput(value) ?? 0;
+          next.fatturatoPrevisionale = (fatturatoAnnoBase * (1 + increment / 100)).toFixed(2);
           break;
         case 'fatturatoValue':
           next.fatturatoPrevisionale = cleanCurrencyValue(value);
+          // Calculate increment from fatturato previsionale
+          const fatturatoAnnoBaseForIncrement = parseNumberInput(next.fatturatoAnnoBase) ?? 0;
+          const fatturatoPrevisionaleValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
+          next.fatturatoIncrement = fatturatoAnnoBaseForIncrement === 0 ? '0.00' : ((fatturatoPrevisionaleValue / fatturatoAnnoBaseForIncrement - 1) * 100).toFixed(2);
           break;
         case 'incassatoPercent':
           next.incassatoPercent = value;
+          // Calculate incassato value from percentage
+          const fatturatoPrevisionale = parseNumberInput(next.fatturatoPrevisionale) ?? 0;
+          const incassatoPercent = parseNumberInput(value) ?? 0;
+          next.incassatoPrevisionale = (fatturatoPrevisionale * incassatoPercent / 100).toFixed(2);
           break;
         case 'incassatoValue':
           next.incassatoPrevisionale = cleanCurrencyValue(value);
+          // Calculate percentage from incassato value
+          const fatturatoPrevisionaleForPercent = parseNumberInput(next.fatturatoPrevisionale) ?? 0;
+          const incassatoValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
+          next.incassatoPercent = fatturatoPrevisionaleForPercent === 0 ? '0.00' : (incassatoValue / fatturatoPrevisionaleForPercent * 100).toFixed(2);
           break;
         case 'costiFissiPercent':
           next.costiFissiPercent = value;
+          // Calculate costi fissi value from percentage
+          const incassatoPrevisionale = parseNumberInput(next.incassatoPrevisionale) ?? 0;
+          const costiFissiPercent = parseNumberInput(value) ?? 0;
+          next.costiFissiPrevisionale = (incassatoPrevisionale * costiFissiPercent / 100).toFixed(2);
           break;
         case 'costiFissiValue':
           next.costiFissiPrevisionale = cleanCurrencyValue(value);
+          // Calculate percentage from costi fissi value
+          const incassatoPrevisionaleForCostiFissi = parseNumberInput(next.incassatoPrevisionale) ?? 0;
+          const costiFissiValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
+          next.costiFissiPercent = incassatoPrevisionaleForCostiFissi === 0 ? '0.00' : (costiFissiValue / incassatoPrevisionaleForCostiFissi * 100).toFixed(2);
           break;
         case 'costiVariabiliPercent':
           next.costiVariabiliPercent = value;
+          // Calculate costi variabili value from percentage
+          const incassatoPrevisionaleForVariabili = parseNumberInput(next.incassatoPrevisionale) ?? 0;
+          const costiVariabiliPercent = parseNumberInput(value) ?? 0;
+          next.costiVariabiliPrevisionale = (incassatoPrevisionaleForVariabili * costiVariabiliPercent / 100).toFixed(2);
           break;
         case 'costiVariabiliValue':
           next.costiVariabiliPrevisionale = cleanCurrencyValue(value);
+          // Calculate percentage from costi variabili value
+          const incassatoPrevisionaleForCostiVariabili = parseNumberInput(next.incassatoPrevisionale) ?? 0;
+          const costiVariabiliValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
+          next.costiVariabiliPercent = incassatoPrevisionaleForCostiVariabili === 0 ? '0.00' : (costiVariabiliValue / incassatoPrevisionaleForCostiVariabili * 100).toFixed(2);
           break;
         default:
           break;
@@ -271,7 +256,10 @@ export const useBusinessPlan = (
     const form = stored
       ? createBusinessPlanFormFromDraft(stored)
       : createBusinessPlanFormFromMetrics(metrics, year, year + 1);
-    setBusinessPlanForm(form); // Don't recalculate automatically
+    
+    // Ricalcolo automatico al cambio anno base
+    const recalculatedForm = recalcBusinessPlan(form, yearMetrics);
+    setBusinessPlanForm(recalculatedForm);
   }, [yearMetrics, businessPlanDrafts]);
 
   const handleBusinessPlanTargetYearChange = useCallback((value: string) => {
@@ -286,12 +274,14 @@ export const useBusinessPlan = (
       }
       const stored = businessPlanDrafts[String(targetYear)];
       if (stored && stored.baseYear === prev.baseYear) {
-        return createBusinessPlanFormFromDraft(stored); // Don't recalculate automatically
+        // Ricalcolo automatico anche per i draft salvati
+        const recalculatedForm = recalcBusinessPlan(createBusinessPlanFormFromDraft(stored), yearMetrics);
+        return recalculatedForm;
       }
-      return {
-        ...prev,
-        targetYear,
-      }; // Don't recalculate automatically
+      // Ricalcolo automatico per il nuovo anno target
+      const updatedForm = { ...prev, targetYear };
+      const recalculatedForm = recalcBusinessPlan(updatedForm, yearMetrics);
+      return recalculatedForm;
     });
   }, [yearMetrics, businessPlanDrafts]);
 

@@ -47,9 +47,24 @@ function buildUrl(path: string): string {
   return `${API_BASE_URL.replace(/\/$/, '')}${trimmed}`;
 }
 
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('auth_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+}
+
 export async function fetchFinancialPlanState(locationId: string): Promise<FinancialPlanStatePayload | null> {
   try {
-    const response = await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`));
+    const response = await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`), {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) {
       console.warn('Unable to fetch financial plan state, status', response.status);
       return null;
@@ -66,9 +81,7 @@ export async function persistFinancialPlanState(state: FinancialPlanStatePayload
   try {
     await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`), {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(state),
     });
   } catch (error) {
@@ -128,7 +141,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
 // Financial Stats API functions
 export async function fetchFinancialStats(locationId: string): Promise<any[] | null> {
   try {
-    const response = await fetch(buildUrl(`/api/financial-stats?locationId=${locationId}`));
+    const response = await fetch(buildUrl(`/api/financial-stats?locationId=${locationId}`), {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) {
       if (response.status === 404) {
         // Return empty array if no stats found for this location
@@ -148,7 +163,7 @@ export async function saveFinancialStats(locationId: string, stats: any[]): Prom
   try {
     const response = await fetch(buildUrl('/api/financial-stats'), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ locationId, stats }),
     });
     if (!response.ok) {
@@ -165,17 +180,15 @@ export async function calculateFatturatoTotale(locationId: string): Promise<bool
   try {
     const response = await fetch(buildUrl('/api/financial-stats/calculate-fatturato-totale'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ locationId }),
     });
     if (!response.ok) {
       throw new Error(`Failed to calculate fatturato totale: ${response.statusText}`);
     }
     const result = await response.json();
-    console.log('Fatturato totale calculated:', result.message, `Updated ${result.updatedRecords} records`);
     return true;
   } catch (error) {
-    console.error('Failed to calculate fatturato totale:', error);
     return false;
   }
 }

@@ -215,7 +215,8 @@ export const calculateUtileFromMacroTotals = (
 export const computeYearMetrics = (
   basePlanByYear: Map<number, PlanYearData>,
   financialStatsRows: FinancialStatsRow[],
-  statsOverrides?: Record<string, any>
+  statsOverrides?: Record<string, any>,
+  getPlanConsuntivoValue?: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number
 ): Map<number, BusinessPlanYearMetrics> => {
   const yearMetrics = new Map<number, BusinessPlanYearMetrics>();
   
@@ -232,6 +233,7 @@ export const computeYearMetrics = (
 
   // Process each year
   basePlanByYear.forEach((planYear, year) => {
+    
     const monthlyFatturato: number[] = [];
     const monthlyIncassato: number[] = [];
     const monthlyCostiFissi: number[] = [];
@@ -247,46 +249,79 @@ export const computeYearMetrics = (
       const monthKey = buildMonthKey(year, monthIndex);
       const statsData = statsMap.get(monthKey);
       
-      // Get fatturato from stats (same logic as AnalisiFP)
-      let monthFatturato = 0;
-      if (statsData) {
-        const fatturatoFromStats = statsData.fatturatoTotale;
-        const fatturatoImponibile = statsData.fatturatoImponibile;
-        
-        monthFatturato = fatturatoFromStats ?? fatturatoImponibile ?? 0;
-      } else if (statsOverrides) {
-        // Fallback to statsOverrides if financialStatsRows is empty
-        const fatturatoTotale = statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
-        const fatturatoImponibile = statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
-        const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
-        
-        monthFatturato = fatturatoTotale ?? (fatturatoImponibile + corrispettivi);
-      }
+              // FATTURATO: sempre da statistiche (fatturatoTotale = corrispettivi + fatturatoImponibile)
+              let monthFatturato = 0;
+              if (statsData) {
+                monthFatturato = statsData.fatturatoTotale ?? 0;
+              } else if (statsOverrides) {
+                // Fallback to statsOverrides if financialStatsRows is empty
+                const fatturatoTotale = statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
+                const fatturatoImponibile = statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
+                const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
+                
+                monthFatturato = fatturatoTotale ?? (fatturatoImponibile + corrispettivi);
+              }
       
-      // Get macro totals from plan data using consuntivo values
-      const monthIncassato = planYear.macros
-        .filter(macro => macro.macro === 'INCASSATO')
-        .reduce((acc, macro) => {
-          return acc + macro.details.reduce((detailAcc, detail) => {
-            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+              // INCASSATO: sempre da piano mensile (consuntivo)
+              let monthIncassato = 0;
+              if (getPlanConsuntivoValue) {
+                // Use getPlanConsuntivoValue to get real data from InserisciDati
+                const incassatoMacro = planYear.macros.find(m => m.macro === 'INCASSATO');
+                if (incassatoMacro) {
+                  monthIncassato = incassatoMacro.details.reduce((acc, detail) => {
+                    const value = getPlanConsuntivoValue('INCASSATO', detail.category, detail.detail, year, monthIndex);
+                    return acc + value;
+                  }, 0);
+                }
+              } else {
+        // Fallback to direct access (for backward compatibility)
+        monthIncassato = planYear.macros
+          .filter(macro => macro.macro === 'INCASSATO')
+          .reduce((acc, macro) => {
+            return acc + macro.details.reduce((detailAcc, detail) => {
+              return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+            }, 0);
           }, 0);
-        }, 0);
+      }
         
-      const monthCostiFissi = planYear.macros
-        .filter(macro => macro.macro === 'COSTI FISSI')
-        .reduce((acc, macro) => {
-          return acc + macro.details.reduce((detailAcc, detail) => {
-            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
-          }, 0);
-        }, 0);
         
-      const monthCostiVariabili = planYear.macros
-        .filter(macro => macro.macro === 'COSTI VARIABILI')
-        .reduce((acc, macro) => {
-          return acc + macro.details.reduce((detailAcc, detail) => {
-            return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+      // COSTI FISSI: sempre da piano mensile (consuntivo)
+      let monthCostiFissi = 0;
+      if (getPlanConsuntivoValue) {
+        const costiFissiMacro = planYear.macros.find(m => m.macro === 'COSTI FISSI');
+        if (costiFissiMacro) {
+          monthCostiFissi = costiFissiMacro.details.reduce((acc, detail) => {
+            return acc + getPlanConsuntivoValue('COSTI FISSI', detail.category, detail.detail, year, monthIndex);
           }, 0);
-        }, 0);
+        }
+      } else {
+        monthCostiFissi = planYear.macros
+          .filter(macro => macro.macro === 'COSTI FISSI')
+          .reduce((acc, macro) => {
+            return acc + macro.details.reduce((detailAcc, detail) => {
+              return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+            }, 0);
+          }, 0);
+      }
+        
+      // COSTI VARIABILI: sempre da piano mensile (consuntivo)
+      let monthCostiVariabili = 0;
+      if (getPlanConsuntivoValue) {
+        const costiVariabiliMacro = planYear.macros.find(m => m.macro === 'COSTI VARIABILI');
+        if (costiVariabiliMacro) {
+          monthCostiVariabili = costiVariabiliMacro.details.reduce((acc, detail) => {
+            return acc + getPlanConsuntivoValue('COSTI VARIABILI', detail.category, detail.detail, year, monthIndex);
+          }, 0);
+        }
+      } else {
+        monthCostiVariabili = planYear.macros
+          .filter(macro => macro.macro === 'COSTI VARIABILI')
+          .reduce((acc, macro) => {
+            return acc + macro.details.reduce((detailAcc, detail) => {
+              return detailAcc + (detail.months[monthIndex]?.consuntivo ?? 0);
+            }, 0);
+          }, 0);
+      }
       
       monthlyFatturato.push(monthFatturato);
       monthlyIncassato.push(monthIncassato);

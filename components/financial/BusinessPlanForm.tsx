@@ -74,9 +74,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
 
       try {
         await calculateFatturatoTotale(currentLocation.id);
-        console.log('✅ Fatturato totale calcolato automaticamente per azienda:', currentLocation.id);
       } catch (error) {
-        console.error('❌ Errore durante il calcolo automatico del fatturato totale:', error);
+        // Silently handle error
       }
     };
 
@@ -237,13 +236,14 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             <label className="block text-xs font-semibold uppercase text-gray-500">
               Incremento fatturato (%)
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={businessPlanForm.fatturatoIncrement}
-              onChange={(event) => onFieldChange('fatturatoIncrement', event.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+              <input
+                type="number"
+                step="0.01"
+                value={businessPlanForm.fatturatoIncrement}
+                onChange={(event) => onFieldChange('fatturatoIncrement', event.target.value)}
+                onBlur={() => onRecalculate?.()}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase text-gray-500">
@@ -253,6 +253,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.fatturatoPrevisionale}
                 onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
           </div>
@@ -306,6 +307,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.incassatoPrevisionale}
                 onChange={(event) => onFieldChange('incassatoValue', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -356,6 +358,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.costiFissiPrevisionale}
                 onChange={(event) => onFieldChange('costiFissiValue', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -367,6 +370,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.costiFissiPercent}
                 onChange={(event) => onFieldChange('costiFissiPercent', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -405,6 +409,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.costiVariabiliPrevisionale}
                 onChange={(event) => onFieldChange('costiVariabiliValue', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -416,6 +421,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                 type="text"
                 value={businessPlanForm.costiVariabiliPercent}
                 onChange={(event) => onFieldChange('costiVariabiliPercent', event.target.value)}
+                onBlur={() => onRecalculate?.()}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

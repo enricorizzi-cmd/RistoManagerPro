@@ -569,7 +569,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   });
 });
 
-app.get('/api/financial-plan/state', async (req, res) => {
+app.get('/api/financial-plan/state', requireAuth, async (req, res) => {
   try {
     const locationId = req.query.locationId || req.headers['x-location-id'];
     if (!locationId) {
@@ -596,7 +596,7 @@ app.get('/api/financial-plan/state', async (req, res) => {
   }
 });
 
-app.put('/api/financial-plan/state', async (req, res) => {
+app.put('/api/financial-plan/state', requireAuth, async (req, res) => {
   try {
     const locationId = req.query.locationId || req.headers['x-location-id'];
     if (!locationId) {
@@ -845,7 +845,7 @@ app.get('/api/sales/:locationId', async (req, res) => {
 });
 
 // Business Plan Drafts API
-app.get('/api/business-plan-drafts', async (req, res) => {
+app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
   try {
     const locationId = req.query.locationId;
     if (!locationId) {
@@ -871,7 +871,7 @@ app.get('/api/business-plan-drafts', async (req, res) => {
   }
 });
 
-app.put('/api/business-plan-drafts', async (req, res) => {
+app.put('/api/business-plan-drafts', requireAuth, async (req, res) => {
   try {
     const { targetYear, data, locationId } = req.body;
     if (!locationId) {

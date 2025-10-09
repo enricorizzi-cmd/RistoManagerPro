@@ -90,6 +90,7 @@ export const useFinancialPlanData = (locationId?: string) => {
   const [statsOverrides, setStatsOverrides] = useState<StatsOverrides>({});
   const [loadingState, setLoadingState] = useState<boolean>(false);
   const [savingState, setSavingState] = useState<boolean>(false);
+  const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [causaliCatalog, setCausaliCatalog] = useState<FinancialCausaleGroup[]>([]);
   const [monthlyMetrics, setMonthlyMetrics] = useState<any[]>([]);
   const [financialStatsRows, setFinancialStatsRows] = useState<any[]>([]);
@@ -101,74 +102,6 @@ export const useFinancialPlanData = (locationId?: string) => {
     const source = causaliCatalog.length > 0 ? causaliCatalog : DEFAULT_CAUSALI_CATALOG;
     return computePlanData(source);
   }, [causaliCatalog]);
-
-  const yearMetrics = useMemo(
-    () => computeYearMetrics(basePlanByYear, financialStatsRows, statsOverrides),
-    [basePlanByYear, financialStatsRows, statsOverrides],
-  );
-
-  useEffect(() => {
-    if (!locationId) return;
-    
-    let mounted = true;
-    setLoadingState(true);
-    
-    // Load both financial plan state and financial stats
-    Promise.all([
-      fetchFinancialPlanState(locationId),
-      fetchFinancialStats(locationId)
-    ]).then(([payload, stats]) => {
-      if (!mounted) {
-        setLoadingState(false);
-        return;
-      }
-      
-      // Set financial plan data
-      if (payload) {
-        setPlanOverrides(payload.preventivoOverrides ?? {});
-        setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
-        setStatsOverrides(payload.statsOverrides ?? {});
-        setMonthlyMetrics(payload.monthlyMetrics ?? []);
-        setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
-      }
-      
-      // Set financial stats data (use ONLY database data, no fallback)
-      setFinancialStatsRows(stats || []);
-      
-      setLoadingState(false);
-    }).catch(() => {
-      // If API fails, use empty array (NO fallback to static data)
-      setFinancialStatsRows([]);
-      setLoadingState(false);
-    });
-    
-    return () => { mounted = false; };
-  }, [locationId]);
-
-  const getPlanPreventivoValue = useCallback(
-    (
-      macro: string,
-      category: string,
-      detail: string,
-      year: number,
-      monthIndex: number,
-    ): number => {
-      const monthKey = buildMonthKey(year, monthIndex);
-      const override = planOverrides[macro]?.[category]?.[detail]?.[monthKey];
-      if (override !== undefined) {
-        return override;
-      }
-      const planYear = basePlanByYear.get(year);
-      const macroBlock = planYear?.macros.find(
-        (item) => normalizeLabel(item.macro) === normalizeLabel(macro),
-      );
-      const detailRow = macroBlock?.details.find(
-        (item) => normalizeLabel(item.detail) === normalizeLabel(detail),
-      );
-      return detailRow?.months[monthIndex].preventivo ?? 0;
-    },
-    [planOverrides, basePlanByYear],
-  );
 
   const getPlanConsuntivoValue = useCallback(
     (
@@ -200,6 +133,81 @@ export const useFinancialPlanData = (locationId?: string) => {
       return detailRow?.months[monthIndex].consuntivo ?? 0;
     },
     [consuntivoOverrides, basePlanByYear, getSumForCausale],
+  );
+
+  const yearMetrics = useMemo(
+    () => computeYearMetrics(basePlanByYear, financialStatsRows, statsOverrides, getPlanConsuntivoValue),
+    [basePlanByYear, financialStatsRows, statsOverrides, getPlanConsuntivoValue],
+  );
+
+  // Reset dataLoaded when locationId changes
+  useEffect(() => {
+    setDataLoaded(false);
+  }, [locationId]);
+
+  useEffect(() => {
+    if (!locationId || dataLoaded) return;
+    
+    
+    let mounted = true;
+    setLoadingState(true);
+    
+    // Load both financial plan state and financial stats
+    Promise.all([
+      fetchFinancialPlanState(locationId),
+      fetchFinancialStats(locationId)
+    ]).then(([payload, stats]) => {
+      if (!mounted) {
+        setLoadingState(false);
+        return;
+      }
+      
+      // Set financial plan data
+      if (payload) {
+        setPlanOverrides(payload.preventivoOverrides ?? {});
+        setConsuntivoOverrides((payload as FinancialPlanStatePayload).consuntivoOverrides ?? {});
+        setStatsOverrides(payload.statsOverrides ?? {});
+        setMonthlyMetrics(payload.monthlyMetrics ?? []);
+        setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
+      }
+      
+      // Set financial stats data (use ONLY database data, no fallback)
+      setFinancialStatsRows(stats || []);
+      
+      setLoadingState(false);
+      setDataLoaded(true);
+    }).catch((error) => {
+      // If API fails, use empty array (NO fallback to static data)
+      setFinancialStatsRows([]);
+      setLoadingState(false);
+    });
+    
+    return () => { mounted = false; };
+  }, [locationId, dataLoaded]);
+
+  const getPlanPreventivoValue = useCallback(
+    (
+      macro: string,
+      category: string,
+      detail: string,
+      year: number,
+      monthIndex: number,
+    ): number => {
+      const monthKey = buildMonthKey(year, monthIndex);
+      const override = planOverrides[macro]?.[category]?.[detail]?.[monthKey];
+      if (override !== undefined) {
+        return override;
+      }
+      const planYear = basePlanByYear.get(year);
+      const macroBlock = planYear?.macros.find(
+        (item) => normalizeLabel(item.macro) === normalizeLabel(macro),
+      );
+      const detailRow = macroBlock?.details.find(
+        (item) => normalizeLabel(item.detail) === normalizeLabel(detail),
+      );
+      return detailRow?.months[monthIndex].preventivo ?? 0;
+    },
+    [planOverrides, basePlanByYear],
   );
 
   const setOverride = useCallback((
