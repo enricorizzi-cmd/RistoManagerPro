@@ -57,6 +57,19 @@ export const MONTH_MAP: Record<string, number> = {
   OTT: 9,
   NOV: 10,
   DIC: 11,
+  // Abbreviazioni con punto finale (dati statistiche)
+  'GEN.': 0,
+  'FEB.': 1,
+  'MAR.': 2,
+  'APR.': 3,
+  'MAG.': 4,
+  'GIU.': 5,
+  'LUG.': 6,
+  'AGO.': 7,
+  'SET.': 8,
+  'OTT.': 9,
+  'NOV.': 10,
+  'DIC.': 11,
 };
 
 export const currencyFormatter = new Intl.NumberFormat('it-IT', {

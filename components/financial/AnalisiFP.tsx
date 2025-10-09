@@ -1,7 +1,7 @@
 // Analisi FP Component
 // Displays dynamic financial indicators and analysis
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatCurrencyValue, parseMonthKey, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
@@ -39,6 +39,9 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
   causaliCatalog,
   planYear,
 }) => {
+  // State for selected month
+  const [selectedMonth, setSelectedMonth] = useState<{ year: number; monthIndex: number } | null>(null);
+
   const analysisData = useMemo(() => {
     const getFieldValue = (data: any, field: string) => {
       if (!data) return null;
@@ -158,17 +161,22 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       .sort((a, b) => b.year - a.year || b.monthIndex - a.monthIndex)[0] 
       || allData.sort((a, b) => b.year - a.year || b.monthIndex - a.monthIndex)[0];
 
-
     if (!lastCompiledMonth) {
       return {
         indicators: [],
         previsionaleConsuntivo: [],
         lastCompiledMonth: 'Nessun dato disponibile',
+        availableMonths: [],
       };
     }
 
-    const currentYear = lastCompiledMonth.year;
-    const currentMonth = lastCompiledMonth.monthIndex;
+    // Use selected month if available, otherwise use last compiled month
+    const currentMonthData = selectedMonth 
+      ? allData.find(d => d.year === selectedMonth.year && d.monthIndex === selectedMonth.monthIndex) || lastCompiledMonth
+      : lastCompiledMonth;
+
+    const currentYear = currentMonthData.year;
+    const currentMonth = currentMonthData.monthIndex;
 
     // Helper function to calculate percentage change
     const calculatePercentageChange = (current: number, previous: number): number | null => {
@@ -177,21 +185,21 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     };
 
     // Helper function to get value for same month previous year
-    const getSameMonthPreviousYear = (field: keyof typeof lastCompiledMonth) => {
+    const getSameMonthPreviousYear = (field: keyof typeof currentMonthData) => {
       const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
       return prevYearData?.[field] ?? null;
     };
 
-    // Helper function to get current and previous year values for last month
-    const getLastMonthValues = (field: keyof typeof lastCompiledMonth) => {
-      const currentValue = lastCompiledMonth[field];
-      const previousValue = getSameMonthPreviousYear(field);
+    // Helper function to get current and previous year values for selected month
+    const getSelectedMonthValues = (field: keyof typeof currentMonthData) => {
+      const currentValue = currentMonthData[field] as number | null;
+      const previousValue = getSameMonthPreviousYear(field) as number | null;
       return { currentValue, previousValue };
     };
 
 
     // Helper function to get YTD values
-    const getYTDValues = (field: keyof typeof lastCompiledMonth) => {
+    const getYTDValues = (field: keyof typeof currentMonthData) => {
       const currentYTD = allData
         .filter(d => d.year === currentYear && d.monthIndex <= currentMonth)
         .reduce((sum, d) => sum + (d[field] as number ?? 0), 0);
@@ -204,7 +212,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     };
 
     // Helper function to get YTD values with averages for saldo/crediti/debiti
-    const getYTDAverageValues = (field: keyof typeof lastCompiledMonth) => {
+    const getYTDAverageValues = (field: keyof typeof currentMonthData) => {
       const ytdData = getYTDValues(field);
       const currentAvg = ytdData.currentYTD / (currentMonth + 1);
       const previousAvg = ytdData.previousYTD / (currentMonth + 1);
@@ -212,7 +220,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     };
 
     // Helper function to get 12 months values with averages for saldo/crediti/debiti
-    const get12MonthsAverageValues = (field: keyof typeof lastCompiledMonth) => {
+    const get12MonthsAverageValues = (field: keyof typeof currentMonthData) => {
       const months12Data = getLast12MonthsValues(field);
       const currentAvg = months12Data.last12Months / 12;
       const previousAvg = months12Data.previous12Months / 12;
@@ -220,7 +228,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     };
 
     // Helper function to get last 12 months values
-    const getLast12MonthsValues = (field: keyof typeof lastCompiledMonth) => {
+    const getLast12MonthsValues = (field: keyof typeof currentMonthData) => {
       const last12Months = allData
         .filter(d => {
           const dDate = new Date(d.year, d.monthIndex, 1);
@@ -249,12 +257,12 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const fatturatoLastMonth = getSameMonthPreviousYear('fatturatoTotale');
     const fatturatoYTD = getYTDValues('fatturatoTotale');
     const fatturato12Months = getLast12MonthsValues('fatturatoTotale');
-    const fatturatoValues = getLastMonthValues('fatturatoTotale');
+    const fatturatoValues = getSelectedMonthValues('fatturatoTotale');
     
     indicators.push({
       label: 'FATTURATO',
       lastMonthValues: fatturatoValues,
-      lastMonth: fatturatoLastMonth ? calculatePercentageChange(lastCompiledMonth.fatturatoTotale ?? 0, fatturatoLastMonth) : null,
+      lastMonth: fatturatoLastMonth ? calculatePercentageChange(currentMonthData.fatturatoTotale ?? 0, fatturatoLastMonth as number) : null,
       ytdValues: { currentValue: fatturatoYTD.currentYTD, previousValue: fatturatoYTD.previousYTD },
       ytd: fatturatoYTD.previousYTD ? calculatePercentageChange(fatturatoYTD.currentYTD, fatturatoYTD.previousYTD) : null,
       last12MonthsValues: { currentValue: fatturato12Months.last12Months, previousValue: fatturato12Months.previous12Months },
@@ -266,12 +274,12 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const incassatoLastMonth = getSameMonthPreviousYear('incassato');
     const incassatoYTD = getYTDValues('incassato');
     const incassato12Months = getLast12MonthsValues('incassato');
-    const incassatoValues = getLastMonthValues('incassato');
+    const incassatoValues = getSelectedMonthValues('incassato');
     
     indicators.push({
       label: 'INCASSATO',
       lastMonthValues: incassatoValues,
-      lastMonth: incassatoLastMonth ? calculatePercentageChange(lastCompiledMonth.incassato ?? 0, incassatoLastMonth) : null,
+      lastMonth: incassatoLastMonth ? calculatePercentageChange(currentMonthData.incassato ?? 0, incassatoLastMonth as number) : null,
       ytdValues: { currentValue: incassatoYTD.currentYTD, previousValue: incassatoYTD.previousYTD },
       ytd: incassatoYTD.previousYTD ? calculatePercentageChange(incassatoYTD.currentYTD, incassatoYTD.previousYTD) : null,
       last12MonthsValues: { currentValue: incassato12Months.last12Months, previousValue: incassato12Months.previous12Months },
@@ -291,7 +299,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const saldoCC12MonthsPreviousAvg = saldoCC12Months.previous12Months / 12;
     
     
-    const saldoCCValues = getLastMonthValues('saldoTotale');
+    const saldoCCValues = getSelectedMonthValues('saldoTotale');
     
     const saldoCCYTDValues = getYTDAverageValues('saldoTotale');
     const saldoCC12MonthsValues = get12MonthsAverageValues('saldoTotale');
@@ -299,7 +307,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     indicators.push({
       label: 'SALDO CC',
       lastMonthValues: saldoCCValues,
-      lastMonth: saldoCCLastMonth ? calculatePercentageChange(lastCompiledMonth.saldoTotale ?? 0, saldoCCLastMonth) : null,
+      lastMonth: saldoCCLastMonth ? calculatePercentageChange(currentMonthData.saldoTotale ?? 0, saldoCCLastMonth as number) : null,
       ytdValues: saldoCCYTDValues,
       ytd: saldoCCYTDPreviousAvg ? calculatePercentageChange(saldoCCYTDCurrentAvg, saldoCCYTDPreviousAvg) : null,
       last12MonthsValues: saldoCC12MonthsValues,
@@ -318,7 +326,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const creditiPendenti12MonthsPreviousAvg = creditiPendenti12Months.previous12Months / 12;
     
     
-    const creditiPendentiValues = getLastMonthValues('creditiPendenti');
+    const creditiPendentiValues = getSelectedMonthValues('creditiPendenti');
     
     const creditiPendentiYTDValues = getYTDAverageValues('creditiPendenti');
     const creditiPendenti12MonthsValues = get12MonthsAverageValues('creditiPendenti');
@@ -326,7 +334,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     indicators.push({
       label: 'CREDITI PENDENTI',
       lastMonthValues: creditiPendentiValues,
-      lastMonth: creditiPendentiLastMonth ? calculatePercentageChange(lastCompiledMonth.creditiPendenti ?? 0, creditiPendentiLastMonth) : null,
+      lastMonth: creditiPendentiLastMonth ? calculatePercentageChange(currentMonthData.creditiPendenti ?? 0, creditiPendentiLastMonth as number) : null,
       ytdValues: creditiPendentiYTDValues,
       ytd: creditiPendentiYTDPreviousAvg ? calculatePercentageChange(creditiPendentiYTDCurrentAvg, creditiPendentiYTDPreviousAvg) : null,
       last12MonthsValues: creditiPendenti12MonthsValues,
@@ -345,7 +353,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const creditiScaduti12MonthsPreviousAvg = creditiScaduti12Months.previous12Months / 12;
     
     
-    const creditiScadutiValues = getLastMonthValues('creditiScaduti');
+    const creditiScadutiValues = getSelectedMonthValues('creditiScaduti');
     
     const creditiScadutiYTDValues = getYTDAverageValues('creditiScaduti');
     const creditiScaduti12MonthsValues = get12MonthsAverageValues('creditiScaduti');
@@ -353,7 +361,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     indicators.push({
       label: 'CREDITI SCADUTI',
       lastMonthValues: creditiScadutiValues,
-      lastMonth: creditiScadutiLastMonth ? calculatePercentageChange(lastCompiledMonth.creditiScaduti ?? 0, creditiScadutiLastMonth) : null,
+      lastMonth: creditiScadutiLastMonth ? calculatePercentageChange(currentMonthData.creditiScaduti ?? 0, creditiScadutiLastMonth as number) : null,
       ytdValues: creditiScadutiYTDValues,
       ytd: creditiScadutiYTDPreviousAvg ? calculatePercentageChange(creditiScadutiYTDCurrentAvg, creditiScadutiYTDPreviousAvg) : null,
       last12MonthsValues: creditiScaduti12MonthsValues,
@@ -372,7 +380,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const debitiFornitori12MonthsPreviousAvg = debitiFornitori12Months.previous12Months / 12;
     
     
-    const debitiFornitoriValues = getLastMonthValues('debitiFornitore');
+    const debitiFornitoriValues = getSelectedMonthValues('debitiFornitore');
     
     const debitiFornitoriYTDValues = getYTDAverageValues('debitiFornitore');
     const debitiFornitori12MonthsValues = get12MonthsAverageValues('debitiFornitore');
@@ -380,7 +388,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     indicators.push({
       label: 'DEBITI FORNITORI',
       lastMonthValues: debitiFornitoriValues,
-      lastMonth: debitiFornitoriLastMonth ? calculatePercentageChange(lastCompiledMonth.debitiFornitore ?? 0, debitiFornitoriLastMonth) : null,
+      lastMonth: debitiFornitoriLastMonth ? calculatePercentageChange(currentMonthData.debitiFornitore ?? 0, debitiFornitoriLastMonth as number) : null,
       ytdValues: debitiFornitoriYTDValues,
       ytd: debitiFornitoriYTDPreviousAvg ? calculatePercentageChange(debitiFornitoriYTDCurrentAvg, debitiFornitoriYTDPreviousAvg) : null,
       last12MonthsValues: debitiFornitori12MonthsValues,
@@ -399,7 +407,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const debitiBancari12MonthsPreviousAvg = debitiBancari12Months.previous12Months / 12;
     
     
-    const debitiBancariValues = getLastMonthValues('debitiBancari');
+    const debitiBancariValues = getSelectedMonthValues('debitiBancari');
     
     const debitiBancariYTDValues = getYTDAverageValues('debitiBancari');
     const debitiBancari12MonthsValues = get12MonthsAverageValues('debitiBancari');
@@ -407,7 +415,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     indicators.push({
       label: 'DEBITI BANCARI',
       lastMonthValues: debitiBancariValues,
-      lastMonth: debitiBancariLastMonth ? calculatePercentageChange(lastCompiledMonth.debitiBancari ?? 0, debitiBancariLastMonth) : null,
+      lastMonth: debitiBancariLastMonth ? calculatePercentageChange(currentMonthData.debitiBancari ?? 0, debitiBancariLastMonth as number) : null,
       ytdValues: debitiBancariYTDValues,
       ytd: debitiBancariYTDPreviousAvg ? calculatePercentageChange(debitiBancariYTDCurrentAvg, debitiBancariYTDPreviousAvg) : null,
       last12MonthsValues: debitiBancari12MonthsValues,
@@ -450,7 +458,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     };
 
     // INCIDENZA COSTI FISSI
-    const incidenzaCostiFissiLastMonthCurrent = lastCompiledMonth.incassato ? (lastCompiledMonth.costiFissi / lastCompiledMonth.incassato) * 100 : null;
+    const incidenzaCostiFissiLastMonthCurrent = currentMonthData.incassato ? (currentMonthData.costiFissi / currentMonthData.incassato) * 100 : null;
     const incidenzaCostiFissiLastMonthPrevious = (() => {
       const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
       return prevYearData && prevYearData.incassato ? (prevYearData.costiFissi / prevYearData.incassato) * 100 : null;
@@ -474,7 +482,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     });
 
     // INCIDENZA COSTI VARIABILI
-    const incidenzaCostiVariabiliLastMonthCurrent = lastCompiledMonth.incassato ? (lastCompiledMonth.costiVariabili / lastCompiledMonth.incassato) * 100 : null;
+    const incidenzaCostiVariabiliLastMonthCurrent = currentMonthData.incassato ? (currentMonthData.costiVariabili / currentMonthData.incassato) * 100 : null;
     const incidenzaCostiVariabiliLastMonthPrevious = (() => {
       const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
       return prevYearData && prevYearData.incassato ? (prevYearData.costiVariabili / prevYearData.incassato) * 100 : null;
@@ -498,7 +506,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     });
 
     // INCIDENZA UTILE
-    const incidenzaUtileLastMonthCurrent = lastCompiledMonth.incassato ? (lastCompiledMonth.utile / lastCompiledMonth.incassato) * 100 : null;
+    const incidenzaUtileLastMonthCurrent = currentMonthData.incassato ? (currentMonthData.utile / currentMonthData.incassato) * 100 : null;
     const incidenzaUtileLastMonthPrevious = (() => {
       const prevYearData = allData.find(d => d.year === currentYear - 1 && d.monthIndex === currentMonth);
       return prevYearData && prevYearData.incassato ? (prevYearData.utile / prevYearData.incassato) * 100 : null;
@@ -525,32 +533,45 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     const previsionaleConsuntivo = [
       {
         label: 'INCASSATO',
-        consuntivo: lastCompiledMonth.incassato,
-        previsionale: getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, lastCompiledMonth.year, lastCompiledMonth.monthIndex),
+        consuntivo: currentMonthData.incassato,
+        previsionale: getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, currentMonthData.year, currentMonthData.monthIndex),
       },
       {
         label: 'COSTI FISSI',
-        consuntivo: lastCompiledMonth.costiFissi,
-        previsionale: getCostiFissiTotal(causaliCatalog, planYear, getPlanPreventivoValue, lastCompiledMonth.year, lastCompiledMonth.monthIndex),
+        consuntivo: currentMonthData.costiFissi,
+        previsionale: getCostiFissiTotal(causaliCatalog, planYear, getPlanPreventivoValue, currentMonthData.year, currentMonthData.monthIndex),
       },
       {
         label: 'COSTI VARIABILI',
-        consuntivo: lastCompiledMonth.costiVariabili,
-        previsionale: getCostiVariabiliTotal(causaliCatalog, planYear, getPlanPreventivoValue, lastCompiledMonth.year, lastCompiledMonth.monthIndex),
+        consuntivo: currentMonthData.costiVariabili,
+        previsionale: getCostiVariabiliTotal(causaliCatalog, planYear, getPlanPreventivoValue, currentMonthData.year, currentMonthData.monthIndex),
       },
       {
         label: 'UTILE',
-        consuntivo: lastCompiledMonth.utile,
-        previsionale: calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, lastCompiledMonth.year, lastCompiledMonth.monthIndex),
+        consuntivo: currentMonthData.utile,
+        previsionale: calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, currentMonthData.year, currentMonthData.monthIndex),
       },
     ];
+
+    // Generate available months for selector
+    const availableMonths = allData
+      .filter(d => d.incassato !== null && d.incassato !== 0)
+      .map(d => ({
+        year: d.year,
+        monthIndex: d.monthIndex,
+        label: format(new Date(d.year, d.monthIndex, 1), 'MMMM yyyy', { locale: it }),
+        value: `${d.year}-${d.monthIndex}`
+      }))
+      .sort((a, b) => b.year - a.year || b.monthIndex - a.monthIndex);
 
     return {
       indicators,
       previsionaleConsuntivo,
       lastCompiledMonth: format(new Date(lastCompiledMonth.year, lastCompiledMonth.monthIndex, 1), 'MMMM yyyy', { locale: it }),
+      currentMonth: format(new Date(currentMonthData.year, currentMonthData.monthIndex, 1), 'MMMM yyyy', { locale: it }),
+      availableMonths,
     };
-  }, [availableYears, statsOverrides, financialStatsRows, getPlanPreventivoValue, getPlanConsuntivoValue, causaliCatalog, planYear]);
+  }, [availableYears, statsOverrides, financialStatsRows, getPlanPreventivoValue, getPlanConsuntivoValue, causaliCatalog, planYear, selectedMonth]);
 
   const formatPercentage = (value: number | null): string => {
     if (value === null) return '-';
@@ -574,12 +595,42 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     return 'text-gray-700';
   };
 
+  // Handler for month selection
+  const handleMonthChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    if (value === '') {
+      setSelectedMonth(null);
+    } else {
+      const [year, monthIndex] = value.split('-').map(Number);
+      setSelectedMonth({ year, monthIndex });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Analisi FP - Ultimo mese compilato: {analysisData.lastCompiledMonth}
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            Analisi FP - Mese selezionato: {analysisData.currentMonth}
+          </h2>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700">
+              Seleziona mese:
+            </label>
+            <select
+              value={selectedMonth ? `${selectedMonth.year}-${selectedMonth.monthIndex}` : ''}
+              onChange={handleMonthChange}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Ultimo mese compilato</option>
+              {analysisData.availableMonths.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -684,9 +735,28 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       </div>
 
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">
-          Previsionale / Consuntivo - Ultimo mese compilato
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">
+            Previsionale / Consuntivo - Mese selezionato: {analysisData.currentMonth}
+          </h3>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700">
+              Seleziona mese:
+            </label>
+            <select
+              value={selectedMonth ? `${selectedMonth.year}-${selectedMonth.monthIndex}` : ''}
+              onChange={handleMonthChange}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Ultimo mese compilato</option>
+              {analysisData.availableMonths.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

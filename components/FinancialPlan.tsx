@@ -55,20 +55,6 @@ const FinancialPlan: React.FC = () => {
   } = useFinancialPlanData(currentLocation?.id);
 
   const {
-    businessPlanDrafts,
-    businessPlanForm,
-    businessPlanMessage,
-    availableYears,
-    completeYears,
-    handleBusinessPlanFieldChange,
-    handleBusinessPlanBaseYearChange,
-    handleBusinessPlanTargetYearChange,
-    handleSaveBusinessPlanDraft,
-    handleApplyBusinessPlanToOverrides,
-    handleDeleteBusinessPlanDraft,
-  } = useBusinessPlan(yearMetrics, currentLocation?.id);
-
-  const {
     editMode,
     onlyValued,
     onlyConsuntivo,
@@ -81,6 +67,12 @@ const FinancialPlan: React.FC = () => {
     toggleOnlyConsuntivo,
   } = usePlanEditor();
 
+  // Generate available years from basePlanByYear
+  const availableYears = React.useMemo(() => {
+    const years = Array.from(basePlanByYear.keys()).sort((a, b) => a - b);
+    return years.length > 0 ? years : [new Date().getFullYear()];
+  }, [basePlanByYear]);
+
   // Update selected year if not available
   useEffect(() => {
     if (!basePlanByYear.has(selectedYear) && availableYears.length > 0) {
@@ -91,6 +83,28 @@ const FinancialPlan: React.FC = () => {
   }, [basePlanByYear, selectedYear, availableYears]);
 
   const planYear = basePlanByYear.get(selectedYear);
+
+  const {
+    businessPlanDrafts,
+    businessPlanForm,
+    businessPlanMessage,
+    availableYears: businessPlanAvailableYears,
+    completeYears,
+    handleBusinessPlanFieldChange,
+    handleBusinessPlanBaseYearChange,
+    handleBusinessPlanTargetYearChange,
+    handleSaveBusinessPlanDraft,
+    handleApplyBusinessPlanToOverrides,
+    handleDeleteBusinessPlanDraft,
+  } = useBusinessPlan(
+    yearMetrics, 
+    currentLocation?.id,
+    causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any,
+    planYear,
+    getPlanConsuntivoValue,
+    financialStatsRows,
+    statsOverrides
+  );
 
   // Enhanced setOverride with dirty tracking
   const handleSetOverride = (
@@ -527,8 +541,14 @@ const FinancialPlan: React.FC = () => {
           businessPlanForm={businessPlanForm}
           businessPlanMessage={businessPlanMessage}
           completeYears={completeYears}
-          availableYears={availableYears}
+          availableYears={businessPlanAvailableYears}
           businessPlanDrafts={businessPlanDrafts}
+          yearMetrics={yearMetrics}
+          causaliCatalog={causaliCatalog.length > 0 ? causaliCatalog : financialCausali as any}
+          planYear={planYear}
+          getPlanConsuntivoValue={getPlanConsuntivoValue}
+          financialStatsRows={financialStatsRows}
+          statsOverrides={statsOverrides}
           onFieldChange={handleBusinessPlanFieldChange}
           onBaseYearChange={handleBusinessPlanBaseYearChange}
           onTargetYearChange={handleBusinessPlanTargetYearChange}

@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
-import { parseNumberInput } from '../utils/financialPlanUtils';
+import { parseNumberInput, buildMonthKey, parsePlanMonthLabel } from '../utils/financialPlanUtils';
+import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../utils/financialCalculations';
 import { 
   createBusinessPlanFormFromMetrics, 
   createBusinessPlanFormFromDraft, 
@@ -40,7 +41,15 @@ const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft
   }
 };
 
-export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics>, locationId?: string) => {
+export const useBusinessPlan = (
+  yearMetrics: Map<number, BusinessPlanYearMetrics>, 
+  locationId?: string,
+  causaliCatalog?: any[],
+  planYear?: any,
+  getPlanConsuntivoValue?: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
+  financialStatsRows?: any[],
+  statsOverrides?: any
+) => {
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
@@ -69,17 +78,81 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
 
   const completeYears = useMemo(() => {
     const years: number[] = [];
-    yearMetrics.forEach((metrics, year) => {
-      const hasMonths =
-        (metrics as any).monthlyIncassato?.length === 12 &&
-        (metrics as any).monthlyCostiFissi?.length === 12 &&
-        metrics.monthlyCostiVariabili.length === 12;
-      if (hasMonths) {
-        years.push(year);
-      }
-    });
+    
+    // Se abbiamo i dati necessari, usiamo la stessa logica di AnalisiFP
+    if (causaliCatalog && planYear && getPlanConsuntivoValue && financialStatsRows) {
+      
+      // Helper function per ottenere il fatturato dalle statistiche (stessa logica di AnalisiFP)
+      const getFatturatoFromStats = (year: number, monthIndex: number) => {
+        const monthKey = buildMonthKey(year, monthIndex);
+        
+        // Find stats data
+        const statsRow = financialStatsRows.find(row => {
+          const parsed = parsePlanMonthLabel(row.month);
+          if (parsed) {
+            const { year: rowYear, monthIndex: rowMonthIndex } = parsed;
+            return rowYear === year && rowMonthIndex === monthIndex;
+          }
+          return false;
+        });
+        
+        if (statsRow) {
+          // Use the same logic as AnalisiFP's getFieldValue
+          const dataWithKey = { ...statsRow, monthKey };
+          const overrideKey = `${monthKey}|fatturatoTotale`;
+          const fatturatoFromStats = statsOverrides?.[overrideKey] ?? dataWithKey.fatturatoTotale;
+          const fatturatoImponibile = statsOverrides?.[`${monthKey}|fatturatoImponibile`] ?? dataWithKey.fatturatoImponibile;
+          
+          let fatturatoTotale = fatturatoFromStats;
+          if (fatturatoTotale === null || fatturatoTotale === undefined) {
+            fatturatoTotale = fatturatoImponibile;
+          }
+          
+          return fatturatoTotale ?? 0;
+        }
+        
+        return 0;
+      };
+      
+      // Verifica ogni anno disponibile
+      yearMetrics.forEach((_, year) => {
+        let hasAllMonths = true;
+        
+        // Verifica tutti i 12 mesi
+        for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+          const incassato = getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+          const costiFissi = getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+          const costiVariabili = getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+          const fatturato = getFatturatoFromStats(year, monthIndex);
+          
+          if (incassato === null || incassato === undefined || incassato === 0 || 
+              costiFissi === null || costiFissi === undefined || costiFissi === 0 || 
+              costiVariabili === null || costiVariabili === undefined || costiVariabili === 0 || 
+              fatturato === null || fatturato === undefined || fatturato === 0) {
+            hasAllMonths = false;
+            break;
+          }
+        }
+        
+        if (hasAllMonths) {
+          years.push(year);
+        }
+      });
+    } else {
+      // Fallback alla logica originale se non abbiamo tutti i dati
+      yearMetrics.forEach((metrics, year) => {
+        const hasMonths =
+          (metrics as any).monthlyIncassato?.length === 12 &&
+          (metrics as any).monthlyCostiFissi?.length === 12 &&
+          metrics.monthlyCostiVariabili.length === 12;
+        if (hasMonths) {
+          years.push(year);
+        }
+      });
+    }
+    
     return years.sort((a, b) => a - b);
-  }, [yearMetrics]);
+  }, [yearMetrics, causaliCatalog, planYear, getPlanConsuntivoValue, financialStatsRows, statsOverrides]);
 
   // Load drafts from database
   useEffect(() => {
@@ -216,6 +289,7 @@ export const useBusinessPlan = (yearMetrics: Map<number, BusinessPlanYearMetrics
     const draft: BusinessPlanDraft = {
       baseYear: normalized.baseYear!,
       targetYear: normalized.targetYear,
+      fatturatoAnnoBase: parseNumberInput(normalized.fatturatoAnnoBase) ?? 0,
       fatturatoIncrement: parseNumberInput(normalized.fatturatoIncrement) ?? 0,
       fatturatoPrevisionale: parseNumberInput(normalized.fatturatoPrevisionale) ?? 0,
       incassatoPercent: parseNumberInput(normalized.incassatoPercent) ?? 0,

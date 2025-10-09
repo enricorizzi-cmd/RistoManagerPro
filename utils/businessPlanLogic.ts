@@ -7,6 +7,7 @@ import type { BusinessPlanYearMetrics } from './financialCalculations';
 export interface BusinessPlanDraft {
   baseYear: number;
   targetYear: number;
+  fatturatoAnnoBase: number;
   fatturatoIncrement: number;
   fatturatoPrevisionale: number;
   incassatoPercent: number;
@@ -23,6 +24,7 @@ export type BusinessPlanDrafts = Record<string, BusinessPlanDraft>;
 export interface BusinessPlanFormState {
   baseYear: number | null;
   targetYear: number;
+  fatturatoAnnoBase: string;
   fatturatoIncrement: string;
   fatturatoPrevisionale: string;
   incassatoPercent: string;
@@ -49,6 +51,7 @@ export const createBusinessPlanFormFromMetrics = (
     return {
       baseYear,
       targetYear,
+      fatturatoAnnoBase: '0.00',
       fatturatoIncrement: '0',
       fatturatoPrevisionale: '0.00',
       incassatoPercent: '0.00',
@@ -71,6 +74,7 @@ export const createBusinessPlanFormFromMetrics = (
   return {
     baseYear,
     targetYear,
+    fatturatoAnnoBase: round2(fatturato).toFixed(2),
     fatturatoIncrement: '0',
     fatturatoPrevisionale: round2(fatturato).toFixed(2),
     incassatoPercent:
@@ -99,6 +103,7 @@ export const createBusinessPlanFormFromDraft = (
   return {
     baseYear: draft.baseYear,
     targetYear: draft.targetYear,
+    fatturatoAnnoBase: draft.fatturatoAnnoBase.toFixed(2),
     fatturatoIncrement: draft.fatturatoIncrement.toFixed(2),
     fatturatoPrevisionale: draft.fatturatoPrevisionale.toFixed(2),
     incassatoPercent: draft.incassatoPercent.toFixed(2),
@@ -329,6 +334,7 @@ export const recalcBusinessPlan = (
 
   return {
     ...draft,
+    fatturatoAnnoBase: round2(fatturatoBase).toFixed(2),
     fatturatoIncrement: fatturatoIncrement.toFixed(2),
     fatturatoPrevisionale: fatturatoPrevisionale.toFixed(2),
     incassatoPercent: (incPercent ?? 0).toFixed(2),
