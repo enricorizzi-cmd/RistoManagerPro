@@ -6,6 +6,7 @@ import { formatCurrencyValue, parseNumberInput, buildMonthKey, parsePlanMonthLab
 import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal, calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
 import { useAppContext } from '../../contexts/AppContext';
 import { calculateFatturatoTotale } from '../../services/financialPlanApi';
+import { createBusinessPlanFormFromDraft } from '../../utils/businessPlanLogic';
 import type { BusinessPlanFormState, BusinessPlanMessage } from '../../utils/businessPlanLogic';
 
 interface BusinessPlanFormProps {
@@ -13,13 +14,15 @@ interface BusinessPlanFormProps {
   businessPlanMessage: BusinessPlanMessage | null;
   completeYears: number[];
   availableYears: number[];
-  businessPlanDrafts: Record<string, any>;
+  businessPlanDrafts: any[];
   yearMetrics: Map<number, any>;
   causaliCatalog: any[];
   planYear: any;
   getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   financialStatsRows: any[];
   statsOverrides: any;
+  draftName: string;
+  setDraftName: (name: string) => void;
   onFieldChange: (
     field:
       | 'fatturatoIncrement'
@@ -35,10 +38,12 @@ interface BusinessPlanFormProps {
   onBaseYearChange: (year: number) => void;
   onTargetYearChange: (value: string) => void;
   onSaveDraft: () => void;
-  onApplyToOverrides: () => void;
-  onReset: () => void;
-  onDeleteDraft: (targetYear: number) => void;
+  onApplyToOverrides: () => Promise<void>;
+  onReset: () => Promise<void>;
+  onDeleteDraft: (draftId: string) => void;
   onRecalculate?: () => void;
+  onLoadDraft?: (draftData: any) => void;
+  isLoading?: boolean;
 }
 
 export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
@@ -53,6 +58,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   getPlanConsuntivoValue,
   financialStatsRows,
   statsOverrides,
+  draftName,
+  setDraftName,
   onFieldChange,
   onBaseYearChange,
   onTargetYearChange,
@@ -61,6 +68,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   onReset,
   onDeleteDraft,
   onRecalculate,
+  onLoadDraft,
+  isLoading = false,
 }) => {
   const { currentLocation } = useAppContext();
   const [showMissingDataModal, setShowMissingDataModal] = React.useState(false);
@@ -466,28 +475,71 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         </div>
       </div>
 
-      {/* Sezione Bozze Salvate */}
-      {Object.keys(businessPlanDrafts).length > 0 && (
+
+      {/* Campo Nome Bozza */}
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
+              Nome Bozza
+            </label>
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              placeholder="Inserisci un nome per la bozza..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="flex-shrink-0">
+            <button
+              type="button"
+              onClick={onSaveDraft}
+              disabled={!draftName.trim() || isLoading}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Salva previsionale
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista Bozze Salvate */}
+      {businessPlanDrafts.length > 0 && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Bozze Salvate</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            Bozze Salvate
+          </h3>
           <div className="space-y-2">
-            {Object.entries(businessPlanDrafts).map(([targetYear, draft]) => (
-              <div key={targetYear} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+            {businessPlanDrafts.map((draft) => (
+              <div key={draft.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <span className="text-sm font-medium text-gray-700">
-                    Previsionale {targetYear}
-                  </span>
-                  <span className="ml-2 text-xs text-gray-500">
-                    (Base: {draft.baseYear}, Creato: {new Date(draft.createdAt).toLocaleDateString()})
-                  </span>
+                  <div className="font-medium text-sm text-gray-900">
+                    {draft.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Anno {draft.targetYear} • Salvato il {new Date(draft.createdAt).toLocaleDateString('it-IT')}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onDeleteDraft(Number(targetYear))}
-                  className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
-                >
-                  Elimina
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Carica la bozza nel form
+                      onLoadDraft?.(draft.data);
+                    }}
+                    className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200"
+                  >
+                    Carica
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteDraft(draft.id)}
+                    className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
+                  >
+                    Elimina
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -504,24 +556,40 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         </button>
         <button
           type="button"
-          onClick={onSaveDraft}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600"
+          onClick={async () => {
+            if (!draftName.trim()) {
+              alert('Inserisci un nome per la bozza prima di salvare e inserire il previsionale.');
+              return;
+            }
+            await onSaveDraft();
+            await onApplyToOverrides();
+          }}
+          disabled={!draftName.trim() || isLoading}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          Salva previsionale
+          {isLoading && (
+            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          {isLoading ? 'Elaborazione...' : 'Salva e inserisci previsionale'}
         </button>
         <button
           type="button"
-          onClick={onApplyToOverrides}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+          onClick={async () => {
+            await onReset();
+          }}
+          disabled={isLoading}
+          className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-slate-300 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          Salva e inserisci previsionale
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-slate-300"
-        >
-          Reset previsionale
+          {isLoading && (
+            <svg className="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          {isLoading ? 'Elaborazione...' : 'Reset previsionale'}
         </button>
       </div>
 

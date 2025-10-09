@@ -12,12 +12,11 @@ import {
   recalcBusinessPlan,
   type BusinessPlanFormState,
   type BusinessPlanDraft,
-  type BusinessPlanDrafts,
   type BusinessPlanMessage
 } from '../utils/businessPlanLogic';
 
 // API functions for business plan drafts
-const fetchBusinessPlanDrafts = async (locationId: string): Promise<BusinessPlanDrafts> => {
+const fetchBusinessPlanDrafts = async (locationId: string): Promise<any[]> => {
   try {
     const token = localStorage.getItem('auth_token');
     const headers: HeadersInit = {};
@@ -32,11 +31,11 @@ const fetchBusinessPlanDrafts = async (locationId: string): Promise<BusinessPlan
     return await response.json();
   } catch (error) {
     console.warn('Failed to load business plan drafts from database:', error);
-    return {};
+    return [];
   }
 };
 
-const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft, locationId: string): Promise<void> => {
+const saveBusinessPlanDraft = async (targetYear: number, name: string, data: BusinessPlanDraft, locationId: string): Promise<void> => {
   try {
     const token = localStorage.getItem('auth_token');
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -47,11 +46,30 @@ const saveBusinessPlanDraft = async (targetYear: number, data: BusinessPlanDraft
     const response = await fetch('http://localhost:4000/api/business-plan-drafts', {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ targetYear, data, locationId }),
+      body: JSON.stringify({ targetYear, name, data, locationId }),
     });
     if (!response.ok) throw new Error('Failed to save draft');
   } catch (error) {
     console.error('Failed to save business plan draft to database:', error);
+    throw error;
+  }
+};
+
+const deleteBusinessPlanDraft = async (draftId: string, locationId: string): Promise<void> => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`http://localhost:4000/api/business-plan-drafts/${draftId}?locationId=${locationId}`, {
+      method: 'DELETE',
+      headers
+    });
+    if (!response.ok) throw new Error('Failed to delete draft');
+  } catch (error) {
+    console.error('Failed to delete business plan draft from database:', error);
     throw error;
   }
 };
@@ -65,7 +83,8 @@ export const useBusinessPlan = (
   financialStatsRows?: any[],
   statsOverrides?: any
 ) => {
-  const [businessPlanDrafts, setBusinessPlanDrafts] = useState<BusinessPlanDrafts>({});
+  const [businessPlanDrafts, setBusinessPlanDrafts] = useState<any[]>([]);
+  const [draftName, setDraftName] = useState<string>('');
   const [businessPlanForm, setBusinessPlanForm] = useState<BusinessPlanFormState | null>(null);
   const [businessPlanMessage, setBusinessPlanMessage] = useState<BusinessPlanMessage | null>(null);
 
@@ -112,15 +131,6 @@ export const useBusinessPlan = (
     }
   }, [locationId]);
 
-  // Save drafts to database
-  useEffect(() => {
-    if (Object.keys(businessPlanDrafts).length > 0 && locationId) {
-      // Save each draft to database
-      Object.entries(businessPlanDrafts).forEach(([targetYear, draft]) => {
-        saveBusinessPlanDraft(parseInt(targetYear), draft, locationId).catch(console.error);
-      });
-    }
-  }, [businessPlanDrafts, locationId]);
 
   // Initialize form
   useEffect(() => {
@@ -137,9 +147,10 @@ export const useBusinessPlan = (
     
     const metrics = yearMetrics.get(defaultBaseYear);
     
-    const stored = businessPlanDrafts[String(defaultTarget)];
+    // Find draft for the target year (take the first one if multiple exist)
+    const stored = businessPlanDrafts.find(draft => draft.targetYear === defaultTarget);
     const form = stored
-      ? createBusinessPlanFormFromDraft(stored)
+      ? createBusinessPlanFormFromDraft(stored.data)
       : createBusinessPlanFormFromMetrics(metrics, defaultBaseYear, defaultTarget);
     
     // Inizializza il form senza ricalcolo automatico
@@ -272,10 +283,11 @@ export const useBusinessPlan = (
       if (!prev) {
         return prev;
       }
-      const stored = businessPlanDrafts[String(targetYear)];
-      if (stored && stored.baseYear === prev.baseYear) {
+      // Find draft for the target year (take the first one if multiple exist)
+      const stored = businessPlanDrafts.find(draft => draft.targetYear === targetYear);
+      if (stored && stored.data.baseYear === prev.baseYear) {
         // Ricalcolo automatico anche per i draft salvati
-        const recalculatedForm = recalcBusinessPlan(createBusinessPlanFormFromDraft(stored), yearMetrics);
+        const recalculatedForm = recalcBusinessPlan(createBusinessPlanFormFromDraft(stored.data), yearMetrics);
         return recalculatedForm;
       }
       // Ricalcolo automatico per il nuovo anno target
@@ -293,6 +305,15 @@ export const useBusinessPlan = (
       });
       return;
     }
+    
+    if (!draftName.trim()) {
+      setBusinessPlanMessage({
+        type: 'error',
+        text: 'Inserisci un nome per la bozza prima di salvare.',
+      });
+      return;
+    }
+    
     const normalized = recalcBusinessPlan(businessPlanForm, yearMetrics);
     const draft: BusinessPlanDraft = {
       baseYear: normalized.baseYear!,
@@ -311,17 +332,18 @@ export const useBusinessPlan = (
     
     // Save to database
     if (locationId) {
-      saveBusinessPlanDraft(draft.targetYear, draft, locationId)
+      saveBusinessPlanDraft(draft.targetYear, draftName.trim(), draft, locationId)
         .then(() => {
-        setBusinessPlanDrafts((prev) => ({
-          ...prev,
-          [String(draft.targetYear)]: draft,
-        }));
-        setBusinessPlanForm(normalized);
-        setBusinessPlanMessage({
-          type: 'success',
-          text: `Previsionale ${normalized.targetYear} salvato come bozza.`,
-        });
+          // Reload drafts from database
+          fetchBusinessPlanDrafts(locationId).then(drafts => {
+            setBusinessPlanDrafts(drafts);
+          });
+          setBusinessPlanForm(normalized);
+          setBusinessPlanMessage({
+            type: 'success',
+            text: `Bozza "${draftName}" salvata per l'anno ${normalized.targetYear}.`,
+          });
+          setDraftName(''); // Clear the name field
         })
         .catch((error) => {
           setBusinessPlanMessage({
@@ -360,20 +382,39 @@ export const useBusinessPlan = (
     // Questa funzione sarà implementata nel componente principale
   }, [businessPlanForm]);
 
-  const handleDeleteBusinessPlanDraft = useCallback((targetYear: number) => {
-    setBusinessPlanDrafts((prev) => {
-      const newDrafts = { ...prev };
-      delete newDrafts[String(targetYear)];
-      return newDrafts;
-    });
-    setBusinessPlanMessage({
-      type: 'info',
-      text: `Bozza previsionale ${targetYear} eliminata.`,
-    });
-  }, []);
+  const handleDeleteBusinessPlanDraft = useCallback((draftId: string) => {
+    if (!locationId) return;
+    
+    deleteBusinessPlanDraft(draftId, locationId)
+      .then(() => {
+        // Reload drafts from database
+        fetchBusinessPlanDrafts(locationId).then(drafts => {
+          setBusinessPlanDrafts(drafts);
+        });
+        setBusinessPlanMessage({
+          type: 'info',
+          text: 'Bozza eliminata con successo.',
+        });
+      })
+      .catch((error) => {
+        setBusinessPlanMessage({
+          type: 'error',
+          text: 'Errore nell\'eliminazione della bozza.',
+        });
+      });
+  }, [locationId]);
 
   const clearBusinessPlanMessage = useCallback(() => {
     setBusinessPlanMessage(null);
+  }, []);
+
+  const handleLoadDraft = useCallback((draftData: any) => {
+    const form = createBusinessPlanFormFromDraft(draftData);
+    setBusinessPlanForm(form);
+    setBusinessPlanMessage({
+      type: 'info',
+      text: 'Bozza caricata nel form.',
+    });
   }, []);
 
   return {
@@ -383,6 +424,8 @@ export const useBusinessPlan = (
     businessPlanMessage,
     availableYears,
     completeYears,
+    draftName,
+    setDraftName,
     
     // Actions
     handleBusinessPlanFieldChange,
@@ -394,5 +437,6 @@ export const useBusinessPlan = (
     handleDeleteBusinessPlanDraft,
     clearBusinessPlanMessage,
     recalculateForm,
+    handleLoadDraft,
   };
 };

@@ -612,7 +612,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">
             Analisi FP - Mese selezionato: {analysisData.currentMonth}
-          </h2>
+        </h2>
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-gray-700">
               Seleziona mese:
@@ -738,7 +738,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900">
             Previsionale / Consuntivo - Mese selezionato: {analysisData.currentMonth}
-          </h3>
+        </h3>
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-gray-700">
               Seleziona mese:

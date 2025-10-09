@@ -144,10 +144,16 @@ const initializeDatabase = (db) => {
     db.run(`CREATE TABLE IF NOT EXISTS business_plan_drafts (
       id TEXT PRIMARY KEY,
       target_year INTEGER NOT NULL,
+      name TEXT NOT NULL,
       data TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+    
+    // Add name column if it doesn't exist (migration)
+    db.run(`ALTER TABLE business_plan_drafts ADD COLUMN name TEXT DEFAULT 'Bozza'`, (err) => {
+      // Ignore error if column already exists
+    });
 
     // Customers Table (per company)
     db.run(`CREATE TABLE IF NOT EXISTS customers (
@@ -854,17 +860,21 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
     
     const db = getDatabase(locationId);
     const drafts = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM business_plan_drafts ORDER BY target_year', (err, rows) => {
+      db.all('SELECT * FROM business_plan_drafts ORDER BY target_year, name', (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
     });
     
-    const draftsMap = {};
-    drafts.forEach(draft => {
-      draftsMap[draft.target_year] = JSON.parse(draft.data);
-    });
-    res.json(draftsMap);
+    const draftsList = drafts.map(draft => ({
+      id: draft.id,
+      targetYear: draft.target_year,
+      name: draft.name,
+      data: JSON.parse(draft.data),
+      createdAt: draft.created_at,
+      updatedAt: draft.updated_at
+    }));
+    res.json(draftsList);
   } catch (error) {
     console.error('Failed to get business plan drafts', error);
     res.status(500).json({ error: 'Failed to get business plan drafts' });
@@ -873,19 +883,19 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
 
 app.put('/api/business-plan-drafts', requireAuth, async (req, res) => {
   try {
-    const { targetYear, data, locationId } = req.body;
-    if (!locationId) {
-      return res.status(400).json({ error: 'Location ID is required' });
+    const { targetYear, name, data, locationId } = req.body;
+    if (!locationId || !name) {
+      return res.status(400).json({ error: 'Location ID and name are required' });
     }
     
     const now = new Date().toISOString();
-    const id = `draft-${targetYear}`;
+    const id = `draft-${targetYear}-${name.replace(/[^a-zA-Z0-9]/g, '-')}`;
     
     const db = getDatabase(locationId);
     await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO business_plan_drafts (id, target_year, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
-        [id, targetYear, JSON.stringify(data), now, now],
+        'INSERT INTO business_plan_drafts (id, target_year, name, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
+        [id, targetYear, name, JSON.stringify(data), now, now],
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -893,10 +903,34 @@ app.put('/api/business-plan-drafts', requireAuth, async (req, res) => {
       );
     });
     
-    res.json({ success: true });
+    res.json({ success: true, id });
   } catch (error) {
     console.error('Failed to save business plan draft', error);
     res.status(500).json({ error: 'Failed to save business plan draft' });
+  }
+});
+
+app.delete('/api/business-plan-drafts/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { locationId } = req.query;
+    
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+    
+    const db = getDatabase(locationId);
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM business_plan_drafts WHERE id = ?', [id], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete business plan draft', error);
+    res.status(500).json({ error: 'Failed to delete business plan draft' });
   }
 });
 
