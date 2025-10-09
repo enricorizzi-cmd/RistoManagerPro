@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchFinancialPlanState, persistFinancialPlanState, fetchFinancialStats, saveFinancialStats, type FinancialPlanStatePayload } from '../services/financialPlanApi';
-import { financialCausali, financialStats as defaultFinancialStatsRows } from '../data/financialPlanData';
+import { financialCausali } from '../data/financialPlanData';
 import type { FinancialCausaleGroup } from '../data/financialPlanData';
 import type { PlanOverrides, StatsOverrides } from '../types';
 import { computePlanData, computeYearMetrics, type PlanYearData, type BusinessPlanYearMetrics } from '../utils/financialCalculations';
@@ -98,13 +98,13 @@ export const useFinancialPlanData = (locationId?: string) => {
         setCausaliCatalog(() => normalizeCausaliCatalog((payload.causaliCatalog && payload.causaliCatalog.length > 0) ? (payload.causaliCatalog as FinancialCausaleGroup[]) : DEFAULT_CAUSALI_CATALOG));
       }
       
-      // Set financial stats data (use default if no stats found for this location)
-      setFinancialStatsRows(stats && stats.length > 0 ? stats : defaultFinancialStatsRows);
+      // Set financial stats data (use empty array if no stats found for this location)
+      setFinancialStatsRows(stats && stats.length > 0 ? stats : []);
       
       setLoadingState(false);
     }).catch(() => {
-      // Fallback to default data if API fails
-      setFinancialStatsRows(defaultFinancialStatsRows);
+      // Fallback to empty array if API fails
+      setFinancialStatsRows([]);
       setLoadingState(false);
     });
     
@@ -272,7 +272,7 @@ export const useFinancialPlanData = (locationId?: string) => {
       }
       
       // Reload financial stats
-      setFinancialStatsRows(stats && stats.length > 0 ? stats : defaultFinancialStatsRows);
+      setFinancialStatsRows(stats && stats.length > 0 ? stats : []);
       
       return true;
     } catch (error) {

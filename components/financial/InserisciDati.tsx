@@ -35,7 +35,7 @@ interface InserisciDatiProps {
 export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
   const { showNotification, currentLocation } = useAppContext();
   const { token } = useAuth();
-  const { setOverride, handleSavePlan, handleSaveMetrics, consuntivoOverrides } = useFinancialPlanData();
+  const { setOverride, handleSavePlan, handleSaveMetrics, consuntivoOverrides } = useFinancialPlanData(currentLocation?.id);
   
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());

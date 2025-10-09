@@ -131,54 +131,6 @@ export const computePlanData = (
   return planByYear;
 };
 
-export const computeYearMetrics = (
-  planByYear: Map<number, PlanYearData>,
-  financialStatsRows: FinancialStatsRow[],
-): Map<number, BusinessPlanYearMetrics> => {
-  const metrics = new Map<number, BusinessPlanYearMetrics>();
-
-  planByYear.forEach((planYear, year) => {
-    const incassato = planYear.totals['INCASSATO']?.consuntivo ?? new Array(12).fill(0);
-    const costiFissi = planYear.totals['COSTI FISSI']?.consuntivo ?? new Array(12).fill(0);
-    const costiVariabili = planYear.totals['COSTI VARIABILI']?.consuntivo ?? new Array(12).fill(0);
-
-    metrics.set(year, {
-      fatturatoTotale: 0,
-      monthlyFatturato: new Array(12).fill(0),
-      incassato: incassato.reduce((acc, value) => acc + value, 0),
-      monthlyIncassato: [...incassato],
-      costiFissi: costiFissi.reduce((acc, value) => acc + value, 0),
-      monthlyCostiFissi: [...costiFissi],
-      costiVariabili: costiVariabili.reduce((acc, value) => acc + value, 0),
-      monthlyCostiVariabili: [...costiVariabili],
-    });
-  });
-
-  financialStatsRows.forEach((row) => {
-    const parsed = parsePlanMonthLabel(row.month);
-    if (!parsed) {
-      return;
-    }
-    const { year, monthIndex } = parsed;
-    if (!metrics.has(year)) {
-      metrics.set(year, {
-        fatturatoTotale: 0,
-        monthlyFatturato: new Array(12).fill(0),
-        incassato: 0,
-        monthlyIncassato: new Array(12).fill(0),
-        costiFissi: 0,
-        monthlyCostiFissi: new Array(12).fill(0),
-        costiVariabili: 0,
-        monthlyCostiVariabili: new Array(12).fill(0),
-      });
-    }
-    const entry = metrics.get(year)!;
-    entry.fatturatoTotale += row.fatturatoTotale ?? 0;
-    entry.monthlyFatturato[monthIndex] += row.fatturatoTotale ?? 0;
-  });
-
-  return metrics;
-};
 
 // Get macro total by macroId (following golden rule #1)
 export const getMacroTotal = (
