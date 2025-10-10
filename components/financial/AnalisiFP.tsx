@@ -607,12 +607,18 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            Analisi FP - Mese selezionato: {analysisData.currentMonth}
-        </h2>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Analisi FP
+            </h2>
+            <p className="text-gray-600">
+              Mese selezionato: <span className="font-semibold text-blue-600">{analysisData.currentMonth}</span>
+            </p>
+          </div>
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-gray-700">
               Seleziona mese:
@@ -620,7 +626,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
             <select
               value={selectedMonth ? `${selectedMonth.year}-${selectedMonth.monthIndex}` : ''}
               onChange={handleMonthChange}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
             >
               <option value="">Ultimo mese compilato</option>
               {analysisData.availableMonths.map((month) => (
@@ -630,115 +636,165 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
               ))}
             </select>
           </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
-              <tr>
-                <th className="px-4 py-3 text-left">INDICATORE</th>
-                <th className="px-4 py-3 text-right">Valori Ultimo Mese</th>
-                <th className="px-4 py-3 text-right">Ultimo Mese</th>
-                <th className="px-4 py-3 text-right">Valori YTD</th>
-                <th className="px-4 py-3 text-right">Progressivo YTD</th>
-                <th className="px-4 py-3 text-right">Valori 12 Mesi</th>
-                <th className="px-4 py-3 text-right">Progressivo 12 Mesi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {analysisData.indicators.length > 0 ? (
-                analysisData.indicators.map((indicator) => {
-                  const isIncidenza = indicator.label.includes('INCIDENZA');
-                  const formatFunc = isIncidenza ? formatIncidenzaPercentage : formatPercentage;
-                  
-                  return (
-                    <tr key={indicator.label} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{indicator.label}</td>
-                      <td className="px-4 py-3 text-right text-xs">
-                        <div className="space-y-1">
-                          <div className="text-gray-700">
-                            2025: {indicator.lastMonthValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.lastMonthValues.currentValue) : formatCurrency(indicator.lastMonthValues.currentValue)) : '-'}
-                          </div>
-                          <div className="text-gray-500">
-                            2024: {indicator.lastMonthValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.lastMonthValues.previousValue) : formatCurrency(indicator.lastMonthValues.previousValue)) : '-'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.lastMonth)}`}>
-                        {formatFunc(indicator.lastMonth)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs">
-                        <div className="space-y-1">
-                          <div className="text-gray-700">
-                            2025: {indicator.ytdValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.ytdValues.currentValue) : formatCurrency(indicator.ytdValues.currentValue)) : '-'}
-                          </div>
-                          <div className="text-gray-500">
-                            2024: {indicator.ytdValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.ytdValues.previousValue) : formatCurrency(indicator.ytdValues.previousValue)) : '-'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.ytd)}`}>
-                        {formatFunc(indicator.ytd)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs">
-                        <div className="space-y-1">
-                          <div className="text-gray-700">
-                            2025: {indicator.last12MonthsValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.currentValue) : formatCurrency(indicator.last12MonthsValues.currentValue)) : '-'}
-                          </div>
-                          <div className="text-gray-500">
-                            2024: {indicator.last12MonthsValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.previousValue) : formatCurrency(indicator.last12MonthsValues.previousValue)) : '-'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className={`px-4 py-3 text-right ${getChangeColor(indicator.last12Months)}`}>
-                        {formatFunc(indicator.last12Months)}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                // Show all indicators even if no data
-                [
-                  'FATTURATO', 'INCASSATO', 'SALDO CC', 'CREDITI PENDENTI', 
-                  'CREDITI SCADUTI', 'DEBITI FORNITORI', 'DEBITI BANCARI',
-                  'INCIDENZA COSTI FISSI', 'INCIDENZA COSTI VARIABILI', 'INCIDENZA UTILE'
-                ].map((label) => (
-                  <tr key={label} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{label}</td>
-                    <td className="px-4 py-3 text-right text-xs">
-                      <div className="space-y-1">
-                        <div className="text-gray-500">2025: -</div>
-                        <div className="text-gray-500">2024: -</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                    <td className="px-4 py-3 text-right text-xs">
-                      <div className="space-y-1">
-                        <div className="text-gray-500">2025: -</div>
-                        <div className="text-gray-500">2024: -</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                    <td className="px-4 py-3 text-right text-xs">
-                      <div className="space-y-1">
-                        <div className="text-gray-500">2025: -</div>
-                        <div className="text-gray-500">2024: -</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">
-            Previsionale / Consuntivo - Mese selezionato: {analysisData.currentMonth}
-        </h3>
+      {/* Indicators Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {analysisData.indicators.length > 0 ? (
+          analysisData.indicators.map((indicator) => {
+            const isIncidenza = indicator.label.includes('INCIDENZA');
+            const formatFunc = isIncidenza ? formatIncidenzaPercentage : formatPercentage;
+            
+            return (
+              <div key={indicator.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-center mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 text-center">{indicator.label}</h3>
+                </div>
+
+                {/* Time Periods */}
+                <div className="space-y-4">
+                  {/* Ultimo Mese */}
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-center justify-center mb-2">
+                      <span className="text-sm font-medium text-blue-800 uppercase tracking-wide">Ultimo Mese</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-700">
+                            2025: <span className="font-semibold">{indicator.lastMonthValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.lastMonthValues.currentValue) : formatCurrency(indicator.lastMonthValues.currentValue)) : '-'}</span>
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            2024: <span className="font-medium">{indicator.lastMonthValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.lastMonthValues.previousValue) : formatCurrency(indicator.lastMonthValues.previousValue)) : '-'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`px-3 py-2 rounded-full text-lg font-bold ${getChangeColor(indicator.lastMonth)} flex items-center justify-center min-w-[60px]`}>
+                        {formatFunc(indicator.lastMonth)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* YTD */}
+                  <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-lg p-3 border border-emerald-200">
+                    <div className="flex items-center justify-center mb-2">
+                      <span className="text-sm font-medium text-emerald-800 uppercase tracking-wide">YTD</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-700">
+                            2025: <span className="font-semibold">{indicator.ytdValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.ytdValues.currentValue) : formatCurrency(indicator.ytdValues.currentValue)) : '-'}</span>
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            2024: <span className="font-medium">{indicator.ytdValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.ytdValues.previousValue) : formatCurrency(indicator.ytdValues.previousValue)) : '-'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`px-3 py-2 rounded-full text-lg font-bold ${getChangeColor(indicator.ytd)} flex items-center justify-center min-w-[60px]`}>
+                        {formatFunc(indicator.ytd)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 12 Mesi */}
+                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
+                    <div className="flex items-center justify-center mb-2">
+                      <span className="text-sm font-medium text-purple-800 uppercase tracking-wide">12 Mesi</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="space-y-1">
+                          <div className="text-sm text-gray-700">
+                            2025: <span className="font-semibold">{indicator.last12MonthsValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.currentValue) : formatCurrency(indicator.last12MonthsValues.currentValue)) : '-'}</span>
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            2024: <span className="font-medium">{indicator.last12MonthsValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.previousValue) : formatCurrency(indicator.last12MonthsValues.previousValue)) : '-'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`px-3 py-2 rounded-full text-lg font-bold ${getChangeColor(indicator.last12Months)} flex items-center justify-center min-w-[60px]`}>
+                        {formatFunc(indicator.last12Months)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          // Show all indicators even if no data
+          [
+            'FATTURATO', 'INCASSATO', 'SALDO CC', 'CREDITI PENDENTI', 
+            'CREDITI SCADUTI', 'DEBITI FORNITORI', 'DEBITI BANCARI',
+            'INCIDENZA COSTI FISSI', 'INCIDENZA COSTI VARIABILI', 'INCIDENZA UTILE'
+          ].map((label) => (
+            <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-center mb-4">
+                <h3 className="text-base font-semibold text-gray-900 text-center">{label}</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-center mb-2">
+                    <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Ultimo Mese</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-500">2025: -</div>
+                        <div className="text-sm text-gray-500">2024: -</div>
+                      </div>
+                    </div>
+                    <div className="px-3 py-2 rounded-full text-lg font-bold text-gray-500 flex items-center justify-center min-w-[60px]">-</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-center mb-2">
+                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">YTD</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-500">2025: -</div>
+                        <div className="text-sm text-gray-500">2024: -</div>
+                      </div>
+                    </div>
+                    <div className="px-3 py-2 rounded-full text-lg font-bold text-gray-500 flex items-center justify-center min-w-[60px]">-</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-center mb-2">
+                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">12 Mesi</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-500">2025: -</div>
+                        <div className="text-sm text-gray-500">2024: -</div>
+                      </div>
+                    </div>
+                    <div className="px-3 py-2 rounded-full text-lg font-bold text-gray-500 flex items-center justify-center min-w-[60px]">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Previsionale / Consuntivo Section */}
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-6 border border-orange-100">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Previsionale / Consuntivo
+            </h3>
+            <p className="text-gray-600">
+              Mese selezionato: <span className="font-semibold text-orange-600">{analysisData.currentMonth}</span>
+            </p>
+          </div>
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-gray-700">
               Seleziona mese:
@@ -746,7 +802,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
             <select
               value={selectedMonth ? `${selectedMonth.year}-${selectedMonth.monthIndex}` : ''}
               onChange={handleMonthChange}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm"
             >
               <option value="">Ultimo mese compilato</option>
               {analysisData.availableMonths.map((month) => (
@@ -758,56 +814,80 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-gray-600">
-              <tr>
-                <th className="px-4 py-3 text-left">CAMPO</th>
-                <th className="px-4 py-3 text-left">MESE</th>
-                <th className="px-4 py-3 text-right">Consuntivo</th>
-                <th className="px-4 py-3 text-right">Previsionale</th>
-                <th className="px-4 py-3 text-right">Variazione</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {analysisData.previsionaleConsuntivo.length > 0 ? (
-                analysisData.previsionaleConsuntivo.map((item) => {
-                  const variazione = item.consuntivo && item.previsionale 
-                    ? ((item.consuntivo - item.previsionale) / item.previsionale) * 100 
-                    : null;
-                  
-                  return (
-                    <tr key={item.label} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{item.label}</td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {analysisData.lastCompiledMonth}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-700">
-                        {formatCurrency(item.consuntivo)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sky-700">
-                        {formatCurrency(item.previsionale)}
-                      </td>
-                      <td className={`px-4 py-3 text-right ${getChangeColor(variazione)}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {analysisData.previsionaleConsuntivo.length > 0 ? (
+            analysisData.previsionaleConsuntivo.map((item) => {
+              const variazione = item.consuntivo && item.previsionale 
+                ? ((item.consuntivo - item.previsionale) / item.previsionale) * 100 
+                : null;
+              
+              return (
+                <div key={item.label} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
+                  {/* Header */}
+                  <div className="flex items-center justify-center mb-4">
+                    <h4 className="text-base font-semibold text-gray-900 text-center">{item.label}</h4>
+                  </div>
+
+                  {/* Month */}
+                  <div className="mb-3 text-center">
+                    <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Mese</span>
+                    <p className="text-base text-gray-600 mt-1">{analysisData.lastCompiledMonth}</p>
+                  </div>
+
+                  {/* Values */}
+                  <div className="space-y-3">
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200 text-center">
+                      <span className="text-sm font-medium text-gray-600 uppercase tracking-wide">Consuntivo</span>
+                      <p className="text-base font-semibold text-gray-800 mt-1">{formatCurrency(item.consuntivo)}</p>
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200 text-center">
+                      <span className="text-sm font-medium text-blue-700 uppercase tracking-wide">Previsionale</span>
+                      <p className="text-base font-semibold text-blue-800 mt-1">{formatCurrency(item.previsionale)}</p>
+                    </div>
+                    
+                    <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-lg p-3 border border-emerald-200 text-center">
+                      <span className="text-sm font-medium text-emerald-700 uppercase tracking-wide">Variazione</span>
+                      <p className={`text-base font-semibold mt-1 ${getChangeColor(variazione)}`}>
                         {formatPercentage(variazione)}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                // Show all fields even if no data
-                ['INCASSATO', 'COSTI FISSI', 'COSTI VARIABILI', 'UTILE'].map((label) => (
-                  <tr key={label} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{label}</td>
-                    <td className="px-4 py-3 text-gray-500 text-sm">-</td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                    <td className="px-4 py-3 text-right text-gray-500">-</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            // Show all fields even if no data
+            ['INCASSATO', 'COSTI FISSI', 'COSTI VARIABILI', 'UTILE'].map((label) => (
+              <div key={label} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-center mb-4">
+                  <h4 className="text-base font-semibold text-gray-900 text-center">{label}</h4>
+                </div>
+
+                <div className="mb-3 text-center">
+                  <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Mese</span>
+                  <p className="text-base text-gray-500 mt-1">-</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-center">
+                    <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Consuntivo</span>
+                    <p className="text-base font-semibold text-gray-500 mt-1">-</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-center">
+                    <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Previsionale</span>
+                    <p className="text-base font-semibold text-gray-500 mt-1">-</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-center">
+                    <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Variazione</span>
+                    <p className="text-base font-semibold text-gray-500 mt-1">-</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
