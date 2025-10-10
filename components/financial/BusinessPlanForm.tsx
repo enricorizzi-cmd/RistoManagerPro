@@ -201,16 +201,26 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         </div>
       )}
 
-      <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
-        <div className="grid gap-4 md:grid-cols-5">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500">
-              Anno base
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Business Plan
+            </h2>
+            <p className="text-gray-600">
+              Configurazione previsionale per l'anno {businessPlanForm.targetYear}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-200">
+              <label className="block text-xs font-semibold uppercase text-blue-600 mb-1">
+                Anno Base
             </label>
             <select
               value={businessPlanForm.baseYear ?? ''}
               onChange={(event) => onBaseYearChange(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
               {baseYearOptions.map((year) => (
                 <option key={year} value={year}>
@@ -219,62 +229,37 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500">
-              Anno target
+            <div className="bg-white rounded-xl p-3 shadow-sm border border-blue-200">
+              <label className="block text-xs font-semibold uppercase text-blue-600 mb-1">
+                Anno Target
             </label>
             <input
               type="number"
               value={businessPlanForm.targetYear}
               onChange={(event) => onTargetYearChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500">
-              Fatturato anno base (€)
-            </label>
-            <input
-              type="text"
-              value={formatCurrencyValue(parseNumberInput(businessPlanForm.fatturatoAnnoBase))}
-              readOnly
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500">
-              Incremento fatturato (%)
-            </label>
-              <input
-                type="number"
-                step="0.01"
-                value={businessPlanForm.fatturatoIncrement}
-                onChange={(event) => onFieldChange('fatturatoIncrement', event.target.value)}
-                onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500">
-              Fatturato previsionale (€)
-            </label>
-              <input
-                type="text"
-                value={businessPlanForm.fatturatoPrevisionale}
-                onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
-                onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <button
+              type="button"
+              onClick={onRecalculate}
+              className="rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Ricalcola
+            </button>
           </div>
         </div>
         {businessPlanMessage && (
           <div
-            className={`rounded-lg px-4 py-3 text-sm ${
+            className={`rounded-xl px-4 py-3 text-sm border ${
               businessPlanMessage.type === 'success'
-                ? 'bg-emerald-50 text-emerald-700'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : businessPlanMessage.type === 'error'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-sky-50 text-sky-700'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-sky-50 text-sky-700 border-sky-200'
             }`}
           >
             {businessPlanMessage.text}
@@ -282,192 +267,258 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Incassato</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incassato anno base (€)
+      {/* Fatturato Section - Full Width */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Fatturato</h3>
+          <div className="w-3 h-3 rounded-full bg-blue-100"></div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Fatturato anno base
+            </label>
+            <input
+              type="text"
+              value={formatCurrencyValue(parseNumberInput(businessPlanForm.fatturatoAnnoBase))}
+              readOnly
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
+            />
+          </div>
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+            <label className="block text-sm font-semibold text-blue-700 mb-2">
+              Incremento fatturato (%)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={businessPlanForm.fatturatoIncrement}
+              onChange={(event) => onFieldChange('fatturatoIncrement', event.target.value)}
+              onBlur={() => onRecalculate?.()}
+              className="w-full rounded-lg border border-blue-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold"
+            />
+          </div>
+          <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+            <label className="block text-sm font-semibold text-emerald-700 mb-2">
+              Fatturato previsionale
+            </label>
+            <input
+              type="text"
+              value={businessPlanForm.fatturatoPrevisionale}
+              onChange={(event) => onFieldChange('fatturatoValue', event.target.value)}
+              onBlur={() => onRecalculate?.()}
+              className="w-full rounded-lg border border-emerald-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Macro Categories Grid 2x2 */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Incassato Section */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Incassato</h3>
+            <div className="w-3 h-3 rounded-full bg-green-100"></div>
+          </div>
+          <div className="grid gap-4 grid-cols-2">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Incassato anno base
               </label>
               <input
                 type="text"
                 value={formatCurrencyValue(parseNumberInput(businessPlanForm.incassatoAnnoBase || '0'))}
                 readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza incassato / fatturato anno base (%)
-              </label>
-              <input
-                type="text"
-                value={businessPlanForm.incassatoPercentAnnoBase || '0.00'}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incassato previsionale (€)
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+              <label className="block text-sm font-semibold text-green-700 mb-2">
+                Incassato previsionale
               </label>
               <input
                 type="text"
                 value={businessPlanForm.incassatoPrevisionale}
                 onChange={(event) => onFieldChange('incassatoValue', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-green-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-white font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza incassato / fatturato (%)
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Incidenza anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.incassatoPercentAnnoBase || '0.00'}
+                readOnly
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
+              />
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <label className="block text-sm font-semibold text-blue-700 mb-2">
+                Incidenza previsionale (%)
               </label>
               <input
                 type="text"
                 value={businessPlanForm.incassatoPercent}
                 onChange={(event) => onFieldChange('incassatoPercent', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold"
               />
             </div>
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Costi fissi</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi fissi anno base (€)
+
+        {/* Costi Fissi Section */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Costi Fissi</h3>
+            <div className="w-3 h-3 rounded-full bg-orange-100"></div>
+          </div>
+          <div className="grid gap-4 grid-cols-2">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Costi fissi anno base
               </label>
               <input
                 type="text"
                 value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiFissiAnnoBase || '0'))}
                 readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza costi fissi / incassato anno base (%)
-              </label>
-              <input
-                type="text"
-                value={businessPlanForm.costiFissiPercentAnnoBase || '0.00'}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi fissi previsionali (€)
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
+              <label className="block text-sm font-semibold text-orange-700 mb-2">
+                Costi fissi previsionali
               </label>
               <input
                 type="text"
                 value={businessPlanForm.costiFissiPrevisionale}
                 onChange={(event) => onFieldChange('costiFissiValue', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-orange-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza costi fissi / incassato (%)
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Incidenza anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiFissiPercentAnnoBase || '0.00'}
+                readOnly
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
+              />
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <label className="block text-sm font-semibold text-blue-700 mb-2">
+                Incidenza previsionale (%)
               </label>
               <input
                 type="text"
                 value={businessPlanForm.costiFissiPercent}
                 onChange={(event) => onFieldChange('costiFissiPercent', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold"
               />
             </div>
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Costi variabili</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi variabili anno base (€)
+
+        {/* Costi Variabili Section */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Costi Variabili</h3>
+            <div className="w-3 h-3 rounded-full bg-red-100"></div>
+          </div>
+          <div className="grid gap-4 grid-cols-2">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Costi variabili anno base
               </label>
               <input
                 type="text"
                 value={formatCurrencyValue(parseNumberInput(businessPlanForm.costiVariabiliAnnoBase || '0'))}
                 readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza costi variabili / incassato anno base (%)
-              </label>
-              <input
-                type="text"
-                value={businessPlanForm.costiVariabiliPercentAnnoBase || '0.00'}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Costi variabili previsionali (€)
+            <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
+              <label className="block text-sm font-semibold text-red-700 mb-2">
+                Costi variabili previsionali
               </label>
               <input
                 type="text"
                 value={businessPlanForm.costiVariabiliPrevisionale}
                 onChange={(event) => onFieldChange('costiVariabiliValue', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-red-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-red-500 bg-white font-semibold"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-gray-500">
-                Incidenza costi variabili / incassato (%)
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Incidenza anno base (%)
+              </label>
+              <input
+                type="text"
+                value={businessPlanForm.costiVariabiliPercentAnnoBase || '0.00'}
+                readOnly
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base bg-white text-gray-600 font-semibold"
+              />
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <label className="block text-sm font-semibold text-blue-700 mb-2">
+                Incidenza previsionale (%)
               </label>
               <input
                 type="text"
                 value={businessPlanForm.costiVariabiliPercent}
                 onChange={(event) => onFieldChange('costiVariabiliPercent', event.target.value)}
                 onBlur={() => onRecalculate?.()}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-blue-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold"
               />
             </div>
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Utile</h3>
-          <div className="grid gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase text-gray-500">
-                Utile anno base (€)
+
+        {/* Utile Section */}
+        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-2xl p-6 border border-emerald-200">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Utile</h3>
+            <div className="w-3 h-3 rounded-full bg-emerald-200"></div>
+          </div>
+          <div className="grid gap-4 grid-cols-2">
+            <div className="bg-white rounded-xl p-4 border border-emerald-200 shadow-sm">
+              <p className="text-sm font-semibold text-gray-600 mb-2">
+                Utile anno base
               </p>
-              <p className="text-lg font-semibold text-gray-600">
+              <p className="text-xl font-bold text-gray-800">
                 {formatCurrencyValue(parseNumberInput(businessPlanForm.utileAnnoBase || '0'))}
               </p>
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-gray-500">
-                Incidenza utile / incassato anno base (%)
+            <div className="bg-white rounded-xl p-4 border border-emerald-200 shadow-sm">
+              <p className="text-sm font-semibold text-gray-600 mb-2">
+                Incidenza anno base (%)
               </p>
-              <p className="text-lg font-semibold text-gray-600">
+              <p className="text-xl font-bold text-gray-800">
                 {parseNumberInput(businessPlanForm.utilePercentAnnoBase || '0')?.toFixed(2) ?? '0.00'}%
               </p>
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-gray-500">
-                Utile previsionale (€)
+            <div className="bg-gradient-to-r from-emerald-100 to-emerald-200 rounded-xl p-4 border border-emerald-300 shadow-sm">
+              <p className="text-sm font-semibold text-emerald-800 mb-2">
+                Utile previsionale
               </p>
-              <p className="text-2xl font-semibold text-emerald-700">
+              <p className="text-2xl font-bold text-emerald-900">
                 {formatCurrencyValue(parseNumberInput(businessPlanForm.utilePrevisionale))}
               </p>
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-gray-500">
-                Incidenza utile / incassato (%)
+            <div className="bg-white rounded-xl p-4 border border-emerald-200 shadow-sm">
+              <p className="text-sm font-semibold text-gray-600 mb-2">
+                Incidenza previsionale (%)
               </p>
-              <p className="text-lg font-semibold text-gray-800">
+              <p className="text-xl font-bold text-emerald-700">
                 {parseNumberInput(businessPlanForm.utilePercent)?.toFixed(2) ?? '0.00'}%
               </p>
             </div>
@@ -477,10 +528,14 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
 
 
       {/* Campo Nome Bozza */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl p-6 border border-purple-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Gestione Bozze</h3>
+          <div className="w-3 h-3 rounded-full bg-purple-200"></div>
+        </div>
         <div className="flex items-center gap-4">
           <div className="flex-1">
-            <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
+            <label className="block text-sm font-semibold text-purple-700 mb-2">
               Nome Bozza
             </label>
             <input
@@ -488,7 +543,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               placeholder="Inserisci un nome per la bozza..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-xl border border-purple-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white shadow-sm"
             />
           </div>
           <div className="flex-shrink-0">
@@ -496,7 +551,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               type="button"
               onClick={onSaveDraft}
               disabled={!draftName.trim() || isLoading}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="rounded-xl bg-purple-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               Salva previsionale
             </button>
@@ -506,19 +561,27 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
 
       {/* Lista Bozze Salvate */}
       {businessPlanDrafts.length > 0 && (
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">
-            Bozze Salvate
-          </h3>
-          <div className="space-y-2">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">
+              Bozze Salvate
+            </h3>
+            <div className="w-3 h-3 rounded-full bg-gray-200"></div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {businessPlanDrafts.map((draft) => (
-              <div key={draft.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium text-sm text-gray-900">
-                    {draft.name}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Anno {draft.targetYear} • Salvato il {new Date(draft.createdAt).toLocaleDateString('it-IT')}
+              <div key={draft.id} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="font-semibold text-base text-gray-900 mb-1">
+                      {draft.name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Anno {draft.targetYear}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Salvato il {new Date(draft.createdAt).toLocaleDateString('it-IT')}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -528,17 +591,17 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                       // Carica la bozza nel form
                       onLoadDraft?.(draft.data);
                     }}
-                    className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200"
+                    className="flex-1 rounded-lg bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 transition-colors"
                   >
                     Carica
                   </button>
-                  <button
-                    type="button"
+                <button
+                  type="button"
                     onClick={() => onDeleteDraft(draft.id)}
-                    className="rounded-lg bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-200"
-                  >
-                    Elimina
-                  </button>
+                    className="flex-1 rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 transition-colors"
+                >
+                  Elimina
+                </button>
                 </div>
               </div>
             ))}
@@ -546,51 +609,71 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      {/* Action Buttons */}
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Azioni</h3>
+          <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+        </div>
+        <div className="flex flex-wrap gap-4">
         <button
           type="button"
-          onClick={onRecalculate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            onClick={onRecalculate}
+            className="rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          Ricalcola
-        </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!draftName.trim()) {
-              alert('Inserisci un nome per la bozza prima di salvare e inserire il previsionale.');
-              return;
-            }
-            await onSaveDraft();
-            await onApplyToOverrides();
-          }}
-          disabled={!draftName.trim() || isLoading}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {isLoading && (
-            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-          )}
-          {isLoading ? 'Elaborazione...' : 'Salva e inserisci previsionale'}
+            Ricalcola
         </button>
         <button
           type="button"
-          onClick={async () => {
-            await onReset();
-          }}
-          disabled={isLoading}
-          className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-slate-300 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {isLoading && (
-            <svg className="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          )}
-          {isLoading ? 'Elaborazione...' : 'Reset previsionale'}
+            onClick={async () => {
+              if (!draftName.trim()) {
+                alert('Inserisci un nome per la bozza prima di salvare e inserire il previsionale.');
+                return;
+              }
+              await onSaveDraft();
+              await onApplyToOverrides();
+            }}
+            disabled={!draftName.trim() || isLoading}
+            className="rounded-xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+          >
+            {isLoading && (
+              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {!isLoading && (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            )}
+            {isLoading ? 'Elaborazione...' : 'Salva e inserisci previsionale'}
         </button>
+        <button
+          type="button"
+            onClick={async () => {
+              await onReset();
+            }}
+            disabled={isLoading}
+            className="rounded-xl bg-slate-200 px-6 py-3 text-base font-semibold text-gray-700 shadow-sm hover:bg-slate-300 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+          >
+            {isLoading && (
+              <svg className="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {!isLoading && (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {isLoading ? 'Elaborazione...' : 'Reset previsionale'}
+          </button>
+        </div>
       </div>
 
       {/* Modal Dettagli Dati Mancanti */}
@@ -643,8 +726,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                   className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Chiudi
-                </button>
-              </div>
+        </button>
+      </div>
             </div>
           </div>
         </div>
