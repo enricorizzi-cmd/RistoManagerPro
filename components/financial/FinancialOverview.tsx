@@ -372,19 +372,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.fatturato)}</span>
                   {(() => {
-                    // Don't show increment if this is the first year with data
-                    // Check if the previous year (prevYear2) has zero data
-                    if (overviewTotals.prevYear2.fatturato === 0) return null;
-                    const increment = calculateIncrement(overviewTotals.prevYear3.fatturato, overviewTotals.prevYear2.fatturato);
-                    return increment !== null && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        increment >= 0 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
-                      </span>
-                    );
+                    // Don't show increment for 2022 - it's the first year with data
+                    return null;
                   })()}
                 </div>
               </div>
@@ -395,9 +384,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.fatturato)}</span>
                   {(() => {
-                    // Don't show increment if previous year is zero (first year with data)
-                    if (overviewTotals.prevYear2.fatturato === 0) return null;
-                    const increment = calculateIncrement(overviewTotals.prevYear1.fatturato, overviewTotals.prevYear2.fatturato);
+                    // Show increment of 2023 vs 2022
+                    const increment = calculateIncrement(overviewTotals.prevYear2.fatturato, overviewTotals.prevYear3.fatturato);
                     return increment !== null && (
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         increment >= 0 
@@ -417,8 +405,17 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.fatturato)}</span>
                   {(() => {
-                    // Don't show annual increment for current year - only YTD is shown
-                    return null;
+                    // Show increment of 2024 vs 2023
+                    const increment = calculateIncrement(overviewTotals.prevYear1.fatturato, overviewTotals.prevYear2.fatturato);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
                   })()}
                 </div>
               </div>
@@ -456,8 +453,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.incassato)}</span>
                   {(() => {
-                    // Don't show increment if this is the first year with data
-                    // Check if the previous year (prevYear2) has zero data
+                    // Don't show increment if prevYear3 is the first year with data
+                    // Check if the year before prevYear3 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.incassato === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear3.incassato, overviewTotals.prevYear2.incassato);
                     return increment !== null && (
@@ -479,7 +476,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.incassato)}</span>
                   {(() => {
-                    // Don't show increment if previous year is zero (first year with data)
+                    // Don't show increment if prevYear1 is the first year with data
+                    // Check if the year before prevYear1 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.incassato === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear1.incassato, overviewTotals.prevYear2.incassato);
                     return increment !== null && (
@@ -538,8 +536,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.costiFissi)}</span>
                   {(() => {
-                    // Don't show increment if this is the first year with data
-                    // Check if the previous year (prevYear2) has zero data
+                    // Don't show increment if prevYear3 is the first year with data
+                    // Check if the year before prevYear3 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.costiFissi === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear3.costiFissi, overviewTotals.prevYear2.costiFissi);
                     return increment !== null && (
@@ -561,7 +559,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiFissi)}</span>
                   {(() => {
-                    // Don't show increment if previous year is zero (first year with data)
+                    // Don't show increment if prevYear1 is the first year with data
+                    // Check if the year before prevYear1 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.costiFissi === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear1.costiFissi, overviewTotals.prevYear2.costiFissi);
                     return increment !== null && (
@@ -620,8 +619,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.costiVariabili)}</span>
                   {(() => {
-                    // Don't show increment if this is the first year with data
-                    // Check if the previous year (prevYear2) has zero data
+                    // Don't show increment if prevYear3 is the first year with data
+                    // Check if the year before prevYear3 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.costiVariabili === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear3.costiVariabili, overviewTotals.prevYear2.costiVariabili);
                     return increment !== null && (
@@ -643,7 +642,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiVariabili)}</span>
                   {(() => {
-                    // Don't show increment if previous year is zero (first year with data)
+                    // Don't show increment if prevYear1 is the first year with data
+                    // Check if the year before prevYear1 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.costiVariabili === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear1.costiVariabili, overviewTotals.prevYear2.costiVariabili);
                     return increment !== null && (
@@ -702,8 +702,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.utile)}</span>
                   {(() => {
-                    // Don't show increment if this is the first year with data
-                    // Check if the previous year (prevYear2) has zero data
+                    // Don't show increment if prevYear3 is the first year with data
+                    // Check if the year before prevYear3 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.utile === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear3.utile, overviewTotals.prevYear2.utile);
                     return increment !== null && (
@@ -725,7 +725,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.utile)}</span>
                   {(() => {
-                    // Don't show increment if previous year is zero (first year with data)
+                    // Don't show increment if prevYear1 is the first year with data
+                    // Check if the year before prevYear1 (prevYear2) has zero data
                     if (overviewTotals.prevYear2.utile === 0) return null;
                     const increment = calculateIncrement(overviewTotals.prevYear1.utile, overviewTotals.prevYear2.utile);
                     return increment !== null && (
@@ -768,8 +769,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                   </span>
                 )}
               </div>
-            </div>
-          </div>
+        </div>
+        </div>
         </div>
       </div>
       <div className="rounded-2xl bg-white p-5 shadow-sm">
