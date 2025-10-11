@@ -8,10 +8,12 @@ import {
   Line,
   BarChart,
   Bar,
+  ComposedChart,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
+  Cell,
 } from 'recharts';
 import { formatCurrencyValue, MONTH_SHORT, parsePlanMonthLabel, buildMonthKey } from '../../utils/financialPlanUtils';
 import { calculateUtileFromMacroTotals, getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../../utils/financialCalculations';
@@ -275,14 +277,18 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue, statsOverrides, financialStatsRows]);
 
 
-  // Calcolo dati grafico fatturato 48 mesi
-  const fatturatoChartData = useMemo(() => {
+  // Calcolo dati grafico combinato 48 mesi
+  const combinedChartData = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const startYear = currentYear - 3; // 3 anni fa
     const data: Array<{
       month: string;
       fatturatoReale: number | null;
       fatturatoPrevisionale: number | null;
+      incassatoReale: number | null;
+      incassatoPrevisionale: number | null;
+      costiFissi: number | null;
+      costiVariabili: number | null;
     }> = [];
 
     // Creare mappa dei dati statistiche per accesso rapido
@@ -325,20 +331,30 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         
         // Estrai dati reali dalle statistiche (con override)
         const fatturatoReale = getFieldValue('fatturatoImponibile');
+        const incassatoReale = getFieldValue('incassato');
         
         // Estrai dati previsionali dalle statistiche (con override)
         const fatturatoPrevisionale = getFieldValue('fatturatoPrevisionale');
+        const incassatoPrevisionale = getFieldValue('incassatoPrevisionale');
+        
+        // Calcola costi fissi e variabili per questo mese
+        const costiFissi = getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
+        const costiVariabili = getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex);
         
         data.push({
           month: monthLabel,
           fatturatoReale,
           fatturatoPrevisionale,
+          incassatoReale,
+          incassatoPrevisionale,
+          costiFissi,
+          costiVariabili,
         });
       }
     }
 
     return data;
-  }, [financialStatsRows, statsOverrides]);
+  }, [financialStatsRows, statsOverrides, causaliCatalog, planYear, getPlanConsuntivoValue]);
 
 
   return (
@@ -723,21 +739,18 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       </div>
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={overviewChartData}>
+          <ComposedChart data={overviewChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip formatter={(value: number) => formatCurrencyValue(value)} />
-            <Line type="monotone" dataKey="fatturato" stroke="#1d4ed8" strokeWidth={3} />
-            <Line type="monotone" dataKey="incassato" stroke="#2563eb" strokeWidth={2} />
-            <Line type="monotone" dataKey="costiFissi" stroke="#f97316" strokeWidth={2} />
-            <Line
-              type="monotone"
-              dataKey="costiVariabili"
-              stroke="#facc15"
-              strokeWidth={2}
-            />
-            <Line type="monotone" dataKey="utile" stroke="#047857" strokeWidth={2} />
+            {/* Linee per fatturato e incassato */}
+            <Line type="monotone" dataKey="fatturato" stroke="#1d4ed8" strokeWidth={3} name="Fatturato" />
+            <Line type="monotone" dataKey="incassato" stroke="#047857" strokeWidth={2} name="Incassato" />
+            {/* Barre impilate per costi fissi e variabili */}
+            <Bar dataKey="costiFissi" stackId="costi" fill="#dc2626" name="Costi Fissi" />
+            <Bar dataKey="costiVariabili" stackId="costi" fill="#f97316" name="Costi Variabili" />
+            {/* Breakeven invariato */}
             <Line 
               type="monotone" 
               dataKey="breakevenPoint" 
@@ -746,7 +759,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               strokeDasharray="5 5"
               name="Breakeven Point"
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
       
@@ -766,21 +779,27 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             />
             <Bar 
               dataKey="utile" 
-              fill="#047857" 
               name="Utile Mensile"
               radius={[4, 4, 0, 0]}
-            />
+            >
+              {overviewChartData.map((entry: any, index: number) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.utile >= 0 ? "#047857" : "#dc2626"} 
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
       
-      {/* Grafico fatturato 48 mesi */}
+      {/* Grafico combinato 48 mesi */}
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">
-          Fatturato 48 Mesi (Gennaio 2022 - Dicembre 2025)
+          Analisi Finanziaria 48 Mesi (Gennaio 2022 - Dicembre 2025)
         </h3>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={fatturatoChartData}>
+          <ComposedChart data={combinedChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="month" 
@@ -792,6 +811,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               formatter={(value: number) => formatCurrencyValue(value)}
               labelStyle={{ color: '#374151' }}
             />
+            {/* Linee per fatturato e incassato reali */}
             <Line 
               type="monotone" 
               dataKey="fatturatoReale" 
@@ -803,15 +823,27 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             />
             <Line 
               type="monotone" 
-              dataKey="fatturatoPrevisionale" 
-              stroke="#2563eb" 
+              dataKey="incassatoReale" 
+              stroke="#059669" 
               strokeWidth={2}
-              strokeDasharray="5 5"
-              name="Fatturato Previsionale"
+              name="Incassato Reale"
               dot={false}
               connectNulls={false}
             />
-          </LineChart>
+            {/* Barre impilate per costi fissi e variabili */}
+            <Bar 
+              dataKey="costiFissi" 
+              stackId="costi"
+              fill="#dc2626" 
+              name="Costi Fissi"
+            />
+            <Bar 
+              dataKey="costiVariabili" 
+              stackId="costi"
+              fill="#ea580c" 
+              name="Costi Variabili"
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
