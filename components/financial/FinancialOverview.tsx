@@ -465,17 +465,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.incassato)}</span>
                   {(() => {
-                    // Show increment of 2023 vs 2022
-                    const increment = calculateIncrement(overviewTotals.prevYear2.incassato, overviewTotals.prevYear3.incassato);
-                    return increment !== null && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        increment >= 0 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
-                      </span>
-                    );
+                    // Don't show increment for 2023 - it's the first year with data for incassato
+                    return null;
                   })()}
                 </div>
               </div>
@@ -544,17 +535,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiFissi)}</span>
                   {(() => {
-                    // Show increment of 2023 vs 2022
-                    const increment = calculateIncrement(overviewTotals.prevYear2.costiFissi, overviewTotals.prevYear3.costiFissi);
-                    return increment !== null && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        increment >= 0 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
-                      </span>
-                    );
+                    // Don't show increment for 2023 - it's the first year with data for costi fissi
+                    return null;
                   })()}
                 </div>
               </div>
@@ -623,17 +605,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiVariabili)}</span>
                   {(() => {
-                    // Show increment of 2023 vs 2022
-                    const increment = calculateIncrement(overviewTotals.prevYear2.costiVariabili, overviewTotals.prevYear3.costiVariabili);
-                    return increment !== null && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        increment >= 0 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
-                      </span>
-                    );
+                    // Don't show increment for 2023 - it's the first year with data for costi variabili
+                    return null;
                   })()}
                 </div>
               </div>
@@ -702,17 +675,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.utile)}</span>
                   {(() => {
-                    // Show increment of 2023 vs 2022
-                    const increment = calculateIncrement(overviewTotals.prevYear2.utile, overviewTotals.prevYear3.utile);
-                    return increment !== null && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        increment >= 0 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
-                      </span>
-                    );
+                    // Don't show increment for 2023 - it's the first year with data for utile
+                    return null;
                   })()}
                 </div>
               </div>
