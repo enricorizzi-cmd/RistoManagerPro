@@ -569,6 +569,8 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       previsionaleConsuntivo,
       lastCompiledMonth: format(new Date(lastCompiledMonth.year, lastCompiledMonth.monthIndex, 1), 'MMMM yyyy', { locale: it }),
       currentMonth: format(new Date(currentMonthData.year, currentMonthData.monthIndex, 1), 'MMMM yyyy', { locale: it }),
+      currentYear,
+      currentMonth: currentMonthData.monthIndex,
       availableMonths,
     };
   }, [availableYears, statsOverrides, financialStatsRows, getPlanPreventivoValue, getPlanConsuntivoValue, causaliCatalog, planYear, selectedMonth]);
@@ -708,10 +710,10 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
                       <div className="flex-1">
                         <div className="space-y-1">
                           <div className="text-sm text-gray-700">
-                            2025: <span className="font-semibold">{indicator.last12MonthsValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.currentValue) : formatCurrency(indicator.last12MonthsValues.currentValue)) : '-'}</span>
+                            {analysisData.currentYear}: <span className="font-semibold">{indicator.last12MonthsValues.currentValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.currentValue) : formatCurrency(indicator.last12MonthsValues.currentValue)) : '-'}</span>
                           </div>
                           <div className="text-sm text-gray-500">
-                            2024: <span className="font-medium">{indicator.last12MonthsValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.previousValue) : formatCurrency(indicator.last12MonthsValues.previousValue)) : '-'}</span>
+                            {analysisData.currentYear - 1}: <span className="font-medium">{indicator.last12MonthsValues.previousValue !== null ? (isIncidenza ? formatIncidenzaPercentage(indicator.last12MonthsValues.previousValue) : formatCurrency(indicator.last12MonthsValues.previousValue)) : '-'}</span>
                           </div>
                         </div>
                       </div>

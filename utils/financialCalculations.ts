@@ -61,6 +61,7 @@ export const buildDetailMeta = (causaliCatalog: FinancialCausaleGroup[]) => {
 
 export const computePlanData = (
   causaliCatalog: FinancialCausaleGroup[],
+  availableYears?: number[],
 ): Map<number, PlanYearData> => {
   const yearMap = new Map<number, Map<string, Map<string, PlanDetailRow>>>();
 
@@ -68,10 +69,11 @@ export const computePlanData = (
   causaliCatalog.forEach((group) => {
     group.categories.forEach((category) => {
       category.items.forEach((item) => {
-        // Create entries for a range of years (current year - 5 to current year + 1)
-        // This will be extended by the availableYears calculation in useBusinessPlan
+        // Create entries for available years or default range
         const currentYear = new Date().getFullYear();
-        const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+        const years = availableYears && availableYears.length > 0 
+          ? availableYears 
+          : Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
         
         years.forEach((year) => {
           if (!yearMap.has(year)) {

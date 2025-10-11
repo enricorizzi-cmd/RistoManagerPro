@@ -19,6 +19,7 @@ interface PlanTableProps {
   editMode: boolean;
   onlyValued: boolean;
   onlyConsuntivo: boolean;
+  showPrevisionaleTotals: boolean;
   dirtyKeys: Set<string>;
   loadingState: boolean;
   getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
@@ -39,6 +40,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
   editMode,
   onlyValued,
   onlyConsuntivo,
+  showPrevisionaleTotals,
   dirtyKeys,
   loadingState,
   getPlanPreventivoValue,
@@ -139,6 +141,12 @@ export const PlanTable: React.FC<PlanTableProps> = ({
             <th className="px-3 py-3 text-left bg-slate-50 sticky top-0 left-0 z-30 w-48">CATEGORIA</th>
             <th className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20">SOMMA PROGRESSIVA</th>
             <th className="px-3 py-3 text-center bg-slate-50 sticky top-0 z-20">INCIDENZA PROGRESSIVA</th>
+            {showPrevisionaleTotals && (
+              <>
+                <th className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20">SOMMA PREVISIONALE</th>
+                <th className="px-3 py-3 text-center bg-slate-50 sticky top-0 z-20">INCIDENZA PREVISIONALE</th>
+              </>
+            )}
             {monthsToShow.map((month) => (
               <th key={`${month.year}-${month.monthIndex}`} className="px-3 py-3 text-center border-l-2 border-gray-300 bg-slate-50 sticky top-0 z-20" colSpan={onlyConsuntivo ? 1 : 2}>
                 {month.name} {month.year}
@@ -149,6 +157,12 @@ export const PlanTable: React.FC<PlanTableProps> = ({
             <th className="px-3 py-2 bg-slate-50 sticky top-[3rem] left-0 z-30 w-48"></th>
             <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">TOTALE</th>
             <th className="px-3 py-2 text-center text-xs font-normal bg-slate-50 sticky top-[3rem] z-20">%</th>
+            {showPrevisionaleTotals && (
+              <>
+                <th className="px-3 py-2 text-center text-xs font-normal border-l-2 border-gray-300 bg-slate-50 sticky top-[3rem] z-20">TOTALE</th>
+                <th className="px-3 py-2 text-center text-xs font-normal bg-slate-50 sticky top-[3rem] z-20">%</th>
+              </>
+            )}
             {monthsToShow.map((month) => (
               <React.Fragment key={`${month.year}-${month.monthIndex}`}>
                 {!onlyConsuntivo && (
@@ -197,6 +211,41 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                       </td>
                       <td className="px-3 py-3 text-right">
                         {percentage.toFixed(1)}%
+                      </td>
+                    </>
+                  );
+                })()}
+                {showPrevisionaleTotals && (() => {
+                  const macroPrevisionaleSum = group.categories.reduce((acc, cat) => {
+                    const macro = planYear?.macros.find(m => m.macro === group.macroCategory);
+                    const categoryDetails = macro?.details?.filter(d => d.category === cat.name) ?? [];
+                    return acc + categoryDetails.reduce((catAcc, d) => 
+                      catAcc + monthsToShow.reduce((monthAcc, month) => 
+                        monthAcc + getPlanPreventivoValue(group.macroCategory, cat.name, d.detail, month.year, month.monthIndex), 0
+                      ), 0
+                    );
+                  }, 0);
+                  
+                  // Calculate progressive incidence for previsionale: (macroPrevisionaleSum / totalIncassatoPrevisionale) * 100
+                  let totalIncassatoPrevisionale = 0;
+                  if (group.macroId === 1) { // INCASSATO
+                    totalIncassatoPrevisionale = macroPrevisionaleSum; // Use the macroSum itself
+                  } else {
+                    // Calculate total INCASSATO PREVISIONALE from all months
+                    totalIncassatoPrevisionale = monthsToShow.reduce((acc, month) => 
+                      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex), 0
+                    );
+                  }
+                  
+                  const percentagePrevisionale = totalIncassatoPrevisionale === 0 ? 0 : (macroPrevisionaleSum / totalIncassatoPrevisionale) * 100;
+                  
+                  return (
+                    <>
+                      <td className="px-3 py-3 text-right border-l-2 border-gray-300">
+                        {formatCurrencyValue(macroPrevisionaleSum)}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {percentagePrevisionale.toFixed(1)}%
                       </td>
                     </>
                   );
@@ -268,6 +317,30 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                           </>
                         );
                       })()}
+                      {showPrevisionaleTotals && (() => {
+                        const categoryPrevisionaleSum = categoryDetails.reduce((acc, d) => 
+                          acc + monthsToShow.reduce((monthAcc, month) => 
+                            monthAcc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0
+                          ), 0
+                        );
+                        
+                        // Calculate progressive incidence for previsionale: (categoryPrevisionaleSum / totalIncassatoPrevisionale) * 100
+                        const totalIncassatoPrevisionale = monthsToShow.reduce((acc, month) => 
+                          acc + getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex), 0
+                        );
+                        const totalPercentagePrevisionale = totalIncassatoPrevisionale === 0 ? 0 : (categoryPrevisionaleSum / totalIncassatoPrevisionale) * 100;
+                        
+                        return (
+                          <>
+                            <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                              <div className="font-semibold text-purple-700">{formatCurrencyValue(categoryPrevisionaleSum)}</div>
+                            </td>
+                            <td className="px-3 py-2 text-right text-sm">
+                              <div className="font-semibold text-purple-700">{totalPercentagePrevisionale.toFixed(1)}%</div>
+                            </td>
+                          </>
+                        );
+                      })()}
                       {monthsToShow.map((month) => {
                         const p = categoryDetails.reduce((acc, d) => acc + getPlanPreventivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0);
                         const c = categoryDetails.reduce((acc, d) => acc + getPlanConsuntivoValue(group.macroCategory, category.name, d.detail, month.year, month.monthIndex), 0);
@@ -319,6 +392,28 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                               </>
                             );
                           })()}
+                          {showPrevisionaleTotals && (() => {
+                            const causalePrevisionaleSum = monthsToShow.reduce((acc, month) => 
+                              acc + getPlanPreventivoValue(group.macroCategory, category.name, causale, month.year, month.monthIndex), 0
+                            );
+                            
+                            // Calculate progressive incidence for previsionale: (causalePrevisionaleSum / totalIncassatoPrevisionale) * 100
+                            const totalIncassatoPrevisionale = monthsToShow.reduce((acc, month) => 
+                              acc + getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex), 0
+                            );
+                            const totalPercentagePrevisionale = totalIncassatoPrevisionale === 0 ? 0 : (causalePrevisionaleSum / totalIncassatoPrevisionale) * 100;
+                            
+                            return (
+                              <>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700 border-l-2 border-gray-200">
+                                  <div className="text-purple-700">{formatCurrencyValue(causalePrevisionaleSum)}</div>
+                                </td>
+                                <td className="px-3 py-2 text-right text-sm text-gray-700">
+                                  <div className="text-purple-700">{totalPercentagePrevisionale.toFixed(1)}%</div>
+                                </td>
+                              </>
+                            );
+                          })()}
                           {monthsToShow.map((month) => (
                             <React.Fragment key={`${month.year}-${month.monthIndex}`}>
                               {!onlyConsuntivo && (
@@ -352,7 +447,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
           
           {/* UTILE DI CASSA - Calcolato automaticamente */}
           <tr className="bg-emerald-50 text-sm font-bold uppercase text-emerald-800">
-            <td className="px-3 py-3 sticky left-0 bg-emerald-50 z-10 w-48" colSpan={3 + monthsToShow.length * (onlyConsuntivo ? 1 : 2)}>
+            <td className="px-3 py-3 sticky left-0 bg-emerald-50 z-10 w-48" colSpan={3 + (showPrevisionaleTotals ? 2 : 0) + monthsToShow.length * (onlyConsuntivo ? 1 : 2)}>
               UTILE DI CASSA
             </td>
           </tr>
@@ -376,6 +471,28 @@ export const PlanTable: React.FC<PlanTableProps> = ({
                   </td>
                   <td className="px-3 py-2 text-right text-sm">
                     <div className="font-semibold text-emerald-700">{totalPercentage.toFixed(1)}%</div>
+                  </td>
+                </>
+              );
+            })()}
+            {showPrevisionaleTotals && (() => {
+              const utileCassaPrevisionaleSum = monthsToShow.reduce((acc, month) => {
+                return acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex);
+              }, 0);
+              
+              // Calculate progressive incidence for previsionale: (utileCassaPrevisionaleSum / totalIncassatoPrevisionale) * 100
+              const totalIncassatoPrevisionale = monthsToShow.reduce((acc, month) => 
+                acc + getIncassatoTotal(causaliCatalog, planYear, getPlanPreventivoValue, month.year, month.monthIndex), 0
+              );
+              const totalPercentagePrevisionale = totalIncassatoPrevisionale === 0 ? 0 : (utileCassaPrevisionaleSum / totalIncassatoPrevisionale) * 100;
+              
+              return (
+                <>
+                  <td className="px-3 py-2 text-right text-sm border-l-2 border-gray-200">
+                    <div className="font-semibold text-purple-700">{formatCurrencyValue(utileCassaPrevisionaleSum)}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm">
+                    <div className="font-semibold text-purple-700">{totalPercentagePrevisionale.toFixed(1)}%</div>
                   </td>
                 </>
               );

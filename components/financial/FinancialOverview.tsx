@@ -25,7 +25,7 @@ interface FinancialOverviewProps {
   onYearChange: (selectedYear: number) => void;
   financialStatsRows: FinancialStatsRow[];
   causaliCatalog: FinancialCausaleGroup[];
-  getPlanConsuntivoValue: (macro: string, category: string, detail: string, selectedYear: number, monthIndex: number) => number;
+  getPlanConsuntivoValue: (..._args: any[]) => number;
   statsOverrides?: any;
 }
 
@@ -39,9 +39,22 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   getPlanConsuntivoValue,
   statsOverrides = {}
 }) => {
+  // Check if current year is the actual current year for YTD calculation
+  const currentActualYear = new Date().getFullYear();
+  const isCurrentYear = selectedYear === currentActualYear;
+
+  // Helper function to calculate percentage increment
+  const calculateIncrement = (current: number, previous: number): number | null => {
+    if (previous === 0) return current > 0 ? 100 : null;
+    return ((current - previous) / previous) * 100;
+  };
+
   const overviewTotals = useMemo(() => {
+    // Helper function to calculate totals for a specific year
+    const calculateYearTotals = (year: number, maxMonths: number = 12) => {
     if (!planYear) {
       return {
+          fatturato: 0,
         incassato: 0,
         costiFissi: 0,
         costiVariabili: 0,
@@ -50,25 +63,25 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }
     
     // Estrai dati dal piano mensile usando le funzioni di calcolo
-    const incassato = MONTH_SHORT.reduce((acc, _, monthIndex) => 
-      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    const incassato = Array.from({ length: maxMonths }, (_, monthIndex) => monthIndex).reduce((acc, monthIndex) => 
+      acc + getIncassatoTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex), 0
     );
     
-    const costiFissi = MONTH_SHORT.reduce((acc, _, monthIndex) => 
-      acc + getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    const costiFissi = Array.from({ length: maxMonths }, (_, monthIndex) => monthIndex).reduce((acc, monthIndex) => 
+      acc + getCostiFissiTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex), 0
     );
     
-    const costiVariabili = MONTH_SHORT.reduce((acc, _, monthIndex) => 
-      acc + getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    const costiVariabili = Array.from({ length: maxMonths }, (_, monthIndex) => monthIndex).reduce((acc, monthIndex) => 
+      acc + getCostiVariabiliTotal(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex), 0
     );
     
-    const utile = MONTH_SHORT.reduce((acc, _, monthIndex) => 
-      acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, selectedYear, monthIndex), 0
+    const utile = Array.from({ length: maxMonths }, (_, monthIndex) => monthIndex).reduce((acc, monthIndex) => 
+      acc + calculateUtileFromMacroTotals(causaliCatalog, planYear, getPlanConsuntivoValue, year, monthIndex), 0
     );
     
     // Calcola il fatturato dalle statistiche (stessa logica del grafico 48 mesi)
-    const fatturato = MONTH_SHORT.reduce((acc, _, monthIndex) => {
-      const monthKey = buildMonthKey(selectedYear, monthIndex);
+    const fatturato = Array.from({ length: maxMonths }, (_, monthIndex) => monthIndex).reduce((acc, monthIndex) => {
+        const monthKey = buildMonthKey(year, monthIndex);
       
       // Helper function to get field value with overrides (same as grafico 48 mesi)
       const getFieldValue = (field: string) => {
@@ -84,8 +97,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         const statsRow = financialStatsRows.find(row => {
           const parsed = parsePlanMonthLabel(row.month);
           if (parsed) {
-            const { year, monthIndex: rowMonthIndex } = parsed;
-            return year === selectedYear && rowMonthIndex === monthIndex;
+              const { year: rowYear, monthIndex: rowMonthIndex } = parsed;
+              return rowYear === year && rowMonthIndex === monthIndex;
           }
           return false;
         });
@@ -102,18 +115,84 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       // Usa fatturatoImponibile come nel grafico 48 mesi
       const fatturatoValue = getFieldValue('fatturatoImponibile') ?? 0;
       
-      
       return acc + (fatturatoValue || 0);
     }, 0);
     
     return {
+        fatturato,
       incassato,
       costiFissi,
       costiVariabili,
       utile,
-      fatturato,
+      };
     };
-  }, [planYear, causaliCatalog, getPlanConsuntivoValue, selectedYear, statsOverrides, financialStatsRows]);
+
+    // Calculate totals for current year and previous years
+    const currentYearTotals = calculateYearTotals(selectedYear);
+    const prevYear1Totals = calculateYearTotals(selectedYear - 1);
+    const prevYear2Totals = calculateYearTotals(selectedYear - 2);
+    const prevYear3Totals = calculateYearTotals(selectedYear - 3);
+
+
+    const currentMonth = new Date().getMonth(); // 0-based month index
+
+    // Calculate YTD values for current year (if applicable)
+    let currentYearYTDTotals = null;
+    let prevYearYTDTotals = null;
+    
+    if (isCurrentYear) {
+      // currentMonth is 0-based (0 = January, 11 = December)
+      // For YTD, we calculate up to the previous month (currentMonth - 1)
+      // This ensures we compare completed months only
+      const monthsToInclude = Math.max(0, currentMonth); // Don't include current month
+      currentYearYTDTotals = calculateYearTotals(selectedYear, monthsToInclude);
+      prevYearYTDTotals = calculateYearTotals(selectedYear - 1, monthsToInclude);
+    }
+
+    // Calculate increments - use YTD for current year, full year for others
+    let fatturatoIncrement, incassatoIncrement, costiFissiIncrement, costiVariabiliIncrement, utileIncrement;
+
+    if (isCurrentYear) {
+      // For current year, calculate YTD vs previous year YTD
+      // Don't show increment if previous year is zero (first year with data)
+      fatturatoIncrement = prevYearYTDTotals.fatturato === 0 ? null : calculateIncrement(currentYearYTDTotals.fatturato, prevYearYTDTotals.fatturato);
+      incassatoIncrement = prevYearYTDTotals.incassato === 0 ? null : calculateIncrement(currentYearYTDTotals.incassato, prevYearYTDTotals.incassato);
+      costiFissiIncrement = prevYearYTDTotals.costiFissi === 0 ? null : calculateIncrement(currentYearYTDTotals.costiFissi, prevYearYTDTotals.costiFissi);
+      costiVariabiliIncrement = prevYearYTDTotals.costiVariabili === 0 ? null : calculateIncrement(currentYearYTDTotals.costiVariabili, prevYearYTDTotals.costiVariabili);
+      utileIncrement = prevYearYTDTotals.utile === 0 ? null : calculateIncrement(currentYearYTDTotals.utile, prevYearYTDTotals.utile);
+    } else {
+      // For other years, use full year comparison
+      // Don't show increment if previous year is zero (first year with data)
+      fatturatoIncrement = prevYear1Totals.fatturato === 0 ? null : calculateIncrement(currentYearTotals.fatturato, prevYear1Totals.fatturato);
+      incassatoIncrement = prevYear1Totals.incassato === 0 ? null : calculateIncrement(currentYearTotals.incassato, prevYear1Totals.incassato);
+      costiFissiIncrement = prevYear1Totals.costiFissi === 0 ? null : calculateIncrement(currentYearTotals.costiFissi, prevYear1Totals.costiFissi);
+      costiVariabiliIncrement = prevYear1Totals.costiVariabili === 0 ? null : calculateIncrement(currentYearTotals.costiVariabili, prevYear1Totals.costiVariabili);
+      utileIncrement = prevYear1Totals.utile === 0 ? null : calculateIncrement(currentYearTotals.utile, prevYear1Totals.utile);
+    }
+
+    return {
+      currentYear: currentYearTotals,
+      prevYear1: prevYear1Totals,
+      prevYear2: prevYear2Totals,
+      prevYear3: prevYear3Totals,
+      increments: {
+        fatturato: fatturatoIncrement,
+        incassato: incassatoIncrement,
+        costiFissi: costiFissiIncrement,
+        costiVariabili: costiVariabiliIncrement,
+        utile: utileIncrement,
+      },
+      // YTD values for current year (if applicable)
+      currentYearYTDTotals: isCurrentYear ? currentYearYTDTotals : null,
+      prevYearYTDTotals: isCurrentYear ? prevYearYTDTotals : null,
+      // Keep legacy properties for backward compatibility
+      fatturato: currentYearTotals.fatturato,
+      incassato: currentYearTotals.incassato,
+      costiFissi: currentYearTotals.costiFissi,
+      costiVariabili: currentYearTotals.costiVariabili,
+      utile: currentYearTotals.utile,
+    };
+  }, [planYear, causaliCatalog, getPlanConsuntivoValue, selectedYear, statsOverrides, financialStatsRows, isCurrentYear]);
 
   const overviewChartData = useMemo(() => {
     if (!planYear) {
@@ -195,16 +274,6 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }));
   }, [planYear, selectedYear, causaliCatalog, getPlanConsuntivoValue, statsOverrides, financialStatsRows]);
 
-  // Helper function to find nice round numbers (like Excel)
-  const findNiceNumber = (range: number): number => {
-    const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
-    const normalizedRange = range / magnitude;
-    
-    if (normalizedRange < 1.5) return magnitude;
-    if (normalizedRange < 3) return 2 * magnitude;
-    if (normalizedRange < 7) return 5 * magnitude;
-    return 10 * magnitude;
-  };
 
   // Calcolo dati grafico fatturato 48 mesi
   const fatturatoChartData = useMemo(() => {
@@ -271,65 +340,6 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     return data;
   }, [financialStatsRows, statsOverrides]);
 
-  // Calculate dynamic Y-axis range for fatturato chart (Excel-like autoscaling)
-  const fatturatoYAxisDomain = useMemo(() => {
-    const allValues = fatturatoChartData
-      .flatMap(d => [d.fatturatoReale, d.fatturatoPrevisionale])
-      .filter(v => v !== null && v !== undefined) as number[];
-    
-    if (allValues.length === 0) return [0, 100];
-    
-    const min = Math.min(...allValues);
-    const max = Math.max(...allValues);
-    
-    // Remove outliers (values that are more than 3x the median)
-    const sortedValues = [...allValues].sort((a, b) => a - b);
-    const median = sortedValues[Math.floor(sortedValues.length / 2)];
-    const filteredValues = allValues.filter(v => v <= median * 3);
-    
-    if (filteredValues.length === 0) {
-      // Use original values if filtering removes everything
-      const range = max - min;
-      let padding;
-      if (range < 10) {
-        padding = range * 0.5;
-      } else if (range < 100) {
-        padding = range * 0.2;
-      } else {
-        padding = range * 0.1;
-      }
-      
-      const paddedMin = Math.max(0, min - padding);
-      const paddedMax = max + padding;
-      const niceRange = findNiceNumber(paddedMax - paddedMin);
-      const niceMin = Math.floor(paddedMin / niceRange) * niceRange;
-      const niceMax = Math.ceil(paddedMax / niceRange) * niceRange;
-      
-      return [Math.max(0, niceMin), niceMax];
-    } else {
-      // Use filtered values for better scaling
-      const filteredMin = Math.min(...filteredValues);
-      const filteredMax = Math.max(...filteredValues);
-      
-      const range = filteredMax - filteredMin;
-      let padding;
-      if (range < 10) {
-        padding = range * 0.5;
-      } else if (range < 100) {
-        padding = range * 0.2;
-      } else {
-        padding = range * 0.1;
-      }
-      
-      const paddedMin = Math.max(0, filteredMin - padding);
-      const paddedMax = filteredMax + padding;
-      const niceRange = findNiceNumber(paddedMax - paddedMin);
-      const niceMin = Math.floor(paddedMin / niceRange) * niceRange;
-      const niceMax = Math.ceil(paddedMax / niceRange) * niceRange;
-      
-      return [Math.max(0, niceMin), niceMax];
-    }
-  }, [fatturatoChartData]);
 
   return (
     <div className="space-y-4">
@@ -350,45 +360,416 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         </select>
       </div>
       <div className="flex flex-wrap gap-3">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Fatturato {selectedYear}
+        {/* Fatturato Card */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+          <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
+            Fatturato
           </p>
-          <p className="mt-1 text-2xl font-semibold text-blue-700">
-            {formatCurrencyValue(overviewTotals.fatturato)}
-          </p>
+          <div className="space-y-2">
+            {overviewTotals.prevYear3.fatturato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 3}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.fatturato)}</span>
+                  {(() => {
+                    // Don't show increment if this is the first year with data
+                    // Check if the previous year (prevYear2) has zero data
+                    if (overviewTotals.prevYear2.fatturato === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear3.fatturato, overviewTotals.prevYear2.fatturato);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear2.fatturato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 2}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.fatturato)}</span>
+                  {(() => {
+                    // Don't show increment if previous year is zero (first year with data)
+                    if (overviewTotals.prevYear2.fatturato === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear1.fatturato, overviewTotals.prevYear2.fatturato);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear1.fatturato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 1}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.fatturato)}</span>
+                  {(() => {
+                    // Don't show annual increment for current year - only YTD is shown
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-semibold text-gray-800">{selectedYear}:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-blue-700">
+                  {formatCurrencyValue(isCurrentYear ? overviewTotals.currentYearYTDTotals?.fatturato || overviewTotals.currentYear.fatturato : overviewTotals.currentYear.fatturato)}
+                </span>
+                {overviewTotals.increments.fatturato !== null && isCurrentYear && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    overviewTotals.increments.fatturato >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {overviewTotals.increments.fatturato >= 0 ? '+' : ''}{overviewTotals.increments.fatturato.toFixed(1)}%
+                    <span className="ml-1 text-xs opacity-75">YTD</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Incassato {selectedYear}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">
-            {formatCurrencyValue(overviewTotals.incassato)}
-          </p>
+
+        {/* Incassato Card */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
+              Incassato
+            </p>
+          <div className="space-y-2">
+            {overviewTotals.prevYear3.incassato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 3}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.incassato)}</span>
+                  {(() => {
+                    // Don't show increment if this is the first year with data
+                    // Check if the previous year (prevYear2) has zero data
+                    if (overviewTotals.prevYear2.incassato === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear3.incassato, overviewTotals.prevYear2.incassato);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear2.incassato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 2}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.incassato)}</span>
+                  {(() => {
+                    // Don't show increment if previous year is zero (first year with data)
+                    if (overviewTotals.prevYear2.incassato === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear1.incassato, overviewTotals.prevYear2.incassato);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear1.incassato > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 1}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.incassato)}</span>
+                  {(() => {
+                    // Don't show annual increment for current year - only YTD is shown
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-semibold text-gray-800">{selectedYear}:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-gray-900">{formatCurrencyValue(isCurrentYear ? overviewTotals.currentYearYTDTotals?.incassato || overviewTotals.currentYear.incassato : overviewTotals.currentYear.incassato)}</span>
+                {overviewTotals.increments.incassato !== null && isCurrentYear && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    overviewTotals.increments.incassato >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {overviewTotals.increments.incassato >= 0 ? '+' : ''}{overviewTotals.increments.incassato.toFixed(1)}%
+                    {isCurrentYear && <span className="ml-1 text-xs opacity-75">YTD</span>}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Costi fissi {selectedYear}
+
+        {/* Costi Fissi Card */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+          <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
+            Costi fissi
           </p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">
-            {formatCurrencyValue(overviewTotals.costiFissi)}
-          </p>
+          <div className="space-y-2">
+            {overviewTotals.prevYear3.costiFissi > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 3}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.costiFissi)}</span>
+                  {(() => {
+                    // Don't show increment if this is the first year with data
+                    // Check if the previous year (prevYear2) has zero data
+                    if (overviewTotals.prevYear2.costiFissi === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear3.costiFissi, overviewTotals.prevYear2.costiFissi);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear2.costiFissi > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 2}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiFissi)}</span>
+                  {(() => {
+                    // Don't show increment if previous year is zero (first year with data)
+                    if (overviewTotals.prevYear2.costiFissi === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear1.costiFissi, overviewTotals.prevYear2.costiFissi);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear1.costiFissi > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 1}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.costiFissi)}</span>
+                  {(() => {
+                    // Don't show annual increment for current year - only YTD is shown
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-semibold text-gray-800">{selectedYear}:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-gray-900">{formatCurrencyValue(isCurrentYear ? overviewTotals.currentYearYTDTotals?.costiFissi || overviewTotals.currentYear.costiFissi : overviewTotals.currentYear.costiFissi)}</span>
+                {overviewTotals.increments.costiFissi !== null && isCurrentYear && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    overviewTotals.increments.costiFissi >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {overviewTotals.increments.costiFissi >= 0 ? '+' : ''}{overviewTotals.increments.costiFissi.toFixed(1)}%
+                    {isCurrentYear && <span className="ml-1 text-xs opacity-75">YTD</span>}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Costi variabili {selectedYear}
+
+        {/* Costi Variabili Card */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+          <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
+            Costi variabili
           </p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">
-            {formatCurrencyValue(overviewTotals.costiVariabili)}
-          </p>
+          <div className="space-y-2">
+            {overviewTotals.prevYear3.costiVariabili > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 3}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.costiVariabili)}</span>
+                  {(() => {
+                    // Don't show increment if this is the first year with data
+                    // Check if the previous year (prevYear2) has zero data
+                    if (overviewTotals.prevYear2.costiVariabili === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear3.costiVariabili, overviewTotals.prevYear2.costiVariabili);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear2.costiVariabili > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 2}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.costiVariabili)}</span>
+                  {(() => {
+                    // Don't show increment if previous year is zero (first year with data)
+                    if (overviewTotals.prevYear2.costiVariabili === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear1.costiVariabili, overviewTotals.prevYear2.costiVariabili);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear1.costiVariabili > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 1}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.costiVariabili)}</span>
+                  {(() => {
+                    // Don't show annual increment for current year - only YTD is shown
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-semibold text-gray-800">{selectedYear}:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-gray-900">{formatCurrencyValue(isCurrentYear ? overviewTotals.currentYearYTDTotals?.costiVariabili || overviewTotals.currentYear.costiVariabili : overviewTotals.currentYear.costiVariabili)}</span>
+                {overviewTotals.increments.costiVariabili !== null && isCurrentYear && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    overviewTotals.increments.costiVariabili >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {overviewTotals.increments.costiVariabili >= 0 ? '+' : ''}{overviewTotals.increments.costiVariabili.toFixed(1)}%
+                    {isCurrentYear && <span className="ml-1 text-xs opacity-75">YTD</span>}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Utile {selectedYear}
+
+        {/* Utile Card */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+          <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
+            Utile
           </p>
-          <p className="mt-1 text-2xl font-semibold text-emerald-700">
-            {formatCurrencyValue(overviewTotals.utile)}
-          </p>
+          <div className="space-y-2">
+            {overviewTotals.prevYear3.utile > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 3}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear3.utile)}</span>
+                  {(() => {
+                    // Don't show increment if this is the first year with data
+                    // Check if the previous year (prevYear2) has zero data
+                    if (overviewTotals.prevYear2.utile === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear3.utile, overviewTotals.prevYear2.utile);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear2.utile > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 2}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear2.utile)}</span>
+                  {(() => {
+                    // Don't show increment if previous year is zero (first year with data)
+                    if (overviewTotals.prevYear2.utile === 0) return null;
+                    const increment = calculateIncrement(overviewTotals.prevYear1.utile, overviewTotals.prevYear2.utile);
+                    return increment !== null && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        increment >= 0 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {increment >= 0 ? '+' : ''}{increment.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+            {overviewTotals.prevYear1.utile > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">{selectedYear - 1}:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">{formatCurrencyValue(overviewTotals.prevYear1.utile)}</span>
+                  {(() => {
+                    // Don't show annual increment for current year - only YTD is shown
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-semibold text-gray-800">{selectedYear}:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-emerald-700">{formatCurrencyValue(isCurrentYear ? overviewTotals.currentYearYTDTotals?.utile || overviewTotals.currentYear.utile : overviewTotals.currentYear.utile)}</span>
+                {overviewTotals.increments.utile !== null && isCurrentYear && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    overviewTotals.increments.utile >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {overviewTotals.increments.utile >= 0 ? '+' : ''}{overviewTotals.increments.utile.toFixed(1)}%
+                    {isCurrentYear && <span className="ml-1 text-xs opacity-75">YTD</span>}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div className="rounded-2xl bg-white p-5 shadow-sm">

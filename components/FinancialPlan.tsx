@@ -54,6 +54,7 @@ const FinancialPlan: React.FC = () => {
     handleCancelPlan,
     handleCausaliPersist,
     handleSaveMetrics,
+    availableYears: hookAvailableYears,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
   } = useFinancialPlanData(currentLocation?.id);
@@ -74,11 +75,11 @@ const FinancialPlan: React.FC = () => {
     toggleOnlyConsuntivo,
   } = usePlanEditor();
 
-  // Generate available years from basePlanByYear
-  const availableYears = React.useMemo(() => {
-    const years = Array.from(basePlanByYear.keys()).sort((a, b) => a - b);
-    return years.length > 0 ? years : [new Date().getFullYear()];
-  }, [basePlanByYear]);
+  // State for showing previsionale totals
+  const [showPrevisionaleTotals, setShowPrevisionaleTotals] = useState(false);
+
+  // Use available years from hook
+  const availableYears = hookAvailableYears.length > 0 ? hookAvailableYears : [new Date().getFullYear()];
 
   // Update selected year if not available
   useEffect(() => {
@@ -676,6 +677,14 @@ const FinancialPlan: React.FC = () => {
               />
               Solo consuntivo
             </label>
+            <label className="ml-4 flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={showPrevisionaleTotals}
+                onChange={(e) => setShowPrevisionaleTotals(e.target.checked)}
+              />
+              Totali previsionale
+            </label>
             {!editMode ? (
               <button
                 type="button"
@@ -721,6 +730,7 @@ const FinancialPlan: React.FC = () => {
             editMode={editMode}
             onlyValued={onlyValued}
             onlyConsuntivo={onlyConsuntivo}
+            showPrevisionaleTotals={showPrevisionaleTotals}
             dirtyKeys={dirtyKeys}
             loadingState={loadingState}
             getPlanPreventivoValue={getPlanPreventivoValue}

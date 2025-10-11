@@ -100,10 +100,16 @@ export const useFinancialPlanData = (locationId?: string) => {
   // Load data entries sums for Piano Mensile
   const { getSumForCausale } = useDataEntriesSums(locationId);
 
+  // Calculate available years with fixed range
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+  }, []);
+
   const basePlanByYear = useMemo(() => {
     const source = causaliCatalog.length > 0 ? causaliCatalog : DEFAULT_CAUSALI_CATALOG;
-    return computePlanData(source);
-  }, [causaliCatalog]);
+    return computePlanData(source, availableYears);
+  }, [causaliCatalog, availableYears]);
 
   const getPlanConsuntivoValue = useCallback(
     (
@@ -426,7 +432,7 @@ export const useFinancialPlanData = (locationId?: string) => {
         consuntivoOverrides: dbConsuntivoOverrides,
         manualLog: [],
         monthlyMetrics: monthlyMetrics,
-        statsOverrides: newStatsOverrides,
+        statsOverrides: newStatsOverrides as unknown as Record<string, Partial<Record<string, number | null>>>,
         causaliCatalog: causaliCatalog,
         causaliVersion: null,
       };
@@ -462,6 +468,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     handleCancelPlan,
     handleCausaliPersist,
     handleSaveMetrics,
+    availableYears,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
   };
