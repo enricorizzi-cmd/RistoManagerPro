@@ -122,4 +122,3 @@ npm run dev
 ---
 
 **Ricorda**: "Lancia l'app" = SEMPRE locale, mai online! 🏠
-

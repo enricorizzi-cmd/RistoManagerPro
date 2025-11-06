@@ -8,8 +8,42 @@ const { masterDb, getLocationDb } = require('./supabase-wrapper');
 const PORT = process.env.PORT || 4000;
 
 const app = express();
-app.use(cors());
+
+// CORS configuration for Render deployment
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Allow all origins in production (Render)
+    // In production, Render serves both frontend and backend from same origin
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+
+    // In development, allow localhost
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Location-Id'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '5mb' }));
+
+// Logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body).substring(0, 200));
+  }
+  next();
+});
 
 // Serve static files from dist directory (frontend build)
 const distPath = path.join(__dirname, '..', 'dist');
@@ -86,13 +120,14 @@ async function getState(locationId) {
       'SELECT data FROM financial_plan_state WHERE id = ?',
       [stateId]
     );
-    
+
     if (!row) {
       return null;
     }
-    
+
     try {
-      const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      const parsed =
+        typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
       return parsed;
     } catch (parseError) {
       throw parseError;
@@ -137,7 +172,8 @@ async function aggregateFinancialData(payload, locationId) {
 
     if (row) {
       try {
-        const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+        const parsed =
+          typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
         aggregatedPayload = parsed;
       } catch (parseError) {
         console.error('Error parsing aggregated state:', parseError);
@@ -156,57 +192,53 @@ async function aggregateFinancialData(payload, locationId) {
 
         if (locationRow) {
           try {
-            const locationData = typeof locationRow.data === 'string' 
-              ? JSON.parse(locationRow.data) 
-              : locationRow.data;
+            const locationData =
+              typeof locationRow.data === 'string'
+                ? JSON.parse(locationRow.data)
+                : locationRow.data;
 
             // Aggregate preventivoOverrides
             if (locationData.preventivoOverrides) {
-              Object.keys(locationData.preventivoOverrides).forEach(
-                key => {
-                  if (!aggregatedPayload.preventivoOverrides[key]) {
-                    aggregatedPayload.preventivoOverrides[key] = {};
-                  }
-                  Object.keys(
-                    locationData.preventivoOverrides[key]
-                  ).forEach(subKey => {
+              Object.keys(locationData.preventivoOverrides).forEach(key => {
+                if (!aggregatedPayload.preventivoOverrides[key]) {
+                  aggregatedPayload.preventivoOverrides[key] = {};
+                }
+                Object.keys(locationData.preventivoOverrides[key]).forEach(
+                  subKey => {
                     const currentValue =
                       aggregatedPayload.preventivoOverrides[key][subKey] || 0;
                     const newValue =
                       locationData.preventivoOverrides[key][subKey] || 0;
                     aggregatedPayload.preventivoOverrides[key][subKey] =
                       currentValue + newValue;
-                  });
-                }
-              );
+                  }
+                );
+              });
             }
 
             // Aggregate consuntivoOverrides
             if (locationData.consuntivoOverrides) {
-              Object.keys(locationData.consuntivoOverrides).forEach(
-                key => {
-                  if (!aggregatedPayload.consuntivoOverrides[key]) {
-                    aggregatedPayload.consuntivoOverrides[key] = {};
-                  }
-                  Object.keys(
-                    locationData.consuntivoOverrides[key]
-                  ).forEach(subKey => {
+              Object.keys(locationData.consuntivoOverrides).forEach(key => {
+                if (!aggregatedPayload.consuntivoOverrides[key]) {
+                  aggregatedPayload.consuntivoOverrides[key] = {};
+                }
+                Object.keys(locationData.consuntivoOverrides[key]).forEach(
+                  subKey => {
                     const currentValue =
                       aggregatedPayload.consuntivoOverrides[key][subKey] || 0;
                     const newValue =
                       locationData.consuntivoOverrides[key][subKey] || 0;
                     aggregatedPayload.consuntivoOverrides[key][subKey] =
                       currentValue + newValue;
-                  });
-                }
-              );
+                  }
+                );
+              });
             }
 
             // Aggregate statsOverrides
             if (locationData.statsOverrides) {
               Object.keys(locationData.statsOverrides).forEach(key => {
-                const currentValue =
-                  aggregatedPayload.statsOverrides[key] || 0;
+                const currentValue = aggregatedPayload.statsOverrides[key] || 0;
                 const newValue = locationData.statsOverrides[key] || 0;
                 aggregatedPayload.statsOverrides[key] = currentValue + newValue;
               });
@@ -215,12 +247,10 @@ async function aggregateFinancialData(payload, locationId) {
             // Aggregate monthlyMetrics
             if (locationData.monthlyMetrics) {
               locationData.monthlyMetrics.forEach(metric => {
-                const existingMetric =
-                  aggregatedPayload.monthlyMetrics.find(
-                    m =>
-                      m.year === metric.year &&
-                      m.monthIndex === metric.monthIndex
-                  );
+                const existingMetric = aggregatedPayload.monthlyMetrics.find(
+                  m =>
+                    m.year === metric.year && m.monthIndex === metric.monthIndex
+                );
                 if (existingMetric) {
                   // Sum numeric values
                   Object.keys(metric).forEach(key => {
@@ -273,7 +303,7 @@ async function saveState(payload, locationId) {
     const now = new Date().toISOString();
     const data = JSON.stringify(payload);
     const stateId = `financial-plan-${locationId}`;
-    
+
     // Upsert using Supabase REST API directly
     await supabaseCall('POST', 'financial_plan_state', {
       data: {
@@ -440,29 +470,65 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log(`[LOGIN] Attempt for email: ${email}`);
+
     if (!email || !password) {
+      console.log('[LOGIN] Missing email or password');
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     const passwordHash = hashPassword(password);
-    const user = await masterDbGet(
-      'SELECT id, first_name, last_name, email, role FROM users WHERE email = ? AND password_hash = ? AND is_active = 1',
-      [email, passwordHash]
-    );
+    console.log('[LOGIN] Password hashed, querying database...');
+
+    let user;
+    try {
+      user = await masterDbGet(
+        'SELECT id, first_name, last_name, email, role FROM users WHERE email = ? AND password_hash = ? AND is_active = 1',
+        [email, passwordHash]
+      );
+      console.log(
+        `[LOGIN] Database query result:`,
+        user ? 'User found' : 'User not found'
+      );
+    } catch (dbError) {
+      console.error('[LOGIN] Database error:', dbError);
+      console.error(
+        '[LOGIN] Database error details:',
+        dbError.message,
+        dbError.stack
+      );
+      return res.status(500).json({
+        error: 'Database connection failed',
+        details: dbError.message,
+        type: 'database_error',
+      });
+    }
 
     if (!user) {
+      console.log('[LOGIN] Invalid credentials');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log(`[LOGIN] User found: ${user.email}, creating session...`);
 
     // Create new session
     const token = generateToken();
     const sessionId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await masterDbRun(
-      'INSERT INTO user_sessions (id, user_id, token, created_at) VALUES (?, ?, ?, ?)',
-      [sessionId, user.id, token, now]
-    );
+    try {
+      await masterDbRun(
+        'INSERT INTO user_sessions (id, user_id, token, created_at) VALUES (?, ?, ?, ?)',
+        [sessionId, user.id, token, now]
+      );
+      console.log('[LOGIN] Session created successfully');
+    } catch (sessionError) {
+      console.error('[LOGIN] Session creation error:', sessionError);
+      return res.status(500).json({
+        error: 'Failed to create session',
+        details: sessionError.message,
+      });
+    }
 
     res.json({
       success: true,
@@ -476,9 +542,13 @@ app.post('/api/auth/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    console.error('Login error details:', error.message, error.stack);
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    console.error('[LOGIN] Unexpected error:', error);
+    console.error('[LOGIN] Error details:', error.message, error.stack);
+    res.status(500).json({
+      error: 'Login failed',
+      details: error.message,
+      type: 'unexpected_error',
+    });
   }
 });
 
@@ -1160,7 +1230,7 @@ app.get('/api/user/locations', requireAuth, async (req, res) => {
         'SELECT location_id FROM user_location_permissions WHERE user_id = ?',
         [req.user.id]
       );
-      
+
       if (permissions.length === 0) {
         locations = [];
       } else {
@@ -1199,7 +1269,7 @@ app.get('/api/user/locations/financial-plan', requireAuth, async (req, res) => {
         'SELECT location_id FROM user_location_permissions WHERE user_id = ?',
         [req.user.id]
       );
-      
+
       if (permissions.length === 0) {
         locations = [];
       } else {
@@ -2032,6 +2102,9 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`RistoManager backend listening on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Supabase URL: ${process.env.SUPABASE_URL || 'using default'}`);
+  console.log(`Supabase Key configured: ${!!process.env.SUPABASE_KEY}`);
 });

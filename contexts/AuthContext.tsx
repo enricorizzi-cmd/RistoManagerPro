@@ -84,7 +84,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const loginUrl = `${API_BASE_URL}/api/auth/login`;
+      console.log('[AUTH] Attempting login to:', loginUrl);
+      console.log('[AUTH] API_BASE_URL:', API_BASE_URL);
+
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +96,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('[AUTH] Response status:', response.status);
+      console.log('[AUTH] Response ok:', response.ok);
+
       const data = await response.json();
+      console.log('[AUTH] Response data:', {
+        ...data,
+        token: data.token ? '***' : undefined,
+      });
 
       if (response.ok) {
         setUser(data.user);
@@ -100,16 +111,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         localStorage.setItem('auth_token', data.token);
         return true;
       } else {
-        setError(data.error || 'Login failed');
+        const errorMsg = data.error || data.details || 'Login failed';
+        console.error('[AUTH] Login failed:', errorMsg, data);
+        setError(`${errorMsg}${data.details ? `: ${data.details}` : ''}`);
         return false;
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error && error.message.includes('Failed to fetch')
-          ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
-          : 'Errore di rete durante il login';
+      console.error('[AUTH] Network error:', error);
+      let errorMessage = 'Errore di rete durante il login';
+
+      if (error instanceof TypeError) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = `Impossibile raggiungere il server. Verifica che l'URL del backend sia corretto: ${API_BASE_URL}`;
+        } else {
+          errorMessage = `Errore di connessione: ${error.message}`;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = `Errore: ${error.message}`;
+      }
+
       setError(errorMessage);
-      console.error('Login error:', error);
       return false;
     } finally {
       setLoading(false);

@@ -14,3 +14,10 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# Temporary files
+temp_*.tsx
+temp_*.ts
+temp_*.diff
+tmp_*.tsx
+tmp_*.ts
+tmp_*.diff
