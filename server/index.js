@@ -2046,15 +2046,21 @@ app.post(
       const now = new Date().toISOString();
 
       // First, calculate fatturatoTotale in financial_plan_state statsOverrides
+      console.log('[CALCULATE_FATTURATO] Fetching financial plan state for location:', locationId);
       const stateResult = await dbGet(
         locationId,
         'SELECT * FROM financial_plan_state WHERE id = ?',
         [`financial-plan-${locationId}`]
       );
+      console.log('[CALCULATE_FATTURATO] State result:', stateResult ? 'found' : 'not found');
 
       if (stateResult) {
-        const stateData = JSON.parse(stateResult.data);
+        console.log('[CALCULATE_FATTURATO] Parsing state data, type:', typeof stateResult.data);
+        const stateData = typeof stateResult.data === 'string' 
+          ? JSON.parse(stateResult.data) 
+          : stateResult.data;
         const statsOverrides = stateData.statsOverrides || {};
+        console.log('[CALCULATE_FATTURATO] Stats overrides keys:', Object.keys(statsOverrides).length);
 
         let updatedCount = 0;
 
@@ -2093,7 +2099,12 @@ app.post(
       }
     } catch (error) {
       console.error('Error calculating fatturato totale:', error);
-      res.status(500).json({ error: 'Failed to calculate fatturato totale' });
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Failed to calculate fatturato totale',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 );
