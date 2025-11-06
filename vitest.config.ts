@@ -4,6 +4,20 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+      // Replace problematic modules with mocks BEFORE they're loaded
+      'whatwg-url': path.resolve(
+        __dirname,
+        'src/test/mocks/whatwg-url-mock.js'
+      ),
+      'webidl-conversions': path.resolve(
+        __dirname,
+        'src/test/mocks/webidl-conversions-mock.js'
+      ),
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
@@ -36,11 +50,6 @@ export default defineConfig({
       deps: {
         inline: ['whatwg-url', 'webidl-conversions'],
       },
-    },
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, '.'),
     },
   },
 });
