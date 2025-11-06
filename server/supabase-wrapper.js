@@ -375,12 +375,30 @@ function getLocationDb(locationId) {
 
         // Check for GROUP BY queries (aggregation queries)
         // Match GROUP BY that may be followed by ORDER BY or end of string
-        const groupByMatch = normalizedSql.match(/GROUP\s+BY\s+([^O]+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i);
-        if (groupByMatch) {
+        // Use a more robust pattern: capture everything after GROUP BY until ORDER BY, LIMIT, or end
+        const groupByIndex = normalizedSql.toUpperCase().indexOf('GROUP BY');
+        if (groupByIndex !== -1) {
+          // Find the start of GROUP BY columns
+          const groupByStart = groupByIndex + 9; // length of "GROUP BY"
+          // Find the end: ORDER BY, LIMIT, or end of string
+          const orderByIndex = normalizedSql.toUpperCase().indexOf(' ORDER BY', groupByStart);
+          const limitIndex = normalizedSql.toUpperCase().indexOf(' LIMIT', groupByStart);
+          
+          let groupByEnd = normalizedSql.length;
+          if (orderByIndex !== -1 && orderByIndex < groupByEnd) {
+            groupByEnd = orderByIndex;
+          }
+          if (limitIndex !== -1 && limitIndex < groupByEnd) {
+            groupByEnd = limitIndex;
+          }
+          
+          const groupByClause = normalizedSql.substring(groupByStart, groupByEnd).trim();
           console.log('[SUPABASE] GROUP BY query detected:', normalizedSql.substring(0, 200));
+          console.log('[SUPABASE] GROUP BY clause:', groupByClause);
+          
           // For GROUP BY queries, we need to fetch all data and aggregate in JS
           // because Supabase PostgREST doesn't support GROUP BY directly
-          const groupByColumns = groupByMatch[1]
+          const groupByColumns = groupByClause
             .trim()
             .split(',')
             .map(col => col.trim());
@@ -602,7 +620,7 @@ function getLocationDb(locationId) {
         
         return result;
       } catch (error) {
-        console.error(`[SUPABASE] Query error for table ${table}:`, error);
+        console.error(`[SUPABASE] Query error:`, error);
         console.error(`[SUPABASE] SQL:`, normalizedSql.substring(0, 200));
         throw error;
       }
