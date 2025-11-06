@@ -26,6 +26,11 @@ export default defineConfig({
         'index.tsx',
       ],
     },
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
   },
   resolve: {
     alias: {
