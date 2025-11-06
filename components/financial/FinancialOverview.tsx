@@ -4,6 +4,7 @@
 import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
+  LineChart,
   Line,
   BarChart,
   Bar,
@@ -64,15 +65,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   ): number | null => {
     // Don't calculate if previous is zero or very small (less than 1 euro)
     // This prevents unrealistic percentages like +3444% or +6700%
-    if (previous === 0 || Math.abs(previous) < 1) {
-      return null;
-    }
+    if (previous === 0 || previous < 1) return null;
     const increment = ((current - previous) / previous) * 100;
-    // Cap the increment at reasonable values (±1000%) to avoid display issues
-    if (Math.abs(increment) > 1000) {
-      return increment > 0 ? 1000 : -1000;
-    }
-    return increment;
+    // Cap at ±1000% to prevent unrealistic percentages
+    return Math.max(-1000, Math.min(1000, increment));
   };
 
   const overviewTotals = useMemo(() => {
