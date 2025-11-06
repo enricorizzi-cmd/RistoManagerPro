@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Generated reports (CI/CD artifacts)
+npm-audit.json
+audit-ci-report.txt
+bundle-report.html
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
