@@ -29,20 +29,40 @@ async function supabaseCall(method, table, options = {}) {
   let url = `${SUPABASE_URL}/rest/v1/${table}`;
   const params = new URLSearchParams();
 
-  if (select !== '*') params.append('select', select);
-  if (order) params.append('order', order);
-  if (limit) params.append('limit', limit.toString());
+  if (select !== '*') {
+    // For select, we need to pass columns separated by comma
+    params.append('select', select);
+  }
+  if (order) {
+    params.append('order', order);
+  }
+  if (limit) {
+    params.append('limit', limit.toString());
+  }
 
   // Add filters (format: column=eq.value or column=neq.value)
+  // Supabase PostgREST uses operators like eq., neq., etc.
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       // If value already contains operator (like neq.value), use it directly
-      if (typeof value === 'string' && value.includes('.')) {
+      if (typeof value === 'string' && value.includes('.') && !value.startsWith('eq.') && !value.startsWith('neq.')) {
+        // Already has an operator, use as-is
         params.append(key, value);
       } else {
-        // Convert boolean to string for Supabase
-        const filterValue =
-          typeof value === 'boolean' ? value.toString() : value;
+        // Use 'eq.' operator for all values
+        let filterValue;
+        if (typeof value === 'boolean') {
+          filterValue = value.toString();
+        } else if (typeof value === 'string') {
+          // For strings, we need to properly encode them
+          // Supabase PostgREST expects: column=eq."value" for strings with special chars
+          // But URLSearchParams will handle the encoding
+          filterValue = value;
+        } else {
+          filterValue = value.toString();
+        }
+        // Build the filter string: column=eq.value
+        // For strings, Supabase might need quotes, but URLSearchParams handles encoding
         params.append(key, `eq.${filterValue}`);
       }
     }
@@ -51,6 +71,8 @@ async function supabaseCall(method, table, options = {}) {
   if (params.toString()) {
     url += `?${params.toString()}`;
   }
+  
+  console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 300)}`);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -171,43 +193,45 @@ function parseWhereClause(whereClause, params) {
 const masterDb = {
   async query(sql, params = []) {
     // Parse SELECT queries
-    const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
-    if (selectMatch) {
-      const select = selectMatch[1].trim();
-      const table = selectMatch[2].trim();
+      const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
+      if (selectMatch) {
+        // Remove spaces after commas in select clause for Supabase
+        const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
+        const table = selectMatch[2].trim();
 
-      const whereMatch = sql.match(
-        /WHERE\s+(.+?)(?:\s+ORDER|\s+GROUP|\s+LIMIT|$)/i
-      );
-      const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
+        const whereMatch = sql.match(
+          /WHERE\s+(.+?)(?:\s+ORDER|\s+GROUP|\s+LIMIT|$)/i
+        );
+        const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
 
-      const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
-      const order = orderMatch
-        ? orderMatch[1]
-            .trim()
-            .replace(/\s+DESC/i, '.desc')
-            .replace(/\s+ASC/i, '.asc')
-        : undefined;
+        const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+        const order = orderMatch
+          ? orderMatch[1]
+              .trim()
+              .replace(/\s+DESC/i, '.desc')
+              .replace(/\s+ASC/i, '.asc')
+              .replace(/\s*,\s*/g, ',') // Remove spaces after commas in order by
+          : undefined;
 
-      // Handle COUNT queries
-      if (select.includes('COUNT')) {
-        const result = await supabaseCall('GET', table, {
-          filters,
-          limit: 1000,
-        });
-        const count = Array.isArray(result) ? result.length : result ? 1 : 0;
-        return [{ count }];
+        // Handle COUNT queries
+        if (select.includes('COUNT')) {
+          const result = await supabaseCall('GET', table, {
+            filters,
+            limit: 1000,
+          });
+          const count = Array.isArray(result) ? result.length : result ? 1 : 0;
+          return [{ count }];
+        }
+
+        // Handle GROUP_CONCAT (convert to array aggregation)
+        if (select.includes('GROUP_CONCAT')) {
+          // For now, return all and group in JS
+          const result = await supabaseCall('GET', table, { filters, order });
+          return result;
+        }
+
+        return await supabaseCall('GET', table, { select, filters, order });
       }
-
-      // Handle GROUP_CONCAT (convert to array aggregation)
-      if (select.includes('GROUP_CONCAT')) {
-        // For now, return all and group in JS
-        const result = await supabaseCall('GET', table, { filters, order });
-        return result;
-      }
-
-      return await supabaseCall('GET', table, { select, filters, order });
-    }
 
     throw new Error(`Unsupported SQL query: ${sql}`);
   },
@@ -215,11 +239,14 @@ const masterDb = {
   async get(sql, params = []) {
     const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
     if (selectMatch) {
-      const select = selectMatch[1].trim();
+      // Remove spaces after commas in select clause for Supabase
+      const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
       const table = selectMatch[2].trim();
 
       const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
       const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
+
+      console.log(`[SUPABASE] GET query: table=${table}, select=${select}, filters=`, filters);
 
       return await supabaseCall('GET', table, {
         select,
@@ -299,7 +326,8 @@ function getLocationDb(locationId) {
     async query(sql, params = []) {
       const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
       if (selectMatch) {
-        const select = selectMatch[1].trim();
+        // Remove spaces after commas in select clause for Supabase
+        const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
         const table = selectMatch[2].trim();
 
         const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
@@ -315,6 +343,7 @@ function getLocationDb(locationId) {
               .trim()
               .replace(/\s+DESC/i, '.desc')
               .replace(/\s+ASC/i, '.asc')
+              .replace(/\s*,\s*/g, ',') // Remove spaces after commas
           : 'created_at.desc';
 
         return await supabaseCall('GET', table, { select, filters, order });
@@ -326,7 +355,8 @@ function getLocationDb(locationId) {
     async get(sql, params = []) {
       const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
       if (selectMatch) {
-        const select = selectMatch[1].trim();
+        // Remove spaces after commas in select clause for Supabase
+        const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
         const table = selectMatch[2].trim();
 
         const filters = { location_id: locationId };
