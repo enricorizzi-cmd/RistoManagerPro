@@ -6,7 +6,7 @@ import { fetchFinancialPlanState, persistFinancialPlanState, fetchFinancialStats
 import { financialCausali } from '../data/financialPlanData';
 import type { FinancialCausaleGroup } from '../data/financialPlanData';
 import type { PlanOverrides, StatsOverrides } from '../types';
-import { computePlanData, computeYearMetrics, type PlanYearData, type BusinessPlanYearMetrics } from '../utils/financialCalculations';
+import { computePlanData, computeYearMetrics } from '../utils/financialCalculations';
 import { buildMonthKey, normalizeLabel, parseMonthKey } from '../utils/financialPlanUtils';
 import { useDataEntriesSums } from './useDataEntriesSums';
 
@@ -278,7 +278,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     }
   }, [locationId, dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, monthlyMetrics, causaliCatalog]);
 
-  const handleSavePlan = useCallback(async (selectedYear: number, dirtyKeys: Set<string>) => {
+  const handleSavePlan = useCallback(async (selectedYear: number, _dirtyKeys: Set<string>) => {
     if (!locationId) return false;
     
     setSavingState(true);

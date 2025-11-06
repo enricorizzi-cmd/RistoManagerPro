@@ -46,7 +46,7 @@ export const PlanTable: React.FC<PlanTableProps> = ({
   getPlanPreventivoValue,
   getPlanConsuntivoValue,
   setOverride,
-  consuntivoOverrides = {},
+  consuntivoOverrides: _consuntivoOverrides = {},
 }) => {
   // Generate months based on periodo mode
   const getMonthsToShow = () => {

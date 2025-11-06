@@ -28,7 +28,7 @@
       }
     ],
     "no-undef": "off",
-    "@typescript-eslint/no-undef": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
     "no-redeclare": "warn",
     "no-irregular-whitespace": "warn",
     "no-case-declarations": "warn",

@@ -75,11 +75,11 @@ const deleteBusinessPlanDraft = async (draftId: string, locationId: string): Pro
 export const useBusinessPlan = (
   yearMetrics: Map<number, BusinessPlanYearMetrics>, 
   locationId?: string,
-  causaliCatalog?: any[],
-  planYear?: any,
-  getPlanConsuntivoValue?: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number,
-  financialStatsRows?: any[],
-  statsOverrides?: any
+  _causaliCatalog?: any[],
+  _planYear?: any,
+  _getPlanConsuntivoValue?: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number,
+  _financialStatsRows?: any[],
+  _statsOverrides?: any
 ) => {
   const [businessPlanDrafts, setBusinessPlanDrafts] = useState<any[]>([]);
   const [draftName, setDraftName] = useState<string>('');
@@ -89,7 +89,7 @@ export const useBusinessPlan = (
   const currentYear = new Date().getFullYear();
   const availableYears = useMemo(() => {
     // Base range: current year - 5 to current year + 1
-    const baseYears = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+    const _baseYears = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
     
     // Find the minimum year that has data
     let minYearWithData = currentYear - 5;
@@ -187,62 +187,70 @@ export const useBusinessPlan = (
       };
       
       switch (field) {
-        case 'fatturatoIncrement':
+        case 'fatturatoIncrement': {
           next.fatturatoIncrement = value;
           // Calculate fatturato previsionale from increment
           const fatturatoAnnoBase = parseNumberInput(next.fatturatoAnnoBase) ?? 0;
           const increment = parseNumberInput(value) ?? 0;
           next.fatturatoPrevisionale = (fatturatoAnnoBase * (1 + increment / 100)).toFixed(2);
           break;
-        case 'fatturatoValue':
+        }
+        case 'fatturatoValue': {
           next.fatturatoPrevisionale = cleanCurrencyValue(value);
           // Calculate increment from fatturato previsionale
           const fatturatoAnnoBaseForIncrement = parseNumberInput(next.fatturatoAnnoBase) ?? 0;
           const fatturatoPrevisionaleValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
           next.fatturatoIncrement = fatturatoAnnoBaseForIncrement === 0 ? '0.00' : ((fatturatoPrevisionaleValue / fatturatoAnnoBaseForIncrement - 1) * 100).toFixed(2);
           break;
-        case 'incassatoPercent':
+        }
+        case 'incassatoPercent': {
           next.incassatoPercent = value;
           // Calculate incassato value from percentage
           const fatturatoPrevisionale = parseNumberInput(next.fatturatoPrevisionale) ?? 0;
           const incassatoPercent = parseNumberInput(value) ?? 0;
           next.incassatoPrevisionale = (fatturatoPrevisionale * incassatoPercent / 100).toFixed(2);
           break;
-        case 'incassatoValue':
+        }
+        case 'incassatoValue': {
           next.incassatoPrevisionale = cleanCurrencyValue(value);
           // Calculate percentage from incassato value
           const fatturatoPrevisionaleForPercent = parseNumberInput(next.fatturatoPrevisionale) ?? 0;
           const incassatoValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
           next.incassatoPercent = fatturatoPrevisionaleForPercent === 0 ? '0.00' : (incassatoValue / fatturatoPrevisionaleForPercent * 100).toFixed(2);
           break;
-        case 'costiFissiPercent':
+        }
+        case 'costiFissiPercent': {
           next.costiFissiPercent = value;
           // Calculate costi fissi value from percentage
           const incassatoPrevisionale = parseNumberInput(next.incassatoPrevisionale) ?? 0;
           const costiFissiPercent = parseNumberInput(value) ?? 0;
           next.costiFissiPrevisionale = (incassatoPrevisionale * costiFissiPercent / 100).toFixed(2);
           break;
-        case 'costiFissiValue':
+        }
+        case 'costiFissiValue': {
           next.costiFissiPrevisionale = cleanCurrencyValue(value);
           // Calculate percentage from costi fissi value
           const incassatoPrevisionaleForCostiFissi = parseNumberInput(next.incassatoPrevisionale) ?? 0;
           const costiFissiValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
           next.costiFissiPercent = incassatoPrevisionaleForCostiFissi === 0 ? '0.00' : (costiFissiValue / incassatoPrevisionaleForCostiFissi * 100).toFixed(2);
           break;
-        case 'costiVariabiliPercent':
+        }
+        case 'costiVariabiliPercent': {
           next.costiVariabiliPercent = value;
           // Calculate costi variabili value from percentage
           const incassatoPrevisionaleForVariabili = parseNumberInput(next.incassatoPrevisionale) ?? 0;
           const costiVariabiliPercent = parseNumberInput(value) ?? 0;
           next.costiVariabiliPrevisionale = (incassatoPrevisionaleForVariabili * costiVariabiliPercent / 100).toFixed(2);
           break;
-        case 'costiVariabiliValue':
+        }
+        case 'costiVariabiliValue': {
           next.costiVariabiliPrevisionale = cleanCurrencyValue(value);
           // Calculate percentage from costi variabili value
           const incassatoPrevisionaleForCostiVariabili = parseNumberInput(next.incassatoPrevisionale) ?? 0;
           const costiVariabiliValue = parseNumberInput(cleanCurrencyValue(value)) ?? 0;
           next.costiVariabiliPercent = incassatoPrevisionaleForCostiVariabili === 0 ? '0.00' : (costiVariabiliValue / incassatoPrevisionaleForCostiVariabili * 100).toFixed(2);
           break;
+        }
         default:
           break;
       }
@@ -394,7 +402,7 @@ export const useBusinessPlan = (
           text: 'Bozza eliminata con successo.',
         });
       })
-      .catch((error) => {
+      .catch(() => {
         setBusinessPlanMessage({
           type: 'error',
           text: 'Errore nell\'eliminazione della bozza.',

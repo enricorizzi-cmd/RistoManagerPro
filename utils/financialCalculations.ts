@@ -5,7 +5,6 @@ import type { FinancialCausaleGroup, FinancialStatsRow } from '../data/financial
 import { 
   parsePlanMonthLabel, 
   buildMonthKey, 
-  round2, 
   normalizeLabel 
 } from './financialPlanUtils';
 
