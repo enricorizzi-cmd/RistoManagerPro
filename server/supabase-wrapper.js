@@ -22,7 +22,9 @@ async function supabaseCall(method, table, options = {}) {
       if (typeof value === 'string' && value.includes('.')) {
         params.append(key, value);
       } else {
-        params.append(key, `eq.${value}`);
+        // Convert boolean to string for Supabase
+        const filterValue = typeof value === 'boolean' ? value.toString() : value;
+        params.append(key, `eq.${filterValue}`);
       }
     }
   });
@@ -113,9 +115,17 @@ function parseWhereClause(whereClause, params) {
     }
     
     // Handle numeric literals like is_active = 1
+    // For boolean columns in Supabase, convert 1 to true and 0 to false
     const numericMatch = condition.match(/(\w+)\s*=\s*(\d+)/);
     if (numericMatch) {
-      filters[numericMatch[1]] = parseInt(numericMatch[2], 10);
+      const columnName = numericMatch[1];
+      const value = parseInt(numericMatch[2], 10);
+      // Check if this looks like a boolean column (is_active, is_enabled, etc.)
+      if (columnName.startsWith('is_')) {
+        filters[columnName] = value === 1;
+      } else {
+        filters[columnName] = value;
+      }
       return;
     }
     
