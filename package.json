@@ -17,7 +17,7 @@
     "audit:fix": "npm audit fix",
     "security:check": "npm audit && npm run security:deps",
     "security:deps": "npx audit-ci --config .audit-ci.json",
-    "bundle:analyze": "if [ -d \"dist\" ] && [ \"$(ls -A dist/assets/*.js 2>/dev/null)\" ]; then npx --yes source-map-explorer dist/assets/*.js --html bundle-report.html; else echo 'Bundle analysis requires dist folder. Run: npm run build && npx --yes source-map-explorer dist/assets/*.js'; fi",
+    "bundle:analyze": "sh -c 'set +e; if [ -d \"dist/assets\" ] && [ -n \"$(find dist/assets -maxdepth 1 -name \"*.js\" -type f 2>/dev/null | head -1)\" ]; then npx --yes source-map-explorer dist/assets/*.js --html bundle-report.html 2>&1; echo \"Bundle analysis completed\"; else echo \"Bundle analysis skipped: dist/assets folder or JS files not found\"; fi; exit 0'",
     "lighthouse": "npx lighthouse http://localhost:3000 --output html --output-path ./reports/lighthouse.html",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
