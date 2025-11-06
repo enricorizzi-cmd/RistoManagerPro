@@ -7,18 +7,13 @@ function getAuthToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
-// Helper function to get location ID
-function getLocationId(): string | null {
-  return localStorage.getItem('currentLocationId');
-}
-
 // Helper function to make API calls
 async function apiCall<T>(
   endpoint: string,
+  locationId: string,
   options: globalThis.RequestInit = {}
 ): Promise<T> {
   const token = getAuthToken();
-  const locationId = getLocationId();
 
   if (!token) {
     throw new Error('Authentication required');
@@ -78,17 +73,18 @@ export interface RawMaterial {
   updated_at?: string;
 }
 
-export const getRawMaterials = (): Promise<RawMaterial[]> => {
-  return apiCall<RawMaterial[]>('/api/menu-engineering/raw-materials');
+export const getRawMaterials = (locationId: string): Promise<RawMaterial[]> => {
+  return apiCall<RawMaterial[]>('/api/menu-engineering/raw-materials', locationId);
 };
 
 export const createRawMaterial = (
+  locationId: string,
   material: Omit<
     RawMaterial,
     'id' | 'location_id' | 'created_at' | 'updated_at'
   >
 ): Promise<RawMaterial> => {
-  return apiCall<RawMaterial>('/api/menu-engineering/raw-materials', {
+  return apiCall<RawMaterial>('/api/menu-engineering/raw-materials', locationId, {
     method: 'POST',
     body: JSON.stringify({
       tipologia: material.tipologia,
@@ -104,12 +100,13 @@ export const createRawMaterial = (
 };
 
 export const updateRawMaterial = (
+  locationId: string,
   id: string,
   material: Partial<
     Omit<RawMaterial, 'id' | 'location_id' | 'created_at' | 'updated_at'>
   >
 ): Promise<RawMaterial> => {
-  return apiCall<RawMaterial>(`/api/menu-engineering/raw-materials/${id}`, {
+  return apiCall<RawMaterial>(`/api/menu-engineering/raw-materials/${id}`, locationId, {
     method: 'PUT',
     body: JSON.stringify({
       tipologia: material.tipologia,
@@ -125,10 +122,12 @@ export const updateRawMaterial = (
 };
 
 export const deleteRawMaterial = (
+  locationId: string,
   id: string
 ): Promise<{ success: boolean }> => {
   return apiCall<{ success: boolean }>(
     `/api/menu-engineering/raw-materials/${id}`,
+    locationId,
     {
       method: 'DELETE',
     }
@@ -163,11 +162,12 @@ export interface Recipe {
   updated_at?: string;
 }
 
-export const getRecipes = (): Promise<Recipe[]> => {
-  return apiCall<Recipe[]>('/api/menu-engineering/recipes');
+export const getRecipes = (locationId: string): Promise<Recipe[]> => {
+  return apiCall<Recipe[]>('/api/menu-engineering/recipes', locationId);
 };
 
 export const createRecipe = (
+  locationId: string,
   recipe: Omit<
     Recipe,
     | 'id'
@@ -179,7 +179,7 @@ export const createRecipe = (
     | 'updated_at'
   >
 ): Promise<Recipe> => {
-  return apiCall<Recipe>('/api/menu-engineering/recipes', {
+  return apiCall<Recipe>('/api/menu-engineering/recipes', locationId, {
     method: 'POST',
     body: JSON.stringify({
       nomePiatto: recipe.nome_piatto,
@@ -198,6 +198,7 @@ export const createRecipe = (
 };
 
 export const updateRecipe = (
+  locationId: string,
   id: string,
   recipe: Partial<
     Omit<
@@ -212,7 +213,7 @@ export const updateRecipe = (
     >
   >
 ): Promise<Recipe> => {
-  return apiCall<Recipe>(`/api/menu-engineering/recipes/${id}`, {
+  return apiCall<Recipe>(`/api/menu-engineering/recipes/${id}`, locationId, {
     method: 'PUT',
     body: JSON.stringify({
       nomePiatto: recipe.nome_piatto,
@@ -230,8 +231,8 @@ export const updateRecipe = (
   });
 };
 
-export const deleteRecipe = (id: string): Promise<{ success: boolean }> => {
-  return apiCall<{ success: boolean }>(`/api/menu-engineering/recipes/${id}`, {
+export const deleteRecipe = (locationId: string, id: string): Promise<{ success: boolean }> => {
+  return apiCall<{ success: boolean }>(`/api/menu-engineering/recipes/${id}`, locationId, {
     method: 'DELETE',
   });
 };
@@ -247,14 +248,15 @@ export interface RecipeSale {
   updated_at?: string;
 }
 
-export const getRecipeSales = (): Promise<RecipeSale[]> => {
-  return apiCall<RecipeSale[]>('/api/menu-engineering/recipe-sales');
+export const getRecipeSales = (locationId: string): Promise<RecipeSale[]> => {
+  return apiCall<RecipeSale[]>('/api/menu-engineering/recipe-sales', locationId);
 };
 
 export const createRecipeSale = (
+  locationId: string,
   sale: Omit<RecipeSale, 'id' | 'location_id' | 'created_at' | 'updated_at'>
 ): Promise<RecipeSale> => {
-  return apiCall<RecipeSale>('/api/menu-engineering/recipe-sales', {
+  return apiCall<RecipeSale>('/api/menu-engineering/recipe-sales', locationId, {
     method: 'POST',
     body: JSON.stringify({
       recipeId: sale.recipe_id,
