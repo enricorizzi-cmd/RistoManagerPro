@@ -12,6 +12,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
+// Serve static files from dist directory (frontend build)
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
 // Ensure database directory exists
 fs.mkdirSync(DATABASE_DIR, { recursive: true });
 
@@ -1746,6 +1752,17 @@ app.post('/api/financial-stats/calculate-fatturato-totale', requireAuth, async (
     res.status(500).json({ error: 'Failed to calculate fatturato totale' });
   }
 });
+
+// Serve React app for all non-API routes (SPA routing)
+if (fs.existsSync(distPath)) {
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 process.on('SIGINT', () => {
   masterDb.close();
