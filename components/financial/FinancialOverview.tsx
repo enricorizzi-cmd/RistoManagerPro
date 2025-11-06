@@ -36,7 +36,7 @@ interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
   selectedYear: number;
   availableYears: number[];
-  onYearChange: (_selectedYear: number) => void;
+  onYearChange: (selectedYear: number) => void;
   financialStatsRows: FinancialStatsRow[];
   causaliCatalog: FinancialCausaleGroup[];
   getPlanConsuntivoValue: (..._args: any[]) => number;
