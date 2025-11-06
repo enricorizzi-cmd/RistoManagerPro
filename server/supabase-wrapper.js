@@ -27,55 +27,53 @@ async function supabaseCall(method, table, options = {}) {
   } = options;
 
   let url = `${SUPABASE_URL}/rest/v1/${table}`;
-  const urlParams = new URLSearchParams();
+  const queryParams = [];
 
   if (select !== '*') {
     // For select, we need to pass columns separated by comma
-    urlParams.append('select', select);
+    queryParams.push(`select=${encodeURIComponent(select)}`);
   }
   if (order) {
-    urlParams.append('order', order);
+    queryParams.push(`order=${encodeURIComponent(order)}`);
   }
   if (limit) {
-    urlParams.append('limit', limit.toString());
+    queryParams.push(`limit=${limit.toString()}`);
   }
 
   // For single results, limit to 1 if no limit specified
   if (single && !limit) {
-    urlParams.append('limit', '1');
+    queryParams.push('limit=1');
   }
 
   // Add filters (format: column=eq.value or column=neq.value)
   // Supabase PostgREST uses operators like eq., neq., etc.
-  // URLSearchParams will handle URL encoding automatically
+  // We need to encode the value but NOT the operator prefix
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       // If value already contains operator (like neq.value), use it directly
       if (typeof value === 'string' && value.includes('.') && !value.startsWith('eq.') && !value.startsWith('neq.')) {
-        // Already has an operator, use as-is
-        urlParams.append(key, value);
+        // Already has an operator, encode the whole thing
+        queryParams.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
       } else {
         // Use 'eq.' operator for all values
         let filterValue;
         if (typeof value === 'boolean') {
           filterValue = value.toString();
         } else if (typeof value === 'string') {
-          // For strings, use the value as-is
-          // URLSearchParams will encode it properly
-          filterValue = value;
+          // For strings, encode only the value part, not the eq. prefix
+          filterValue = encodeURIComponent(value);
         } else {
           filterValue = value.toString();
         }
         // Build the filter string: column=eq.value
-        // URLSearchParams will encode both key and value properly
-        urlParams.append(key, `eq.${filterValue}`);
+        // Encode the column name, but keep eq. literal and encode only the value
+        queryParams.push(`${encodeURIComponent(key)}=eq.${filterValue}`);
       }
     }
   });
 
-  const queryString = urlParams.toString();
-  if (queryString) {
-    url += `?${queryString}`;
+  if (queryParams.length > 0) {
+    url += `?${queryParams.join('&')}`;
   }
   
   console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 300)}`);
