@@ -763,7 +763,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 {selectedYear}:
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-green-700">
                   {formatCurrencyValue(
                     isCurrentYear
                       ? overviewTotals.currentYearYTDTotals?.incassato ||
@@ -868,7 +868,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 {selectedYear}:
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-red-700">
                   {formatCurrencyValue(
                     isCurrentYear
                       ? overviewTotals.currentYearYTDTotals?.costiFissi ||
@@ -979,7 +979,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
                 {selectedYear}:
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-orange-700">
                   {formatCurrencyValue(
                     isCurrentYear
                       ? overviewTotals.currentYearYTDTotals?.costiVariabili ||
