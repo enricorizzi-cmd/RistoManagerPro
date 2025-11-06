@@ -2109,6 +2109,344 @@ app.post(
   }
 );
 
+// Chatbot API endpoint - Expert assistant for RistoManager Pro
+app.post('/api/chatbot', requireAuth, async (req, res) => {
+  try {
+    const { message, locationId } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Access denied to this location' });
+      }
+    }
+
+    // ===== RECUPERO DATI COMPLETI DAL DATABASE =====
+    
+    // 1. Get financial plan state
+    const stateResult = await dbGet(
+      locationId,
+      'SELECT * FROM financial_plan_state WHERE id = ?',
+      [`financial-plan-${locationId}`]
+    );
+
+    let financialPlanData = null;
+    let availableYears = [];
+    
+    if (stateResult) {
+      financialPlanData = typeof stateResult.data === 'string' 
+        ? JSON.parse(stateResult.data) 
+        : stateResult.data;
+      
+      availableYears = financialPlanData.availableYears || [];
+    }
+
+    // 2. Get ALL financial stats (not just last 12)
+    // Use correct column names from database (snake_case)
+    let allStats = [];
+    try {
+      allStats = await dbQuery(
+        locationId,
+        `SELECT 
+          month,
+          fatturato_totale as fatturatoTotale,
+          fatturato_imponibile as fatturatoImponibile,
+          fatturato_previsionale as fatturatoPrevisionale,
+          incassato,
+          incassato_previsionale as incassatoPrevisionale,
+          utile as utileCassa,
+          utile_previsionale as utilePrevisionale,
+          debiti_fornitore as debitiFornitore,
+          debiti_bancari as debitiBancari
+        FROM financial_stats 
+        WHERE location_id = ?
+        ORDER BY month DESC`
+      , [locationId]);
+    } catch (error) {
+      console.error('Error fetching financial stats:', error);
+      // Fallback: try with simpler query
+      try {
+        allStats = await dbQuery(
+          locationId,
+          `SELECT * FROM financial_stats WHERE location_id = ? ORDER BY month DESC`
+        , [locationId]);
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+        allStats = [];
+      }
+    }
+
+    // 3. Get data entries (manual entries)
+    let dataEntries = [];
+    try {
+      dataEntries = await dbQuery(
+        locationId,
+        `SELECT 
+          macro, category, detail, year, month_index, value, type
+        FROM data_entries 
+        WHERE location_id = ?
+        ORDER BY year DESC, month_index DESC`
+      , [locationId]);
+    } catch (error) {
+      console.error('Error fetching data entries:', error);
+      dataEntries = [];
+    }
+
+    // 4. Calculate current year stats
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    
+    // Filter stats by year - handle different month formats (Gen. 24, Gennaio 2024, etc.)
+    const currentYearStats = allStats.filter(s => {
+      if (!s.month) return false;
+      // Try format: "Gen. 24" or "Gen 24"
+      const match1 = s.month.match(/(\w+)\.?\s*(\d{2})/);
+      if (match1) {
+        const year = parseInt('20' + match1[2]);
+        return year === currentYear;
+      }
+      // Try format: "Gennaio 2024" or "January 2024"
+      const match2 = s.month.match(/\d{4}/);
+      if (match2) {
+        return parseInt(match2[0]) === currentYear;
+      }
+      return false;
+    });
+
+    // Calculate YTD values
+    let ytdFatturato = 0;
+    let ytdIncassato = 0;
+    let ytdUtile = 0;
+    
+    currentYearStats.forEach(stat => {
+      // Handle both camelCase and snake_case column names
+      ytdFatturato += (stat.fatturatoImponibile || stat.fatturato_imponibile || 0);
+      ytdIncassato += (stat.incassato || 0);
+      ytdUtile += (stat.utileCassa || stat.utile || 0);
+    });
+
+    // Get previous year for comparison
+    const prevYear = currentYear - 1;
+    const prevYearStats = allStats.filter(s => {
+      if (!s.month) return false;
+      // Try format: "Gen. 24" or "Gen 24"
+      const match1 = s.month.match(/(\w+)\.?\s*(\d{2})/);
+      if (match1) {
+        const year = parseInt('20' + match1[2]);
+        return year === prevYear;
+      }
+      // Try format: "Gennaio 2024" or "January 2024"
+      const match2 = s.month.match(/\d{4}/);
+      if (match2) {
+        return parseInt(match2[0]) === prevYear;
+      }
+      return false;
+    });
+
+    let prevYtdFatturato = 0;
+    let prevYtdIncassato = 0;
+    let prevYtdUtile = 0;
+    
+    prevYearStats.slice(0, currentMonth + 1).forEach(stat => {
+      // Handle both camelCase and snake_case column names
+      prevYtdFatturato += (stat.fatturatoImponibile || stat.fatturato_imponibile || 0);
+      prevYtdIncassato += (stat.incassato || 0);
+      prevYtdUtile += (stat.utileCassa || stat.utile || 0);
+    });
+
+    // Calculate growth rates
+    const fatturatoGrowth = prevYtdFatturato > 0 
+      ? ((ytdFatturato - prevYtdFatturato) / prevYtdFatturato * 100).toFixed(1)
+      : null;
+    const incassatoGrowth = prevYtdIncassato > 0
+      ? ((ytdIncassato - prevYtdIncassato) / prevYtdIncassato * 100).toFixed(1)
+      : null;
+    const utileGrowth = prevYtdUtile !== 0
+      ? ((ytdUtile - prevYtdUtile) / Math.abs(prevYtdUtile) * 100).toFixed(1)
+      : null;
+
+    // Get last 3 months detailed
+    const last3Months = allStats.slice(0, 3);
+
+    // Calculate average monthly values (only if we have data)
+    const monthsWithData = Math.max(1, currentYearStats.length); // Avoid division by zero
+    const avgMonthlyFatturato = currentYearStats.length > 0
+      ? (ytdFatturato / monthsWithData).toFixed(0)
+      : '0';
+    const avgMonthlyIncassato = currentYearStats.length > 0
+      ? (ytdIncassato / monthsWithData).toFixed(0)
+      : '0';
+
+    // Build comprehensive financial context
+    let financialContext = `\n\n===== DATI FINANZIARI REALI DAL DATABASE =====
+
+ANNO CORRENTE: ${currentYear}
+MESE CORRENTE: ${currentMonth + 1}
+
+ANALISI YTD (Year-To-Date) ${currentYear}:
+- Fatturato YTD: ${ytdFatturato.toLocaleString('it-IT')}€
+- Incassato YTD: ${ytdIncassato.toLocaleString('it-IT')}€
+- Utile YTD: ${ytdUtile.toLocaleString('it-IT')}€
+- Media mensile fatturato: ${avgMonthlyFatturato}€
+- Media mensile incassato: ${avgMonthlyIncassato}€
+
+CONFRONTO CON ANNO PRECEDENTE (${prevYear}):
+- Fatturato YTD ${prevYear}: ${prevYtdFatturato.toLocaleString('it-IT')}€
+- Incassato YTD ${prevYear}: ${prevYtdIncassato.toLocaleString('it-IT')}€
+- Utile YTD ${prevYear}: ${prevYtdUtile.toLocaleString('it-IT')}€
+
+CRESCITE YTD:
+- Fatturato: ${fatturatoGrowth ? fatturatoGrowth + '%' : 'N/A'}
+- Incassato: ${incassatoGrowth ? incassatoGrowth + '%' : 'N/A'}
+- Utile: ${utileGrowth ? utileGrowth + '%' : 'N/A'}
+
+ULTIMI 3 MESI DETTAGLIATI:`;
+
+    last3Months.forEach((stat) => {
+      financialContext += `\n\n${stat.month}:`;
+      financialContext += `\n  - Fatturato: ${(stat.fatturatoImponibile || stat.fatturato_imponibile || 0).toLocaleString('it-IT')}€`;
+      financialContext += `\n  - Incassato: ${(stat.incassato || 0).toLocaleString('it-IT')}€`;
+      financialContext += `\n  - Utile: ${(stat.utileCassa || stat.utile || 0).toLocaleString('it-IT')}€`;
+      // Note: saldo, crediti columns may not exist in all database schemas
+      if (stat.debitiFornitore || stat.debiti_fornitore) {
+        financialContext += `\n  - Debiti Fornitori: ${(stat.debitiFornitore || stat.debiti_fornitore || 0).toLocaleString('it-IT')}€`;
+      }
+      if (stat.debitiBancari || stat.debiti_bancari) {
+        financialContext += `\n  - Debiti Bancari: ${(stat.debitiBancari || stat.debiti_bancari || 0).toLocaleString('it-IT')}€`;
+      }
+    });
+
+    // Add data entries summary if available
+    if (dataEntries && dataEntries.length > 0) {
+      financialContext += `\n\nDATI MANUALI INSERITI: ${dataEntries.length} voci totali`;
+      const entriesByType = {};
+      dataEntries.forEach(entry => {
+        if (!entriesByType[entry.type]) entriesByType[entry.type] = 0;
+        const value = typeof entry.value === 'number' ? entry.value : parseFloat(entry.value) || 0;
+        entriesByType[entry.type] += value;
+      });
+      financialContext += `\n- Preventivo: ${(entriesByType.preventivo || 0).toLocaleString('it-IT')}€`;
+      financialContext += `\n- Consuntivo: ${(entriesByType.consuntivo || 0).toLocaleString('it-IT')}€`;
+    }
+
+    financialContext += `\n\nTOTALE MESI DISPONIBILI: ${allStats.length}`;
+    financialContext += `\nANNI DISPONIBILI: ${availableYears.length > 0 ? availableYears.join(', ') : 'Nessun dato'}`;
+
+    // System prompt - Expert in restaurant financial management
+    const systemPrompt = `Sei un ESPERTO DI GESTIONE FINANZIARIA AZIENDALE SPECIALIZZATO IN RISTORAZIONE.
+
+RUOLO E COMPETENZE:
+- Sei un consulente finanziario esperto con anni di esperienza nella gestione finanziaria di ristoranti
+- Conosci perfettamente i KPI del settore ristorazione e le best practices
+- Analizzi sempre i DATI CONCRETI dal database prima di rispondere
+- Fornisci analisi approfondite, non risposte generiche
+- Identifichi problemi, tendenze e opportunità basandoti sui dati reali
+
+METODO DI LAVORO:
+1. ANALIZZA SEMPRE I DATI REALI forniti nel contesto prima di rispondere
+2. CALCOLA indicatori specifici usando i dati del database
+3. CONFRONTA periodi diversi per identificare trend
+4. IDENTIFICA anomalie, problemi o opportunità nei dati
+5. FORNISCI raccomandazioni concrete e azionabili basate sui dati reali
+6. MAI rispondere in modo generico - sempre con dati concreti e analisi specifiche
+
+REGOLE AUREE PER I CALCOLI FINANZIARI (CRITICHE):
+1. INCASSATO = sempre il valore aggregato della tipologia 1 (macroId: 1)
+2. COSTI FISSI = sempre il valore aggregato della tipologia 2 (macroId: 2)
+3. COSTI VARIABILI = sempre il valore aggregato della tipologia 3 (macroId: 3)
+4. Utile = Tipologia1 - Tipologia2 - Tipologia3
+5. NON usare mai nomi di causali specifiche nei calcoli, SEMPRE usare i totali aggregati delle tipologie
+6. L'incidenza progressiva misura la percentuale del campo sul valore totale della tipologia INCASSATO
+
+KPI SETTORE RISTORAZIONE (RIFERIMENTI):
+- Incidenza costi fissi su incassato: 30-40% (buono), >45% (critico)
+- Incidenza costi variabili su incassato: 25-35% (buono), >40% (critico)
+- Incidenza utile su incassato: 15-25% (eccellente), 10-15% (buono), <10% (da migliorare)
+- Margine operativo: >15% (eccellente), 10-15% (buono), <10% (critico)
+- Giorni di credito clienti: <30 giorni (buono), >60 giorni (critico)
+- Giorni di debito fornitori: 30-60 giorni (normale), >90 giorni (critico)
+
+TIPI DI ANALISI DA FORNIRE:
+1. ANALISI PERFORMANCE: confronta dati reali con benchmark di settore
+2. ANALISI TREND: identifica tendenze nei dati (crescita, declino, stagionalità)
+3. ANALISI COMPARATIVA: confronta periodi diversi (mese vs mese, anno vs anno)
+4. ANALISI DIAGNOSTICA: identifica problemi specifici nei dati (es: utile negativo, crediti elevati)
+5. ANALISI PROGNOSTICA: proietta tendenze future basandoti sui dati storici
+6. RACCOMANDAZIONI: fornisci azioni concrete basate sui dati analizzati
+
+FORMATO RISPOSTE:
+- Inizia sempre con un'analisi concreta dei dati forniti
+- Cita numeri specifici dal database
+- Calcola indicatori quando necessario
+- Identifica problemi o opportunità specifiche
+- Fornisci raccomandazioni azionabili
+- Usa un linguaggio professionale ma chiaro
+
+RISPONDI SEMPRE IN ITALIANO. Sii un vero esperto che analizza dati concreti, non un assistente generico.
+${financialContext}`;
+
+    // Call OpenAI API
+    const openaiKey = process.env.OPENAI_KEY;
+    if (!openaiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    // Use native fetch (available in Node.js 18+)
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+        temperature: 0.3, // Lower temperature for more focused, data-driven responses
+        max_tokens: 2000, // Increased for detailed analysis
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('OpenAI API error:', errorData);
+      return res.status(500).json({ 
+        error: 'Failed to get response from AI',
+        details: process.env.NODE_ENV === 'development' ? errorData : undefined
+      });
+    }
+
+    const data = await response.json();
+    const aiResponse = data.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
+
+    res.json({
+      success: true,
+      response: aiResponse,
+    });
+  } catch (error) {
+    console.error('Chatbot error:', error);
+    res.status(500).json({ 
+      error: 'Failed to process chatbot request',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // Serve React app for all non-API routes (SPA routing)
 if (fs.existsSync(distPath)) {
   app.get('*', (req, res) => {

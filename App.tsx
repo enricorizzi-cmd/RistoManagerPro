@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import MobileNav from './components/MobileNav';
 import NotificationContainer from './components/NotificationContainer';
+import Chatbot from './components/Chatbot';
 import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './contexts/AuthContext';
 
@@ -83,6 +84,7 @@ const App: React.FC = () => {
       </div>
       <MobileNav currentPage={currentPage} />
       <NotificationContainer />
+      <Chatbot />
     </div>
   );
 };
