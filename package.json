@@ -8,7 +8,7 @@
     "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/start-clean.ps1",
     "dev:frontend": "vite",
     "build": "vite build",
-    "build:production": "npm ci && cd server && npm ci && cd .. && npm run build",
+    "build:production": "npm ci --include=dev && cd server && npm ci && cd .. && npm run build",
     "preview": "vite preview",
     "start": "npm --prefix server start",
     "start:backend": "npm --prefix server start",

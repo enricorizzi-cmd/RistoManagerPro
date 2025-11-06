@@ -6,9 +6,11 @@ const API_BASE_URL = API_URL;
 // Helper to check if error is a connection error
 function isConnectionError(error: unknown): boolean {
   if (error instanceof TypeError) {
-    return error.message.includes('Failed to fetch') || 
-           error.message.includes('NetworkError') ||
-           error.message.includes('ERR_CONNECTION_REFUSED');
+    return (
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError') ||
+      error.message.includes('ERR_CONNECTION_REFUSED')
+    );
   }
   return false;
 }

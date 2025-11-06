@@ -104,9 +104,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         return false;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error && error.message.includes('Failed to fetch')
-        ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
-        : 'Errore di rete durante il login';
+      const errorMessage =
+        error instanceof Error && error.message.includes('Failed to fetch')
+          ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
+          : 'Errore di rete durante il login';
       setError(errorMessage);
       console.error('Login error:', error);
       return false;
@@ -145,9 +146,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         return false;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error && error.message.includes('Failed to fetch')
-        ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
-        : 'Errore di rete durante la registrazione';
+      const errorMessage =
+        error instanceof Error && error.message.includes('Failed to fetch')
+          ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
+          : 'Errore di rete durante la registrazione';
       setError(errorMessage);
       console.error('Registration error:', error);
       return false;

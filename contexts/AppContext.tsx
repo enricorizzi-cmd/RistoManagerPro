@@ -73,15 +73,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
         setError(null);
 
         // Get user's accessible locations
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:4000');
-        const response = await fetch(
-          `${apiBaseUrl}/api/user/locations`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const apiBaseUrl =
+          import.meta.env.VITE_API_BASE_URL ||
+          (import.meta.env.PROD
+            ? window.location.origin
+            : 'http://localhost:4000');
+        const response = await fetch(`${apiBaseUrl}/api/user/locations`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error('Failed to fetch user locations');
@@ -109,7 +110,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
     newSettings: RestaurantLocation
   ) => {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:4000');
+      const apiBaseUrl =
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.PROD
+          ? window.location.origin
+          : 'http://localhost:4000');
       const response = await fetch(
         `${apiBaseUrl}/api/locations/${locationId}`,
         {

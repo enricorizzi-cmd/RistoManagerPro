@@ -52,14 +52,11 @@ const saveBusinessPlanDraft = async (
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/business-plan-drafts`,
-      {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ targetYear, name, data, locationId }),
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/api/business-plan-drafts`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ targetYear, name, data, locationId }),
+    });
     if (!response.ok) throw new Error('Failed to save draft');
   } catch (error) {
     console.error('Failed to save business plan draft to database:', error);

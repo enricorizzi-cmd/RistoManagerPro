@@ -4,7 +4,8 @@ const fs = require('fs');
 
 // Supabase connection
 const SUPABASE_URL = 'https://yuvvqdtyxmdhdamhtszs.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dnZxZHR5eG1kaGRhbWh0c3pzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzgwMjIsImV4cCI6MjA3Nzk1NDAyMn0.BW0F7tlFJfccZ7DCCtcGR_0jU79vDBaIuYtyQeTzo5E';
+const SUPABASE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dnZxZHR5eG1kaGRhbWh0c3pzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzgwMjIsImV4cCI6MjA3Nzk1NDAyMn0.BW0F7tlFJfccZ7DCCtcGR_0jU79vDBaIuYtyQeTzo5E';
 
 const DATABASE_DIR = path.join(__dirname, 'data');
 
@@ -14,11 +15,11 @@ async function supabaseUpsert(table, data) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Prefer': 'resolution=merge-duplicates'
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      Prefer: 'resolution=merge-duplicates',
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
 
   if (!response.ok) {
@@ -43,7 +44,7 @@ function querySQLite(db, query) {
 async function migrateMasterDB() {
   console.log('📦 Migrazione dati da master.db...');
   const masterDbPath = path.join(DATABASE_DIR, 'master.db');
-  
+
   if (!fs.existsSync(masterDbPath)) {
     console.log('⚠️  master.db non trovato, salto...');
     return;
@@ -65,7 +66,7 @@ async function migrateMasterDB() {
           close_time: loc.close_time,
           status: loc.status || 'active',
           created_at: loc.created_at || new Date().toISOString(),
-          updated_at: loc.updated_at || new Date().toISOString()
+          updated_at: loc.updated_at || new Date().toISOString(),
         });
       }
       console.log(`    ✓ Migrate ${locations.length} locations`);
@@ -87,7 +88,7 @@ async function migrateMasterDB() {
           role: user.role || 'user',
           is_active: user.is_active !== undefined ? user.is_active : 1,
           created_at: user.created_at || new Date().toISOString(),
-          updated_at: user.updated_at || new Date().toISOString()
+          updated_at: user.updated_at || new Date().toISOString(),
         });
       }
       console.log(`    ✓ Migrate ${users.length} users`);
@@ -105,7 +106,7 @@ async function migrateMasterDB() {
           user_id: session.user_id,
           token: session.token,
           created_at: session.created_at || new Date().toISOString(),
-          expires_at: session.expires_at || null
+          expires_at: session.expires_at || null,
         });
       }
       console.log(`    ✓ Migrate ${sessions.length} sessions`);
@@ -115,14 +116,17 @@ async function migrateMasterDB() {
 
     // Migra user_location_permissions
     console.log('  → Migrazione user_location_permissions...');
-    const permissions = await querySQLite(db, 'SELECT * FROM user_location_permissions');
+    const permissions = await querySQLite(
+      db,
+      'SELECT * FROM user_location_permissions'
+    );
     if (permissions.length > 0) {
       for (const perm of permissions) {
         await supabaseUpsert('user_location_permissions', {
           id: perm.id,
           user_id: perm.user_id,
           location_id: perm.location_id,
-          created_at: perm.created_at || new Date().toISOString()
+          created_at: perm.created_at || new Date().toISOString(),
         });
       }
       console.log(`    ✓ Migrate ${permissions.length} permissions`);
@@ -141,7 +145,7 @@ async function migrateMasterDB() {
           tab_name: tab.tab_name,
           is_enabled: tab.is_enabled !== undefined ? tab.is_enabled : 1,
           created_at: tab.created_at || new Date().toISOString(),
-          updated_at: tab.updated_at || new Date().toISOString()
+          updated_at: tab.updated_at || new Date().toISOString(),
         });
       }
       console.log(`    ✓ Migrate ${tabs.length} tabs`);
@@ -160,8 +164,10 @@ async function migrateMasterDB() {
 
 // Migra dati da un file ristomanager_*.db
 async function migrateLocationDB(dbPath, locationId) {
-  console.log(`📦 Migrazione dati da ${path.basename(dbPath)} (location: ${locationId})...`);
-  
+  console.log(
+    `📦 Migrazione dati da ${path.basename(dbPath)} (location: ${locationId})...`
+  );
+
   if (!fs.existsSync(dbPath)) {
     console.log(`⚠️  ${path.basename(dbPath)} non trovato, salto...`);
     return;
@@ -173,25 +179,35 @@ async function migrateLocationDB(dbPath, locationId) {
     // Migra financial_plan_state
     console.log(`  → Migrazione financial_plan_state...`);
     try {
-      const financialStates = await querySQLite(db, 'SELECT * FROM financial_plan_state');
+      const financialStates = await querySQLite(
+        db,
+        'SELECT * FROM financial_plan_state'
+      );
       if (financialStates.length > 0) {
         for (const state of financialStates) {
           let data;
           try {
-            data = typeof state.data === 'string' ? JSON.parse(state.data) : state.data;
+            data =
+              typeof state.data === 'string'
+                ? JSON.parse(state.data)
+                : state.data;
           } catch (e) {
-            console.warn(`    ⚠️  Errore parsing JSON per financial_plan_state ${state.id}, salto...`);
+            console.warn(
+              `    ⚠️  Errore parsing JSON per financial_plan_state ${state.id}, salto...`
+            );
             continue;
           }
-          
+
           await supabaseUpsert('financial_plan_state', {
             id: state.id,
             location_id: locationId,
             data: data,
-            updated_at: state.updated_at || new Date().toISOString()
+            updated_at: state.updated_at || new Date().toISOString(),
           });
         }
-        console.log(`    ✓ Migrate ${financialStates.length} financial_plan_states`);
+        console.log(
+          `    ✓ Migrate ${financialStates.length} financial_plan_states`
+        );
       } else {
         console.log('    ℹ️  Nessuno stato da migrare');
       }
@@ -216,7 +232,7 @@ async function migrateLocationDB(dbPath, locationId) {
             causale: entry.causale,
             valore: entry.valore,
             created_at: entry.created_at || new Date().toISOString(),
-            updated_at: entry.updated_at || new Date().toISOString()
+            updated_at: entry.updated_at || new Date().toISOString(),
           });
         }
         console.log(`    ✓ Migrate ${dataEntries.length} data_entries`);
@@ -230,17 +246,25 @@ async function migrateLocationDB(dbPath, locationId) {
     // Migra business_plan_drafts
     console.log(`  → Migrazione business_plan_drafts...`);
     try {
-      const drafts = await querySQLite(db, 'SELECT * FROM business_plan_drafts');
+      const drafts = await querySQLite(
+        db,
+        'SELECT * FROM business_plan_drafts'
+      );
       if (drafts.length > 0) {
         for (const draft of drafts) {
           let data;
           try {
-            data = typeof draft.data === 'string' ? JSON.parse(draft.data) : draft.data;
+            data =
+              typeof draft.data === 'string'
+                ? JSON.parse(draft.data)
+                : draft.data;
           } catch (e) {
-            console.warn(`    ⚠️  Errore parsing JSON per business_plan_draft ${draft.id}, salto...`);
+            console.warn(
+              `    ⚠️  Errore parsing JSON per business_plan_draft ${draft.id}, salto...`
+            );
             continue;
           }
-          
+
           await supabaseUpsert('business_plan_drafts', {
             id: draft.id,
             location_id: locationId,
@@ -248,7 +272,7 @@ async function migrateLocationDB(dbPath, locationId) {
             name: draft.name || 'Bozza',
             data: data,
             created_at: draft.created_at || new Date().toISOString(),
-            updated_at: draft.updated_at || new Date().toISOString()
+            updated_at: draft.updated_at || new Date().toISOString(),
           });
         }
         console.log(`    ✓ Migrate ${drafts.length} business_plan_drafts`);
@@ -279,7 +303,7 @@ async function migrateLocationDB(dbPath, locationId) {
             debiti_fornitore: stat.debiti_fornitore || null,
             debiti_bancari: stat.debiti_bancari || null,
             created_at: stat.created_at || new Date().toISOString(),
-            updated_at: stat.updated_at || new Date().toISOString()
+            updated_at: stat.updated_at || new Date().toISOString(),
           });
         }
         console.log(`    ✓ Migrate ${stats.length} financial_stats`);
@@ -292,7 +316,10 @@ async function migrateLocationDB(dbPath, locationId) {
 
     console.log(`✅ Migrazione ${path.basename(dbPath)} completata!\n`);
   } catch (error) {
-    console.error(`❌ Errore durante migrazione ${path.basename(dbPath)}:`, error.message);
+    console.error(
+      `❌ Errore durante migrazione ${path.basename(dbPath)}:`,
+      error.message
+    );
     throw error;
   } finally {
     db.close();
@@ -308,18 +335,21 @@ async function main() {
     await migrateMasterDB();
 
     // Trova tutti i file ristomanager_*.db
-    const files = fs.readdirSync(DATABASE_DIR)
+    const files = fs
+      .readdirSync(DATABASE_DIR)
       .filter(f => f.startsWith('ristomanager_') && f.endsWith('.db'))
       .filter(f => f !== 'ristomanager_all.db'); // Escludi file aggregati
 
-    console.log(`📁 Trovati ${files.length} file database location da migrare\n`);
+    console.log(
+      `📁 Trovati ${files.length} file database location da migrare\n`
+    );
 
     // Migra ogni file location
     for (const file of files) {
       // Estrai location_id dal nome file (ristomanager_<location_id>.db)
       const locationId = file.replace('ristomanager_', '').replace('.db', '');
       const dbPath = path.join(DATABASE_DIR, file);
-      
+
       await migrateLocationDB(dbPath, locationId);
     }
 
@@ -332,4 +362,3 @@ async function main() {
 
 // Esegui migrazione
 main();
-
