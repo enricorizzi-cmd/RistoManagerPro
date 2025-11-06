@@ -5,6 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 export interface User {
   id: string;
@@ -29,9 +30,9 @@ interface AuthContextType {
   error: string | null;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = 'http://localhost:4000';
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -105,7 +106,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         return false;
       }
     } catch (error) {
-      setError('Network error during login');
+      const errorMessage = error instanceof Error && error.message.includes('Failed to fetch')
+        ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
+        : 'Errore di rete durante il login';
+      setError(errorMessage);
+      console.error('Login error:', error);
       return false;
     } finally {
       setLoading(false);
@@ -142,7 +147,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         return false;
       }
     } catch (error) {
-      setError('Network error during registration');
+      const errorMessage = error instanceof Error && error.message.includes('Failed to fetch')
+        ? 'Il server backend non è disponibile. Assicurati che il server sia avviato sulla porta 4000.'
+        : 'Errore di rete durante la registrazione';
+      setError(errorMessage);
+      console.error('Registration error:', error);
       return false;
     } finally {
       setLoading(false);

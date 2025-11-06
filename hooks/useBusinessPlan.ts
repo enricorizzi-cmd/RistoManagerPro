@@ -2,6 +2,7 @@
 // Manages business plan form state and calculations
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { API_BASE_URL } from '../config/api';
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 import { parseNumberInput } from '../utils/financialPlanUtils';
 import {
@@ -23,7 +24,7 @@ const fetchBusinessPlanDrafts = async (locationId: string): Promise<any[]> => {
     }
 
     const response = await fetch(
-      `http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`,
+      `${API_BASE_URL}/api/business-plan-drafts?locationId=${locationId}`,
       {
         headers,
       }
@@ -52,7 +53,7 @@ const saveBusinessPlanDraft = async (
     }
 
     const response = await fetch(
-      'http://localhost:4000/api/business-plan-drafts',
+      `${API_BASE_URL}/api/business-plan-drafts`,
       {
         method: 'PUT',
         headers,
@@ -78,7 +79,7 @@ const deleteBusinessPlanDraft = async (
     }
 
     const response = await fetch(
-      `http://localhost:4000/api/business-plan-drafts/${draftId}?locationId=${locationId}`,
+      `${API_BASE_URL}/api/business-plan-drafts/${draftId}?locationId=${locationId}`,
       {
         method: 'DELETE',
         headers,

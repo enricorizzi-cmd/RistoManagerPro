@@ -1,6 +1,7 @@
 // Hook for loading data entries sums for Piano Mensile
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 interface DataEntrySum {
   tipologia_causale: string;
@@ -29,7 +30,7 @@ export const useDataEntriesSums = (locationId?: string) => {
 
       try {
         const response = await fetch(
-          `http://localhost:4000/api/data-entries/${locationId}/sums`,
+          `${API_BASE_URL}/api/data-entries/${locationId}/sums`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

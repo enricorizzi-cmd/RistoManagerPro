@@ -1,5 +1,6 @@
 ﻿/// <reference types='vite/client' />
 import type { FinancialCausaleGroup } from '../data/financialPlanData';
+import { API_BASE_URL } from '../config/api';
 
 type ManualLogSnapshot = {
   id: string;
@@ -19,9 +20,6 @@ type MonthlyMetricsSnapshot = {
   month: number;
   values: Record<string, number>;
 };
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 export type FinancialPlanStatePayload = {
   preventivoOverrides: Record<

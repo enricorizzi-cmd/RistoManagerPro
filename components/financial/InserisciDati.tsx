@@ -7,6 +7,7 @@ import { useAppContext } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFinancialPlanData } from '../../hooks/useFinancialPlanData';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
+import { API_BASE_URL } from '../../config/api';
 
 interface DataEntry {
   id: string;
@@ -173,7 +174,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
       try {
         const response = await fetch(
-          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          `${API_BASE_URL}/api/data-entries/${currentLocation.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -360,7 +361,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
         // Reload entries
         const loadResponse = await fetch(
-          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          `${API_BASE_URL}/api/data-entries/${currentLocation.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -401,7 +402,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`,
+        `${API_BASE_URL}/api/data-entries/${currentLocation.id}/${entryId}`,
         {
           method: 'DELETE',
           headers: {
@@ -415,7 +416,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
         // Reload entries
         const loadResponse = await fetch(
-          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          `${API_BASE_URL}/api/data-entries/${currentLocation.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -466,7 +467,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`,
+        `${API_BASE_URL}/api/data-entries/${currentLocation.id}/${entryId}`,
         {
           method: 'PUT',
           headers: {
@@ -494,7 +495,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
         // Reload entries
         const loadResponse = await fetch(
-          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          `${API_BASE_URL}/api/data-entries/${currentLocation.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 interface Location {
   id: string;
@@ -25,7 +26,7 @@ export const useFinancialPlanLocations = () => {
         setError(null);
 
         const response = await fetch(
-          'http://localhost:4000/api/user/locations/financial-plan',
+          `${API_BASE_URL}/api/user/locations/financial-plan`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
