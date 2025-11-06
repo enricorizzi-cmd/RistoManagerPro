@@ -51,17 +51,25 @@ async function supabaseCall(method, table, options = {}) {
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       // Check if value already has an operator prefix
-      const hasOperator = typeof value === 'string' && 
-        (value.startsWith('eq.') || value.startsWith('neq.') || 
-         value.startsWith('gt.') || value.startsWith('gte.') ||
-         value.startsWith('lt.') || value.startsWith('lte.') ||
-         value.startsWith('like.') || value.startsWith('ilike.') ||
-         value.startsWith('in.') || value.startsWith('is.'));
-      
+      const hasOperator =
+        typeof value === 'string' &&
+        (value.startsWith('eq.') ||
+          value.startsWith('neq.') ||
+          value.startsWith('gt.') ||
+          value.startsWith('gte.') ||
+          value.startsWith('lt.') ||
+          value.startsWith('lte.') ||
+          value.startsWith('like.') ||
+          value.startsWith('ilike.') ||
+          value.startsWith('in.') ||
+          value.startsWith('is.'));
+
       if (hasOperator) {
         // Value already has operator, use as-is but encode properly
         // Encode both key and value, but keep operator visible
-        queryParams.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+        queryParams.push(
+          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+        );
       } else {
         // ALWAYS use 'eq.' operator for values that don't have one
         // This is critical - without eq., PostgREST won't treat it as a filter!
@@ -88,7 +96,9 @@ async function supabaseCall(method, table, options = {}) {
         // CRITICAL: Never encode the 'eq.' part, only encode the value
         const param = `${encodeURIComponent(key)}=eq.${filterValue}`;
         queryParams.push(param);
-        console.log(`[SUPABASE] Filter added: ${key}=eq.${typeof value === 'string' ? value.substring(0, 30) + '...' : value}`);
+        console.log(
+          `[SUPABASE] Filter added: ${key}=eq.${typeof value === 'string' ? value.substring(0, 30) + '...' : value}`
+        );
       }
     }
   });
@@ -96,7 +106,7 @@ async function supabaseCall(method, table, options = {}) {
   if (queryParams.length > 0) {
     url += `?${queryParams.join('&')}`;
   }
-  
+
   console.log(`[SUPABASE] Query params count: ${queryParams.length}`);
   console.log(`[SUPABASE] Query params:`, queryParams.slice(0, 5)); // Show first 5 params
   console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 400)}`);
@@ -215,45 +225,45 @@ function parseWhereClause(whereClause, params) {
 const masterDb = {
   async query(sql, params = []) {
     // Parse SELECT queries
-      const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
-      if (selectMatch) {
-        // Remove spaces after commas in select clause for Supabase
-        const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
-        const table = selectMatch[2].trim();
+    const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
+    if (selectMatch) {
+      // Remove spaces after commas in select clause for Supabase
+      const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
+      const table = selectMatch[2].trim();
 
-        const whereMatch = sql.match(
-          /WHERE\s+(.+?)(?:\s+ORDER|\s+GROUP|\s+LIMIT|$)/i
-        );
-        const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
+      const whereMatch = sql.match(
+        /WHERE\s+(.+?)(?:\s+ORDER|\s+GROUP|\s+LIMIT|$)/i
+      );
+      const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
 
-        const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
-        const order = orderMatch
-          ? orderMatch[1]
-              .trim()
-              .replace(/\s+DESC/i, '.desc')
-              .replace(/\s+ASC/i, '.asc')
-              .replace(/\s*,\s*/g, ',') // Remove spaces after commas in order by
-          : undefined;
+      const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+      const order = orderMatch
+        ? orderMatch[1]
+            .trim()
+            .replace(/\s+DESC/i, '.desc')
+            .replace(/\s+ASC/i, '.asc')
+            .replace(/\s*,\s*/g, ',') // Remove spaces after commas in order by
+        : undefined;
 
-        // Handle COUNT queries
-        if (select.includes('COUNT')) {
-          const result = await supabaseCall('GET', table, {
-            filters,
-            limit: 1000,
-          });
-          const count = Array.isArray(result) ? result.length : result ? 1 : 0;
-          return [{ count }];
-        }
-
-        // Handle GROUP_CONCAT (convert to array aggregation)
-        if (select.includes('GROUP_CONCAT')) {
-          // For now, return all and group in JS
-          const result = await supabaseCall('GET', table, { filters, order });
-          return result;
-        }
-
-        return await supabaseCall('GET', table, { select, filters, order });
+      // Handle COUNT queries
+      if (select.includes('COUNT')) {
+        const result = await supabaseCall('GET', table, {
+          filters,
+          limit: 1000,
+        });
+        const count = Array.isArray(result) ? result.length : result ? 1 : 0;
+        return [{ count }];
       }
+
+      // Handle GROUP_CONCAT (convert to array aggregation)
+      if (select.includes('GROUP_CONCAT')) {
+        // For now, return all and group in JS
+        const result = await supabaseCall('GET', table, { filters, order });
+        return result;
+      }
+
+      return await supabaseCall('GET', table, { select, filters, order });
+    }
 
     throw new Error(`Unsupported SQL query: ${sql}`);
   },
@@ -268,7 +278,10 @@ const masterDb = {
       const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
       const filters = parseWhereClause(whereMatch ? whereMatch[1] : '', params);
 
-      console.log(`[SUPABASE] GET query: table=${table}, select=${select}, filters=`, filters);
+      console.log(
+        `[SUPABASE] GET query: table=${table}, select=${select}, filters=`,
+        filters
+      );
 
       return await supabaseCall('GET', table, {
         select,
@@ -348,9 +361,160 @@ function getLocationDb(locationId) {
     async query(sql, params = []) {
       const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
       if (selectMatch) {
-        // Remove spaces after commas in select clause for Supabase
-        const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
+        const select = selectMatch[1].trim();
         const table = selectMatch[2].trim();
+
+        // Check for GROUP BY queries (aggregation queries)
+        const groupByMatch = sql.match(/GROUP\s+BY\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
+        if (groupByMatch) {
+          console.log('[SUPABASE] GROUP BY query detected:', sql.substring(0, 200));
+          // For GROUP BY queries, we need to fetch all data and aggregate in JS
+          // because Supabase PostgREST doesn't support GROUP BY directly
+          const groupByColumns = groupByMatch[1]
+            .trim()
+            .split(',')
+            .map(col => col.trim());
+          
+          console.log('[SUPABASE] GROUP BY columns:', groupByColumns);
+          
+          // Extract aggregation functions (SUM, COUNT, AVG, etc.)
+          const hasSum = select.includes('SUM(');
+          const hasCount = select.includes('COUNT(');
+          const hasAvg = select.includes('AVG(');
+          
+          // Get all columns needed (group by columns + aggregated columns)
+          const allColumns = [...groupByColumns];
+          if (hasSum) {
+            const sumMatch = select.match(/SUM\((\w+)\)/i);
+            if (sumMatch) {
+              allColumns.push(sumMatch[1]);
+              console.log('[SUPABASE] SUM column:', sumMatch[1]);
+            }
+          }
+          
+          // Build select clause for fetching raw data
+          const rawSelect = allColumns.join(',');
+          console.log('[SUPABASE] Raw select for GROUP BY:', rawSelect);
+          
+          const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i);
+          const filters = { location_id: locationId };
+          Object.assign(
+            filters,
+            parseWhereClause(whereMatch ? whereMatch[1] : '', params)
+          );
+
+          console.log('[SUPABASE] Filters for GROUP BY:', filters);
+
+          // Fetch all matching rows
+          const allRows = await supabaseCall('GET', table, {
+            select: rawSelect.replace(/\s*,\s*/g, ','),
+            filters,
+            limit: 10000, // Large limit for aggregation
+          });
+          
+          console.log('[SUPABASE] Fetched rows for aggregation:', allRows.length);
+
+          if (!Array.isArray(allRows)) {
+            console.error('[SUPABASE] Expected array but got:', typeof allRows);
+            throw new Error('Failed to fetch data for aggregation');
+          }
+
+          // Perform aggregation in JavaScript
+          const grouped = new Map();
+          
+          allRows.forEach(row => {
+            // Create key from group by columns
+            const key = groupByColumns.map(col => row[col]).join('|');
+            
+            if (!grouped.has(key)) {
+              grouped.set(key, {});
+              groupByColumns.forEach(col => {
+                grouped.get(key)[col] = row[col];
+              });
+              if (hasSum) {
+                const sumCol = select.match(/SUM\((\w+)\)\s+as\s+(\w+)/i);
+                if (sumCol) {
+                  grouped.get(key)[sumCol[2]] = 0;
+                } else {
+                  const sumColSimple = select.match(/SUM\((\w+)\)/i);
+                  if (sumColSimple) {
+                    grouped.get(key)[`sum_${sumColSimple[1]}`] = 0;
+                  }
+                }
+              }
+            }
+            
+            // Aggregate values
+            if (hasSum) {
+              const sumMatch = select.match(/SUM\((\w+)\)\s+as\s+(\w+)/i);
+              if (sumMatch) {
+                const colName = sumMatch[1];
+                const alias = sumMatch[2];
+                grouped.get(key)[alias] = (grouped.get(key)[alias] || 0) + (parseFloat(row[colName]) || 0);
+              } else {
+                const sumMatchSimple = select.match(/SUM\((\w+)\)/i);
+                if (sumMatchSimple) {
+                  const colName = sumMatchSimple[1];
+                  const alias = `sum_${colName}`;
+                  grouped.get(key)[alias] = (grouped.get(key)[alias] || 0) + (parseFloat(row[colName]) || 0);
+                }
+              }
+            }
+          });
+
+          let result = Array.from(grouped.values());
+          
+          // Apply ORDER BY if present
+          const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+          if (orderMatch) {
+            const orderClause = orderMatch[1].trim();
+            const orderParts = orderClause.split(',').map(p => p.trim());
+            result.sort((a, b) => {
+              for (const part of orderParts) {
+                const desc = part.toUpperCase().includes('DESC');
+                const col = part.replace(/\s+(ASC|DESC)/i, '').trim();
+                const aVal = a[col];
+                const bVal = b[col];
+                if (aVal !== bVal) {
+                  const comparison = aVal < bVal ? -1 : 1;
+                  return desc ? -comparison : comparison;
+                }
+              }
+              return 0;
+            });
+          }
+          
+          // Map result to match expected column names
+          const finalResult = result.map(row => {
+            const mapped = {};
+            groupByColumns.forEach(col => {
+              mapped[col] = row[col];
+            });
+            
+            // Map SUM results
+            if (hasSum) {
+              const sumMatch = select.match(/SUM\((\w+)\)\s+as\s+(\w+)/i);
+              if (sumMatch) {
+                mapped[sumMatch[2]] = row[sumMatch[2]];
+              } else {
+                const sumMatchSimple = select.match(/SUM\((\w+)\)/i);
+                if (sumMatchSimple) {
+                  const colName = sumMatchSimple[1];
+                  mapped[`total_value`] = row[`sum_${colName}`];
+                }
+              }
+            }
+            
+            return mapped;
+          });
+          
+          console.log('[SUPABASE] GROUP BY result count:', finalResult.length);
+          return finalResult;
+        }
+
+        // Regular SELECT query without GROUP BY
+        // Remove spaces after commas in select clause for Supabase
+        const cleanSelect = select.replace(/\s*,\s*/g, ',');
 
         const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
         const filters = { location_id: locationId };
@@ -360,15 +524,31 @@ function getLocationDb(locationId) {
         );
 
         const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
-        const order = orderMatch
-          ? orderMatch[1]
-              .trim()
-              .replace(/\s+DESC/i, '.desc')
-              .replace(/\s+ASC/i, '.asc')
-              .replace(/\s*,\s*/g, ',') // Remove spaces after commas
-          : 'created_at.desc';
+        let order;
+        if (orderMatch) {
+          // Parse ORDER BY clause: handle multiple columns with optional ASC/DESC
+          // Format: "column1, column2 DESC" -> "column1.asc,column2.desc"
+          const orderClause = orderMatch[1].trim();
+          order = orderClause
+            .split(',')
+            .map(col => {
+              const trimmed = col.trim();
+              const upper = trimmed.toUpperCase();
+              if (upper.includes(' DESC')) {
+                return trimmed.replace(/\s+DESC/i, '.desc').replace(/\s+ASC/i, '');
+              } else if (upper.includes(' ASC')) {
+                return trimmed.replace(/\s+ASC/i, '.asc').replace(/\s+DESC/i, '');
+              } else {
+                // Default to ASC if not specified
+                return trimmed + '.asc';
+              }
+            })
+            .join(','); // Join without spaces
+        } else {
+          order = 'created_at.desc';
+        }
 
-        return await supabaseCall('GET', table, { select, filters, order });
+        return await supabaseCall('GET', table, { select: cleanSelect, filters, order });
       }
 
       throw new Error(`Unsupported SQL query: ${sql}`);
