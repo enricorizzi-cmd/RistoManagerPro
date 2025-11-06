@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { mockModulesPlugin } from './src/test/mocks/vite-plugin-mock-modules';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), mockModulesPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
