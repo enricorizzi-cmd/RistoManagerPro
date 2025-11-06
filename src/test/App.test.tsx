@@ -10,6 +10,7 @@ describe('App', () => {
         <App />
       </AppProvider>
     );
-    expect(screen.getByText('RistoManager')).toBeInTheDocument();
+    const element = screen.queryByText('RistoManager');
+    expect(element).toBeTruthy();
   });
 });

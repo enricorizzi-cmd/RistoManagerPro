@@ -2,9 +2,10 @@
 // Manages business plan form and calculations
 
 import React from 'react';
-import { formatCurrencyValue, parseNumberInput } from '../../utils/financialPlanUtils';
+import { formatCurrencyValue, parseNumberInput, buildMonthKey } from '../../utils/financialPlanUtils';
 import { useAppContext } from '../../contexts/AppContext';
 import { calculateFatturatoTotale } from '../../services/financialPlanApi';
+import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../../utils/financialCalculations';
 import type { BusinessPlanFormState, BusinessPlanMessage } from '../../utils/businessPlanLogic';
 
 interface BusinessPlanFormProps {
@@ -51,11 +52,11 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   availableYears,
   businessPlanDrafts,
   yearMetrics: _yearMetrics,
-  causaliCatalog: _causaliCatalog,
-  planYear: _planYear,
-  getPlanConsuntivoValue: _getPlanConsuntivoValue,
+  causaliCatalog,
+  planYear,
+  getPlanConsuntivoValue,
   financialStatsRows: _financialStatsRows,
-  statsOverrides: _statsOverrides,
+  statsOverrides,
   draftName,
   setDraftName,
   onFieldChange,

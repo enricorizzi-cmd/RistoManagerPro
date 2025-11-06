@@ -38,13 +38,15 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       const overrideKey = `${data.monthKey || ''}|${field}`;
       return statsOverrides[overrideKey] ?? data[field];
     };
-    const rows: Array<{
+    
+    type StatsRow = {
       monthKey: string;
       year: number;
-      monthIndex: number;
+      monthIndex?: number;
       corrispettivi: number | null;
       fatturatoImponibile: number | null;
       fatturatoTotale: number | null;
+      fatturatoPrevisionale?: number | null;
       incassato: number | null;
       incassatoPrevisionale: number | null;
       saldoConto: number | null;
@@ -56,7 +58,11 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       debitiBancari: number | null;
       utile: number | null;
       utilePrevisionale: number | null;
-    }> = [];
+      isSubtotal?: boolean;
+      isPeriodTotal?: boolean;
+    };
+    
+    const rows: StatsRow[] = [];
 
     const statsMap = new Map<
       string,
@@ -157,8 +163,8 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     });
 
     // Calculate subtotals by year and total for period
-    const subtotalsByYear = new Map<number, any>();
-    let periodTotal: any = null;
+    const subtotalsByYear = new Map<number, StatsRow>();
+    let periodTotal: StatsRow | null = null;
     
     // Initialize subtotals
     availableYears.forEach(year => {
