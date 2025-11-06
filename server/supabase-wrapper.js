@@ -359,13 +359,23 @@ const masterDb = {
 function getLocationDb(locationId) {
   return {
     async query(sql, params = []) {
-      const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
-      if (selectMatch) {
+      try {
+        // Normalize SQL: remove extra whitespace and newlines
+        const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+        
+        const selectMatch = normalizedSql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
+        if (!selectMatch) {
+          throw new Error(`Invalid SELECT query: ${normalizedSql.substring(0, 100)}`);
+        }
+        
         const select = selectMatch[1].trim();
         const table = selectMatch[2].trim();
+        
+        console.log(`[SUPABASE] Query: table=${table}, select=${select.substring(0, 100)}`);
 
         // Check for GROUP BY queries (aggregation queries)
-        const groupByMatch = sql.match(/GROUP\s+BY\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
+        // Match GROUP BY that may be followed by ORDER BY or end of string
+        const groupByMatch = normalizedSql.match(/GROUP\s+BY\s+([^O]+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i);
         if (groupByMatch) {
           console.log('[SUPABASE] GROUP BY query detected:', sql.substring(0, 200));
           // For GROUP BY queries, we need to fetch all data and aggregate in JS
@@ -529,6 +539,7 @@ function getLocationDb(locationId) {
           // Parse ORDER BY clause: handle multiple columns with optional ASC/DESC
           // Format: "column1, column2 DESC" -> "column1.asc,column2.desc"
           const orderClause = orderMatch[1].trim();
+          console.log('[SUPABASE] ORDER BY clause:', orderClause);
           order = orderClause
             .split(',')
             .map(col => {
@@ -544,14 +555,18 @@ function getLocationDb(locationId) {
               }
             })
             .join(','); // Join without spaces
+          console.log('[SUPABASE] Parsed ORDER BY:', order);
         } else {
           order = 'created_at.desc';
         }
 
+        console.log('[SUPABASE] Final query params - select:', cleanSelect, 'order:', order, 'filters:', Object.keys(filters));
         return await supabaseCall('GET', table, { select: cleanSelect, filters, order });
+      } catch (error) {
+        console.error(`[SUPABASE] Query error for table ${table}:`, error);
+        console.error(`[SUPABASE] SQL:`, sql.substring(0, 200));
+        throw error;
       }
-
-      throw new Error(`Unsupported SQL query: ${sql}`);
     },
 
     async get(sql, params = []) {

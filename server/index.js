@@ -705,22 +705,29 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
     }
 
     const db = getDatabase(locationId);
+    console.log('[BUSINESS_PLAN] Querying drafts for location:', locationId);
     const drafts = await db.query(
       'SELECT * FROM business_plan_drafts ORDER BY target_year, name'
     );
+    console.log('[BUSINESS_PLAN] Found drafts:', drafts?.length || 0);
 
     const draftsList = drafts.map(draft => ({
       id: draft.id,
       targetYear: draft.target_year,
       name: draft.name,
-      data: JSON.parse(draft.data),
+      data: typeof draft.data === 'string' ? JSON.parse(draft.data) : draft.data,
       createdAt: draft.created_at,
       updatedAt: draft.updated_at,
     }));
     res.json(draftsList);
   } catch (error) {
     console.error('Failed to get business plan drafts', error);
-    res.status(500).json({ error: 'Failed to get business plan drafts' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to get business plan drafts',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -1636,7 +1643,12 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
     res.json(sums);
   } catch (error) {
     console.error('Failed to get data entries sums', error);
-    res.status(500).json({ error: 'Failed to get data entries sums' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to get data entries sums',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
