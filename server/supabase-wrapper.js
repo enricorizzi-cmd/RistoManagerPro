@@ -27,49 +27,50 @@ async function supabaseCall(method, table, options = {}) {
   } = options;
 
   let url = `${SUPABASE_URL}/rest/v1/${table}`;
-  const params = new URLSearchParams();
+  const urlParams = new URLSearchParams();
 
   if (select !== '*') {
     // For select, we need to pass columns separated by comma
-    params.append('select', select);
+    urlParams.append('select', select);
   }
   if (order) {
-    params.append('order', order);
+    urlParams.append('order', order);
   }
   if (limit) {
-    params.append('limit', limit.toString());
+    urlParams.append('limit', limit.toString());
   }
 
   // Add filters (format: column=eq.value or column=neq.value)
   // Supabase PostgREST uses operators like eq., neq., etc.
+  // URLSearchParams will handle URL encoding automatically
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       // If value already contains operator (like neq.value), use it directly
       if (typeof value === 'string' && value.includes('.') && !value.startsWith('eq.') && !value.startsWith('neq.')) {
         // Already has an operator, use as-is
-        params.append(key, value);
+        urlParams.append(key, value);
       } else {
         // Use 'eq.' operator for all values
         let filterValue;
         if (typeof value === 'boolean') {
           filterValue = value.toString();
         } else if (typeof value === 'string') {
-          // For strings, we need to properly encode them
-          // Supabase PostgREST expects: column=eq."value" for strings with special chars
-          // But URLSearchParams will handle the encoding
+          // For strings, use the value as-is
+          // URLSearchParams will encode it properly
           filterValue = value;
         } else {
           filterValue = value.toString();
         }
         // Build the filter string: column=eq.value
-        // For strings, Supabase might need quotes, but URLSearchParams handles encoding
-        params.append(key, `eq.${filterValue}`);
+        // URLSearchParams will encode both key and value properly
+        urlParams.append(key, `eq.${filterValue}`);
       }
     }
   });
 
-  if (params.toString()) {
-    url += `?${params.toString()}`;
+  const queryString = urlParams.toString();
+  if (queryString) {
+    url += `?${queryString}`;
   }
   
   console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 300)}`);
