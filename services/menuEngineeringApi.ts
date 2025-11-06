@@ -4,7 +4,7 @@ const API_BASE_URL = API_URL;
 
 // Helper function to get auth token
 function getAuthToken(): string | null {
-  return localStorage.getItem('authToken');
+  return localStorage.getItem('auth_token');
 }
 
 // Helper function to get location ID

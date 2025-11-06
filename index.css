@@ -1,1 +1,3 @@
-/* Empty CSS file - Tailwind is loaded via CDN */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
