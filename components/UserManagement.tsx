@@ -33,7 +33,7 @@ const UserManagement: React.FC = () => {
     lastName: '',
     email: '',
     password: '',
-    role: 'user' as 'admin' | 'user'
+    role: 'user' as 'admin' | 'user',
   });
 
   const API_BASE_URL = 'http://localhost:4000';
@@ -42,8 +42,8 @@ const UserManagement: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
@@ -63,8 +63,8 @@ const UserManagement: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/settings/locations`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
@@ -83,19 +83,22 @@ const UserManagement: React.FC = () => {
 
   const handleUserStatusToggle = async (userId: string, isActive: boolean) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isActive })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/${userId}/status`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ isActive }),
+        }
+      );
 
       if (response.ok) {
         fetchUsers(); // Refresh users list
       } else {
-        setError('Errore nell\'aggiornamento dello stato utente');
+        setError("Errore nell'aggiornamento dello stato utente");
       }
     } catch (error) {
       setError('Errore di connessione');
@@ -109,8 +112,8 @@ const UserManagement: React.FC = () => {
   };
 
   const handleLocationToggle = (locationId: string) => {
-    setSelectedLocations(prev => 
-      prev.includes(locationId) 
+    setSelectedLocations(prev =>
+      prev.includes(locationId)
         ? prev.filter(id => id !== locationId)
         : [...prev, locationId]
     );
@@ -120,14 +123,17 @@ const UserManagement: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}/permissions`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ locationIds: selectedLocations })
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/${selectedUser.id}/permissions`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ locationIds: selectedLocations }),
+        }
+      );
 
       if (response.ok) {
         setShowPermissionsModal(false);
@@ -141,7 +147,11 @@ const UserManagement: React.FC = () => {
   };
 
   const deleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Sei sicuro di voler eliminare l'utente "${userName}"? Questa azione non può essere annullata.`)) {
+    if (
+      !confirm(
+        `Sei sicuro di voler eliminare l'utente "${userName}"? Questa azione non può essere annullata.`
+      )
+    ) {
       return;
     }
 
@@ -149,22 +159,26 @@ const UserManagement: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
         fetchUsers(); // Refresh users list
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Errore nell\'eliminazione dell\'utente');
+        setError(errorData.error || "Errore nell'eliminazione dell'utente");
       }
     } catch (error) {
       setError('Errore di connessione');
     }
   };
 
-  const changeUserRole = async (userId: string, newRole: 'admin' | 'user', userName: string) => {
+  const changeUserRole = async (
+    userId: string,
+    newRole: 'admin' | 'user',
+    userName: string
+  ) => {
     const roleText = newRole === 'admin' ? 'amministratore' : 'utente';
     if (!confirm(`Sei sicuro di voler rendere "${userName}" ${roleText}?`)) {
       return;
@@ -174,10 +188,10 @@ const UserManagement: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/api/users/${userId}/role`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify({ role: newRole }),
       });
 
       if (response.ok) {
@@ -192,7 +206,12 @@ const UserManagement: React.FC = () => {
   };
 
   const createUser = async () => {
-    if (!newUser.firstName || !newUser.lastName || !newUser.email || !newUser.password) {
+    if (
+      !newUser.firstName ||
+      !newUser.lastName ||
+      !newUser.email ||
+      !newUser.password
+    ) {
       setError('Tutti i campi sono obbligatori');
       return;
     }
@@ -201,16 +220,16 @@ const UserManagement: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           firstName: newUser.firstName,
           lastName: newUser.lastName,
           email: newUser.email,
           password: newUser.password,
-          role: newUser.role
-        })
+          role: newUser.role,
+        }),
       });
 
       if (response.ok) {
@@ -220,12 +239,12 @@ const UserManagement: React.FC = () => {
           lastName: '',
           email: '',
           password: '',
-          role: 'user'
+          role: 'user',
         });
         fetchUsers(); // Refresh users list
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Errore nella creazione dell\'utente');
+        setError(errorData.error || "Errore nella creazione dell'utente");
       }
     } catch (error) {
       setError('Errore di connessione');
@@ -260,14 +279,15 @@ const UserManagement: React.FC = () => {
 
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-gray-200">
-          {users.map((user) => (
+          {users.map(user => (
             <li key={user.id} className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                       <span className="text-sm font-medium text-gray-700">
-                        {user.first_name[0]}{user.last_name[0]}
+                        {user.first_name[0]}
+                        {user.last_name[0]}
                       </span>
                     </div>
                   </div>
@@ -277,18 +297,22 @@ const UserManagement: React.FC = () => {
                     </div>
                     <div className="text-sm text-gray-500">{user.email}</div>
                     <div className="flex items-center space-x-2 mt-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === 'admin'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
                         {user.role === 'admin' ? 'Amministratore' : 'Utente'}
                       </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.is_active ? 'Attivo' : 'Sospeso'}
                       </span>
                     </div>
@@ -302,7 +326,13 @@ const UserManagement: React.FC = () => {
                     Permessi Aziende
                   </button>
                   <button
-                    onClick={() => changeUserRole(user.id, user.role === 'admin' ? 'user' : 'admin', `${user.first_name} ${user.last_name}`)}
+                    onClick={() =>
+                      changeUserRole(
+                        user.id,
+                        user.role === 'admin' ? 'user' : 'admin',
+                        `${user.first_name} ${user.last_name}`
+                      )
+                    }
                     className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                       user.role === 'admin'
                         ? 'border-orange-300 text-orange-700 bg-white hover:bg-orange-50'
@@ -312,7 +342,9 @@ const UserManagement: React.FC = () => {
                     {user.role === 'admin' ? 'Rimuovi Admin' : 'Rendi Admin'}
                   </button>
                   <button
-                    onClick={() => handleUserStatusToggle(user.id, !user.is_active)}
+                    onClick={() =>
+                      handleUserStatusToggle(user.id, !user.is_active)
+                    }
                     className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                       user.is_active
                         ? 'border-red-300 text-red-700 bg-white hover:bg-red-50'
@@ -322,7 +354,12 @@ const UserManagement: React.FC = () => {
                     {user.is_active ? 'Sospendi' : 'Riattiva'}
                   </button>
                   <button
-                    onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)}
+                    onClick={() =>
+                      deleteUser(
+                        user.id,
+                        `${user.first_name} ${user.last_name}`
+                      )
+                    }
                     className="inline-flex items-center px-3 py-1 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                   >
                     Elimina
@@ -340,11 +377,12 @@ const UserManagement: React.FC = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Permessi Aziende - {selectedUser.first_name} {selectedUser.last_name}
+                Permessi Aziende - {selectedUser.first_name}{' '}
+                {selectedUser.last_name}
               </h3>
-              
+
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {locations.map((location) => (
+                {locations.map(location => (
                   <label key={location.id} className="flex items-center">
                     <input
                       type="checkbox"
@@ -352,7 +390,9 @@ const UserManagement: React.FC = () => {
                       onChange={() => handleLocationToggle(location.id)}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-700">{location.name}</span>
+                    <span className="ml-2 text-sm text-gray-700">
+                      {location.name}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -384,57 +424,80 @@ const UserManagement: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Aggiungi Nuovo Utente
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nome
+                  </label>
                   <input
                     type="text"
                     value={newUser.firstName}
-                    onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                    onChange={e =>
+                      setNewUser({ ...newUser, firstName: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Inserisci nome"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Cognome</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cognome
+                  </label>
                   <input
                     type="text"
                     value={newUser.lastName}
-                    onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                    onChange={e =>
+                      setNewUser({ ...newUser, lastName: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Inserisci cognome"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={newUser.email}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    onChange={e =>
+                      setNewUser({ ...newUser, email: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Inserisci email"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
                   <input
                     type="password"
                     value={newUser.password}
-                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    onChange={e =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Inserisci password"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Ruolo</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Ruolo
+                  </label>
                   <select
                     value={newUser.role}
-                    onChange={(e) => setNewUser({...newUser, role: e.target.value as 'admin' | 'user'})}
+                    onChange={e =>
+                      setNewUser({
+                        ...newUser,
+                        role: e.target.value as 'admin' | 'user',
+                      })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="user">Utente</option>
@@ -452,7 +515,7 @@ const UserManagement: React.FC = () => {
                       lastName: '',
                       email: '',
                       password: '',
-                      role: 'user'
+                      role: 'user',
                     });
                   }}
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"

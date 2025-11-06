@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 
 export interface User {
   id: string;
@@ -12,7 +18,12 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (_email: string, _password: string) => Promise<boolean>;
-  register: (_firstName: string, _lastName: string, _email: string, _password: string) => Promise<boolean>;
+  register: (
+    _firstName: string,
+    _lastName: string,
+    _email: string,
+    _password: string
+  ) => Promise<boolean>;
   logout: () => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -22,7 +33,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = 'http://localhost:4000';
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,8 +56,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
-          'Authorization': `Bearer ${tokenToVerify}`
-        }
+          Authorization: `Bearer ${tokenToVerify}`,
+        },
       });
 
       if (response.ok) {
@@ -99,7 +112,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (firstName: string, lastName: string, email: string, password: string): Promise<boolean> => {
+  const register = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string
+  ): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
@@ -137,8 +155,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
       }
     } catch (error) {
@@ -160,11 +178,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     error,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

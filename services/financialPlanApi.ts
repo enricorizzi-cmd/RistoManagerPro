@@ -20,11 +20,18 @@ type MonthlyMetricsSnapshot = {
   values: Record<string, number>;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 export type FinancialPlanStatePayload = {
-  preventivoOverrides: Record<string, Record<string, Record<string, Record<string, number>>>>;
-  consuntivoOverrides: Record<string, Record<string, Record<string, Record<string, number>>>>;
+  preventivoOverrides: Record<
+    string,
+    Record<string, Record<string, Record<string, number>>>
+  >;
+  consuntivoOverrides: Record<
+    string,
+    Record<string, Record<string, Record<string, number>>>
+  >;
   manualLog: ManualLogSnapshot[];
   monthlyMetrics: MonthlyMetricsSnapshot[];
   statsOverrides: Record<string, Partial<Record<string, number | null>>>;
@@ -52,21 +59,29 @@ function getAuthHeaders(): globalThis.HeadersInit {
   const headers: globalThis.HeadersInit = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
-  
+
   return headers;
 }
 
-export async function fetchFinancialPlanState(locationId: string): Promise<FinancialPlanStatePayload | null> {
+export async function fetchFinancialPlanState(
+  locationId: string
+): Promise<FinancialPlanStatePayload | null> {
   try {
-    const response = await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`), {
-      headers: getAuthHeaders()
-    });
+    const response = await fetch(
+      buildUrl(`/api/financial-plan/state?locationId=${locationId}`),
+      {
+        headers: getAuthHeaders(),
+      }
+    );
     if (!response.ok) {
-      console.warn('Unable to fetch financial plan state, status', response.status);
+      console.warn(
+        'Unable to fetch financial plan state, status',
+        response.status
+      );
       return null;
     }
     const data = await response.json();
@@ -77,13 +92,19 @@ export async function fetchFinancialPlanState(locationId: string): Promise<Finan
   }
 }
 
-export async function persistFinancialPlanState(state: FinancialPlanStatePayload, locationId: string): Promise<void> {
+export async function persistFinancialPlanState(
+  state: FinancialPlanStatePayload,
+  locationId: string
+): Promise<void> {
   try {
-    await fetch(buildUrl(`/api/financial-plan/state?locationId=${locationId}`), {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(state),
-    });
+    await fetch(
+      buildUrl(`/api/financial-plan/state?locationId=${locationId}`),
+      {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(state),
+      }
+    );
   } catch (error) {
     console.warn('Failed to persist financial plan state', error);
   }
@@ -116,12 +137,12 @@ function normalisePayload(input: unknown): FinancialPlanStatePayload {
     ? (source.monthlyMetrics as FinancialPlanStatePayload['monthlyMetrics'])
     : DEFAULT_STATE.monthlyMetrics;
 
-
   const causaliCatalog = Array.isArray(source.causaliCatalog)
     ? (source.causaliCatalog as FinancialPlanStatePayload['causaliCatalog'])
     : DEFAULT_STATE.causaliCatalog;
 
-  const causaliVersion = typeof source.causaliVersion === 'string' ? source.causaliVersion : null;
+  const causaliVersion =
+    typeof source.causaliVersion === 'string' ? source.causaliVersion : null;
 
   return {
     preventivoOverrides,
@@ -139,17 +160,24 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 // Financial Stats API functions
-export async function fetchFinancialStats(locationId: string): Promise<any[] | null> {
+export async function fetchFinancialStats(
+  locationId: string
+): Promise<any[] | null> {
   try {
-    const response = await fetch(buildUrl(`/api/financial-stats?locationId=${locationId}`), {
-      headers: getAuthHeaders()
-    });
+    const response = await fetch(
+      buildUrl(`/api/financial-stats?locationId=${locationId}`),
+      {
+        headers: getAuthHeaders(),
+      }
+    );
     if (!response.ok) {
       if (response.status === 404) {
         // Return empty array if no stats found for this location
         return [];
       }
-      throw new Error(`Failed to fetch financial stats: ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch financial stats: ${response.statusText}`
+      );
     }
     return await response.json();
   } catch (error) {
@@ -159,7 +187,10 @@ export async function fetchFinancialStats(locationId: string): Promise<any[] | n
   }
 }
 
-export async function saveFinancialStats(locationId: string, stats: any[]): Promise<boolean> {
+export async function saveFinancialStats(
+  locationId: string,
+  stats: any[]
+): Promise<boolean> {
   try {
     const response = await fetch(buildUrl('/api/financial-stats'), {
       method: 'PUT',
@@ -176,15 +207,22 @@ export async function saveFinancialStats(locationId: string, stats: any[]): Prom
   }
 }
 
-export async function calculateFatturatoTotale(locationId: string): Promise<boolean> {
+export async function calculateFatturatoTotale(
+  locationId: string
+): Promise<boolean> {
   try {
-    const response = await fetch(buildUrl('/api/financial-stats/calculate-fatturato-totale'), {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ locationId }),
-    });
+    const response = await fetch(
+      buildUrl('/api/financial-stats/calculate-fatturato-totale'),
+      {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ locationId }),
+      }
+    );
     if (!response.ok) {
-      throw new Error(`Failed to calculate fatturato totale: ${response.statusText}`);
+      throw new Error(
+        `Failed to calculate fatturato totale: ${response.statusText}`
+      );
     }
     await response.json();
     return true;
@@ -192,9 +230,3 @@ export async function calculateFatturatoTotale(locationId: string): Promise<bool
     return false;
   }
 }
-
-
-
-
-
-

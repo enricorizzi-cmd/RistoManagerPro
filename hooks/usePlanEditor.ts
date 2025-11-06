@@ -22,11 +22,11 @@ export const usePlanEditor = () => {
   }, []);
 
   const addDirtyKey = useCallback((key: string) => {
-    setDirtyKeys((prev) => new Set([...prev, key]));
+    setDirtyKeys(prev => new Set([...prev, key]));
   }, []);
 
   const removeDirtyKey = useCallback((key: string) => {
-    setDirtyKeys((prev) => {
+    setDirtyKeys(prev => {
       const next = new Set(prev);
       next.delete(key);
       return next;
@@ -34,11 +34,11 @@ export const usePlanEditor = () => {
   }, []);
 
   const toggleOnlyValued = useCallback(() => {
-    setOnlyValued((prev) => !prev);
+    setOnlyValued(prev => !prev);
   }, []);
 
   const toggleOnlyConsuntivo = useCallback(() => {
-    setOnlyConsuntivo((prev) => !prev);
+    setOnlyConsuntivo(prev => !prev);
   }, []);
 
   return {
@@ -47,7 +47,7 @@ export const usePlanEditor = () => {
     onlyValued,
     onlyConsuntivo,
     dirtyKeys,
-    
+
     // Actions
     enableEditMode,
     disableEditMode,

@@ -7,6 +7,7 @@
 ## 📋 Procedura Standard
 
 ### 1. Verifica Stato Attuale
+
 ```bash
 # Controlla se ci sono processi Node.js attivi
 Get-Process | Where-Object {$_.ProcessName -eq "node"}
@@ -16,16 +17,19 @@ netstat -ano | findstr ":4000\|:5174"
 ```
 
 ### 2. Avvio Pulito (Raccomandato)
+
 ```bash
 npm run dev:clean
 ```
 
 Questo script:
+
 - Pulisce automaticamente le porte 4000 e 5173/5174
 - Avvia backend e frontend contemporaneamente
 - Usa SQLite locale (NON PostgreSQL online)
 
 ### 3. Avvio Manuale (se necessario)
+
 ```bash
 # Backend
 cd server
@@ -37,12 +41,14 @@ npm run dev:frontend
 ```
 
 ### 4. Verifica Funzionamento
+
 ```bash
 # Controlla che entrambi i servizi siano attivi
 netstat -ano | findstr "LISTENING" | findstr "4000\|5174"
 ```
 
 Dovresti vedere:
+
 - **Porta 4000**: Backend API (Node.js + Express + SQLite)
 - **Porta 5174**: Frontend Vite (React)
 
@@ -62,6 +68,7 @@ Dovresti vedere:
 ## 🔧 Troubleshooting
 
 ### Backend non si avvia
+
 ```bash
 cd server
 npm install
@@ -69,11 +76,13 @@ npm start
 ```
 
 ### Frontend non si avvia
+
 ```bash
 npm run dev:frontend
 ```
 
 ### Porte occupate
+
 ```bash
 npm run dev:clean
 # oppure
@@ -82,6 +91,7 @@ npm run dev
 ```
 
 ### Errori SQLite
+
 - Verifica che `server/data/` esista
 - Controlla permessi di scrittura
 - NON creare database PostgreSQL
@@ -112,11 +122,3 @@ npm run dev
 ---
 
 **Ricorda**: "Lancia l'app" = SEMPRE locale, mai online! 🏠
-
-
-
-
-
-
-
-

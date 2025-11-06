@@ -81,10 +81,11 @@ export const currencyFormatter = new Intl.NumberFormat('it-IT', {
 
 export const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-export const normalizeLabel = (value: string): string => value.trim().toUpperCase();
+export const normalizeLabel = (value: string): string =>
+  value.trim().toUpperCase();
 
 export const parsePlanMonthLabel = (
-  label: string,
+  label: string
 ): { year: number; monthIndex: number } | null => {
   if (!label) {
     return null;
@@ -96,23 +97,23 @@ export const parsePlanMonthLabel = (
   let year = Number(parts[parts.length - 1]);
   const monthName = normalizeLabel(parts.slice(0, parts.length - 1).join(' '));
   const monthIndex = MONTH_MAP[monthName];
-  
+
   // Handle 2-digit years (e.g., "24" -> 2024)
   if (year < 100) {
     year += 2000;
   }
-  
+
   if (Number.isNaN(year) || monthIndex === undefined) {
     return null;
   }
   return { year, monthIndex };
 };
 
-export const buildMonthKey = (year: number, monthIndex: number): string => 
+export const buildMonthKey = (year: number, monthIndex: number): string =>
   `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
 
 export const parseMonthKey = (
-  key: string,
+  key: string
 ): { year: number; monthIndex: number } | null => {
   const [yearPart, monthPart] = key.split('-');
   const year = Number(yearPart);
@@ -123,7 +124,9 @@ export const parseMonthKey = (
   return { year, monthIndex };
 };
 
-export const formatCurrencyValue = (value: number | null | undefined): string => {
+export const formatCurrencyValue = (
+  value: number | null | undefined
+): string => {
   if (value === null || value === undefined) {
     return '-';
   }
@@ -151,5 +154,5 @@ export const calcRatios = (values: number[]): number[] => {
   if (total === 0) {
     return values.map(() => 1 / values.length);
   }
-  return values.map((value) => value / total);
+  return values.map(value => value / total);
 };

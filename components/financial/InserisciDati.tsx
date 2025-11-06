@@ -30,11 +30,13 @@ interface InserisciDatiProps {
   causaliCatalog: FinancialCausaleGroup[];
 }
 
-export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
+export const InserisciDati: React.FC<InserisciDatiProps> = ({
+  causaliCatalog,
+}) => {
   const { showNotification, currentLocation } = useAppContext();
   const { token } = useAuth();
   const { handleSaveMetrics } = useFinancialPlanData(currentLocation?.id);
-  
+
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());
   const [anno, setAnno] = useState<number>(new Date().getFullYear());
@@ -42,41 +44,72 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   const [categoria, setCategoria] = useState<string>('');
   const [causale, setCausale] = useState<string>('');
   const [valore, setValore] = useState<string>('0,00');
-  
+
   // Dropdown search state
   const [causaleSearchTerm, setCausaleSearchTerm] = useState<string>('');
-  const [showCausaleDropdown, setShowCausaleDropdown] = useState<boolean>(false);
-  
+  const [showCausaleDropdown, setShowCausaleDropdown] =
+    useState<boolean>(false);
+
   // Saved entries - loaded from database
   const [savedEntries, setSavedEntries] = useState<DataEntry[]>([]);
-  
+
   // Inline editing state
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<DataEntry>>({});
-  
+
   // Metrics section state
   const [metricsExpanded, setMetricsExpanded] = useState<boolean>(false);
   const [metrics, setMetrics] = useState<MetricField[]>([
     { id: 'fatturato', label: 'Fatturato mensile', value: '', lastValue: '-' },
-    { id: 'saldo-conto', label: 'Saldo conto fine mese', value: '', lastValue: '-' },
-    { id: 'crediti-pendenti', label: 'Crediti pendenti fine mese', value: '', lastValue: '-' },
-    { id: 'crediti-scaduti', label: 'Crediti scaduti fine mese', value: '', lastValue: '-' },
-    { id: 'debiti-pendenti', label: 'Debiti pendenti fine mese', value: '', lastValue: '-' },
-    { id: 'debiti-scaduti', label: 'Debiti scaduti fine mese', value: '', lastValue: '-' },
+    {
+      id: 'saldo-conto',
+      label: 'Saldo conto fine mese',
+      value: '',
+      lastValue: '-',
+    },
+    {
+      id: 'crediti-pendenti',
+      label: 'Crediti pendenti fine mese',
+      value: '',
+      lastValue: '-',
+    },
+    {
+      id: 'crediti-scaduti',
+      label: 'Crediti scaduti fine mese',
+      value: '',
+      lastValue: '-',
+    },
+    {
+      id: 'debiti-pendenti',
+      label: 'Debiti pendenti fine mese',
+      value: '',
+      lastValue: '-',
+    },
+    {
+      id: 'debiti-scaduti',
+      label: 'Debiti scaduti fine mese',
+      value: '',
+      lastValue: '-',
+    },
   ]);
 
   // Get available tipologie
-  const availableTipologie = useMemo(() => 
-    causaliCatalog.map(group => group.macroCategory), [causaliCatalog]
+  const availableTipologie = useMemo(
+    () => causaliCatalog.map(group => group.macroCategory),
+    [causaliCatalog]
   );
 
   // Get available categorie based on selected tipologia
   const availableCategorie = useMemo(() => {
     if (!tipologiaCausale) {
       // If no tipologia selected, show all categories from all tipologie
-      return causaliCatalog.flatMap(group => group.categories.map(cat => cat.name));
+      return causaliCatalog.flatMap(group =>
+        group.categories.map(cat => cat.name)
+      );
     }
-    const group = causaliCatalog.find(g => g.macroCategory === tipologiaCausale);
+    const group = causaliCatalog.find(
+      g => g.macroCategory === tipologiaCausale
+    );
     return group?.categories.map(cat => cat.name) || [];
   }, [causaliCatalog, tipologiaCausale]);
 
@@ -84,21 +117,25 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   const availableCausali = useMemo(() => {
     if (!tipologiaCausale) {
       // If no tipologia selected, show all causali
-      return causaliCatalog.flatMap(group => 
+      return causaliCatalog.flatMap(group =>
         group.categories.flatMap(cat => cat.items)
       );
     }
-    
-    const group = causaliCatalog.find(g => g.macroCategory === tipologiaCausale);
+
+    const group = causaliCatalog.find(
+      g => g.macroCategory === tipologiaCausale
+    );
     if (!group) return [];
-    
+
     if (!categoria) {
       // If no categoria selected, show all causali from the tipologia
       return group.categories.flatMap(cat => cat.items);
     }
-    
+
     // Show only causali from the selected categoria
-    const selectedCategory = group.categories.find(cat => cat.name === categoria);
+    const selectedCategory = group.categories.find(
+      cat => cat.name === categoria
+    );
     return selectedCategory?.items || [];
   }, [causaliCatalog, tipologiaCausale, categoria]);
 
@@ -107,7 +144,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     if (!causaleSearchTerm.trim()) {
       return availableCausali;
     }
-    
+
     return availableCausali.filter(causaleItem =>
       causaleItem.toLowerCase().includes(causaleSearchTerm.toLowerCase())
     );
@@ -115,41 +152,59 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Month names in Italian
   const monthNames = [
-    'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+    'Gennaio',
+    'Febbraio',
+    'Marzo',
+    'Aprile',
+    'Maggio',
+    'Giugno',
+    'Luglio',
+    'Agosto',
+    'Settembre',
+    'Ottobre',
+    'Novembre',
+    'Dicembre',
   ];
 
   // Load existing data from database on component mount
   useEffect(() => {
     const loadExistingData = async () => {
       if (!currentLocation?.id || !token) return;
-      
+
       try {
-        const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        const response = await fetch(
+          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
-        
+        );
+
         if (response.ok) {
           const entries = await response.json();
-          setSavedEntries(entries.map((entry: any) => ({
-            id: entry.id,
-            dataInserimento: entry.data_inserimento,
-            mese: entry.mese,
-            anno: entry.anno,
-            tipologiaCausale: entry.tipologia_causale,
-            categoria: entry.categoria,
-            causale: entry.causale,
-            valore: entry.valore
-          })));
+          setSavedEntries(
+            entries.map((entry: any) => ({
+              id: entry.id,
+              dataInserimento: entry.data_inserimento,
+              mese: entry.mese,
+              anno: entry.anno,
+              tipologiaCausale: entry.tipologia_causale,
+              categoria: entry.categoria,
+              causale: entry.causale,
+              valore: entry.valore,
+            }))
+          );
         }
       } catch (error) {
         console.error('Error loading data entries:', error);
-        showNotification('Errore nel caricamento delle righe registrate', 'error');
+        showNotification(
+          'Errore nel caricamento delle righe registrate',
+          'error'
+        );
       }
     };
-    
+
     loadExistingData();
   }, [currentLocation?.id, token, showNotification]);
 
@@ -170,10 +225,10 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     setCausale('');
     setCausaleSearchTerm('');
     setShowCausaleDropdown(false);
-    
+
     // Auto-fill tipologia if not set
     if (!tipologiaCausale) {
-      const group = causaliCatalog.find(g => 
+      const group = causaliCatalog.find(g =>
         g.categories.some(cat => cat.name === value)
       );
       if (group) {
@@ -186,19 +241,21 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     setCausale(value);
     setCausaleSearchTerm(value);
     setShowCausaleDropdown(false);
-    
+
     // Auto-fill tipologia and categoria if not set
     if (!tipologiaCausale || !categoria) {
-      const group = causaliCatalog.find(g => 
+      const group = causaliCatalog.find(g =>
         g.categories.some(cat => cat.items.includes(value))
       );
       if (group) {
         if (!tipologiaCausale) {
           setTipologiaCausale(group.macroCategory);
         }
-        
+
         if (!categoria) {
-          const category = group.categories.find(cat => cat.items.includes(value));
+          const category = group.categories.find(cat =>
+            cat.items.includes(value)
+          );
           if (category) {
             setCategoria(category.name);
           }
@@ -210,10 +267,10 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
   const handleCausaleSearchChange = (value: string) => {
     setCausaleSearchTerm(value);
     setShowCausaleDropdown(true);
-    
+
     // If exact match found, select it
-    const exactMatch = availableCausali.find(causaleItem => 
-      causaleItem.toLowerCase() === value.toLowerCase()
+    const exactMatch = availableCausali.find(
+      causaleItem => causaleItem.toLowerCase() === value.toLowerCase()
     );
     if (exactMatch) {
       setCausale(exactMatch);
@@ -270,26 +327,29 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          dataInserimento: currentDate,
-          mese: mese,
-          anno: anno,
-          tipologiaCausale: tipologiaCausale,
-          categoria: categoria,
-          causale: causale,
-          valore: numericValue
-        })
-      });
+      const response = await fetch(
+        `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dataInserimento: currentDate,
+            mese: mese,
+            anno: anno,
+            tipologiaCausale: tipologiaCausale,
+            categoria: categoria,
+            causale: causale,
+            valore: numericValue,
+          }),
+        }
+      );
 
       if (response.ok) {
         showNotification('Riga salvata con successo.', 'success');
-        
+
         // Reset form
         setValore('0,00');
         setCausale('');
@@ -297,26 +357,31 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         setTipologiaCausale('');
         setCausaleSearchTerm('');
         setShowCausaleDropdown(false);
-        
+
         // Reload entries
-        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        const loadResponse = await fetch(
+          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
-        
+        );
+
         if (loadResponse.ok) {
           const entries = await loadResponse.json();
-          setSavedEntries(entries.map((entry: any) => ({
-            id: entry.id,
-            dataInserimento: entry.data_inserimento,
-            mese: entry.mese,
-            anno: entry.anno,
-            tipologiaCausale: entry.tipologia_causale,
-            categoria: entry.categoria,
-            causale: entry.causale,
-            valore: entry.valore
-          })));
+          setSavedEntries(
+            entries.map((entry: any) => ({
+              id: entry.id,
+              dataInserimento: entry.data_inserimento,
+              mese: entry.mese,
+              anno: entry.anno,
+              tipologiaCausale: entry.tipologia_causale,
+              categoria: entry.categoria,
+              causale: entry.causale,
+              valore: entry.valore,
+            }))
+          );
         }
       } else {
         showNotification('Errore nel salvataggio della riga.', 'error');
@@ -335,42 +400,50 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (response.ok) {
         showNotification('Riga eliminata con successo.', 'success');
-        
+
         // Reload entries
-        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        const loadResponse = await fetch(
+          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
-        
+        );
+
         if (loadResponse.ok) {
           const entries = await loadResponse.json();
-          setSavedEntries(entries.map((entry: any) => ({
-            id: entry.id,
-            dataInserimento: entry.data_inserimento,
-            mese: entry.mese,
-            anno: entry.anno,
-            tipologiaCausale: entry.tipologia_causale,
-            categoria: entry.categoria,
-            causale: entry.causale,
-            valore: entry.valore
-          })));
+          setSavedEntries(
+            entries.map((entry: any) => ({
+              id: entry.id,
+              dataInserimento: entry.data_inserimento,
+              mese: entry.mese,
+              anno: entry.anno,
+              tipologiaCausale: entry.tipologia_causale,
+              categoria: entry.categoria,
+              causale: entry.causale,
+              valore: entry.valore,
+            }))
+          );
         }
       } else {
-        showNotification('Errore nell\'eliminazione della riga.', 'error');
+        showNotification("Errore nell'eliminazione della riga.", 'error');
       }
     } catch (error) {
       console.error('Error deleting entry:', error);
-      showNotification('Errore nell\'eliminazione della riga.', 'error');
+      showNotification("Errore nell'eliminazione della riga.", 'error');
     }
   };
 
@@ -383,7 +456,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       tipologiaCausale: entry.tipologiaCausale,
       categoria: entry.categoria,
       causale: entry.causale,
-      valore: entry.valore
+      valore: entry.valore,
     });
   };
 
@@ -392,49 +465,57 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     if (!currentLocation?.id || !token || !editingValues) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          dataInserimento: currentDate,
-          mese: editingValues.mese,
-          anno: editingValues.anno,
-          tipologiaCausale: editingValues.tipologiaCausale,
-          categoria: editingValues.categoria,
-          causale: editingValues.causale,
-          valore: editingValues.valore
-        })
-      });
+      const response = await fetch(
+        `http://localhost:4000/api/data-entries/${currentLocation.id}/${entryId}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dataInserimento: currentDate,
+            mese: editingValues.mese,
+            anno: editingValues.anno,
+            tipologiaCausale: editingValues.tipologiaCausale,
+            categoria: editingValues.categoria,
+            causale: editingValues.causale,
+            valore: editingValues.valore,
+          }),
+        }
+      );
 
       if (response.ok) {
         showNotification('Riga modificata con successo', 'success');
-        
+
         // Clear editing state
         setEditingEntryId(null);
         setEditingValues({});
-        
+
         // Reload entries
-        const loadResponse = await fetch(`http://localhost:4000/api/data-entries/${currentLocation.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        const loadResponse = await fetch(
+          `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
-        
+        );
+
         if (loadResponse.ok) {
           const entries = await loadResponse.json();
-          setSavedEntries(entries.map((entry: any) => ({
-            id: entry.id,
-            dataInserimento: entry.data_inserimento,
-            mese: entry.mese,
-            anno: entry.anno,
-            tipologiaCausale: entry.tipologia_causale,
-            categoria: entry.categoria,
-            causale: entry.causale,
-            valore: entry.valore
-          })));
+          setSavedEntries(
+            entries.map((entry: any) => ({
+              id: entry.id,
+              dataInserimento: entry.data_inserimento,
+              mese: entry.mese,
+              anno: entry.anno,
+              tipologiaCausale: entry.tipologia_causale,
+              categoria: entry.categoria,
+              causale: entry.causale,
+              valore: entry.valore,
+            }))
+          );
         }
       } else {
         showNotification('Errore nella modifica della riga', 'error');
@@ -453,9 +534,9 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
 
   // Handle metrics field change
   const handleMetricChange = (id: string, value: string) => {
-    setMetrics(prev => prev.map(metric => 
-      metric.id === id ? { ...metric, value } : metric
-    ));
+    setMetrics(prev =>
+      prev.map(metric => (metric.id === id ? { ...metric, value } : metric))
+    );
   };
 
   // Save metrics
@@ -467,17 +548,20 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         createdAt: new Date().toISOString(),
         year: anno,
         month: mese + 1, // Convert to 1-based month
-        values: metrics.reduce((acc, metric) => {
-          const numericValue = parseItalianNumber(metric.value);
-          acc[metric.id] = numericValue;
-          return acc;
-        }, {} as Record<string, number>)
+        values: metrics.reduce(
+          (acc, metric) => {
+            const numericValue = parseItalianNumber(metric.value);
+            acc[metric.id] = numericValue;
+            return acc;
+          },
+          {} as Record<string, number>
+        ),
       };
 
       // Save to database
       await handleSaveMetrics(metricsEntry);
       showNotification('Indicatori salvati con successo.', 'success');
-      
+
       // Reset metrics form
       setMetrics(prev => prev.map(metric => ({ ...metric, value: '' })));
     } catch (error) {
@@ -490,23 +574,27 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     <div className="space-y-6">
       {/* Inserisci metriche mensili section */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div 
+        <div
           className="flex items-center justify-between mb-4 cursor-pointer"
           onClick={() => setMetricsExpanded(!metricsExpanded)}
         >
-          <h2 className="text-lg font-semibold text-gray-900">Inserisci metriche mensili</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Inserisci metriche mensili
+          </h2>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">Prossimo mese proposto: {monthNames[mese].toLowerCase()} {anno}</span>
+            <span className="text-sm text-gray-500">
+              Prossimo mese proposto: {monthNames[mese].toLowerCase()} {anno}
+            </span>
             <span className="text-sm text-gray-500 hover:text-gray-700">
               {metricsExpanded ? 'Nascondi' : 'Mostra'}
             </span>
           </div>
         </div>
-        
+
         {metricsExpanded && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              {metrics.map((metric) => (
+              {metrics.map(metric => (
                 <div key={metric.id} className="bg-gray-50 rounded-lg p-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {metric.label}
@@ -517,7 +605,9 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
                   <input
                     type="text"
                     value={metric.value}
-                    onChange={(e) => handleMetricChange(metric.id, e.target.value)}
+                    onChange={e =>
+                      handleMetricChange(metric.id, e.target.value)
+                    }
                     placeholder="Inserisci valore"
                     className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -539,8 +629,12 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
       {/* Registro inserimenti section */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Registro inserimenti</h3>
-          <p className="text-sm text-gray-600">Inserisci una nuova riga per aggiornare il piano mensile.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Registro inserimenti
+          </h3>
+          <p className="text-sm text-gray-600">
+            Inserisci una nuova riga per aggiornare il piano mensile.
+          </p>
         </div>
 
         {/* Data entry form */}
@@ -563,7 +657,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={mese}
-                onChange={(e) => setMese(Number(e.target.value))}
+                onChange={e => setMese(Number(e.target.value))}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {monthNames.map((month, index) => (
@@ -581,10 +675,13 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={anno}
-                onChange={(e) => setAnno(Number(e.target.value))}
+                onChange={e => setAnno(Number(e.target.value))}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                {Array.from(
+                  { length: 5 },
+                  (_, i) => new Date().getFullYear() - 2 + i
+                ).map(year => (
                   <option key={year} value={year}>
                     {year}
                   </option>
@@ -599,7 +696,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={tipologiaCausale}
-                onChange={(e) => handleTipologiaChange(e.target.value)}
+                onChange={e => handleTipologiaChange(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Seleziona tipologia</option>
@@ -618,7 +715,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               </label>
               <select
                 value={categoria}
-                onChange={(e) => handleCategoriaChange(e.target.value)}
+                onChange={e => handleCategoriaChange(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Seleziona categoria</option>
@@ -639,9 +736,11 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
                 <input
                   type="text"
                   value={causaleSearchTerm}
-                  onChange={(e) => handleCausaleSearchChange(e.target.value)}
+                  onChange={e => handleCausaleSearchChange(e.target.value)}
                   onFocus={() => setShowCausaleDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCausaleDropdown(false), 200)}
+                  onBlur={() =>
+                    setTimeout(() => setShowCausaleDropdown(false), 200)
+                  }
                   className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Cerca o seleziona causale..."
                 />
@@ -658,13 +757,15 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
                     ))}
                   </div>
                 )}
-                {showCausaleDropdown && filteredCausali.length === 0 && causaleSearchTerm.trim() && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-                    <div className="px-3 py-2 text-sm text-gray-500">
-                      Nessuna causale trovata
+                {showCausaleDropdown &&
+                  filteredCausali.length === 0 &&
+                  causaleSearchTerm.trim() && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        Nessuna causale trovata
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
 
@@ -676,7 +777,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               <input
                 type="text"
                 value={valore}
-                onChange={(e) => handleValoreChange(e.target.value)}
+                onChange={e => handleValoreChange(e.target.value)}
                 className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="0,00"
               />
@@ -690,7 +791,9 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
               >
                 Salva riga
               </button>
-              <span className="text-xs text-gray-500 mt-1">Righe salvate in basso</span>
+              <span className="text-xs text-gray-500 mt-1">
+                Righe salvate in basso
+              </span>
             </div>
           </div>
         </div>
@@ -699,139 +802,176 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
         {savedEntries.length > 0 && (
           <div className="space-y-2">
             {savedEntries
-              .sort((a, b) => new Date(b.dataInserimento).getTime() - new Date(a.dataInserimento).getTime())
-              .map((entry) => {
-              const isEditing = editingEntryId === entry.id;
-              const currentValues = isEditing ? editingValues : entry;
-              
-              return (
-                <div key={entry.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                  <div className="grid grid-cols-7 gap-4 items-center">
-                    <div className="text-sm text-gray-600">
-                      {entry.dataInserimento}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {isEditing ? (
-                        <select
-                          value={currentValues.mese}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, mese: Number(e.target.value) }))}
-                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                        >
-                          {monthNames.map((month, index) => (
-                            <option key={index} value={index}>
-                              {month}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        `${monthNames[entry.mese].toLowerCase()} ${entry.anno}`
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {isEditing ? (
-                        <select
-                          value={currentValues.anno}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, anno: Number(e.target.value) }))}
-                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                        >
-                          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
-                            <option key={year} value={year}>
-                              {year}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        entry.tipologiaCausale
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {isEditing ? (
-                        <select
-                          value={currentValues.tipologiaCausale}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, tipologiaCausale: e.target.value }))}
-                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                        >
-                          <option value="">Seleziona tipologia</option>
-                          {availableTipologie.map(tipologia => (
-                            <option key={tipologia} value={tipologia}>
-                              {tipologia}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        entry.categoria
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {isEditing ? (
-                        <select
-                          value={currentValues.categoria}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, categoria: e.target.value }))}
-                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                        >
-                          <option value="">Seleziona categoria</option>
-                          {availableCategorie.map(categoriaItem => (
-                            <option key={categoriaItem} value={categoriaItem}>
-                              {categoriaItem}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        entry.causale
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={formatItalianNumber(currentValues.valore || 0)}
-                          onChange={(e) => {
-                            const numericValue = parseItalianNumber(e.target.value);
-                            setEditingValues(prev => ({ ...prev, valore: numericValue }));
-                          }}
-                          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                        />
-                      ) : (
-                        `${formatItalianNumber(entry.valore)} €`
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={() => handleSaveEdit(entry.id)}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+              .sort(
+                (a, b) =>
+                  new Date(b.dataInserimento).getTime() -
+                  new Date(a.dataInserimento).getTime()
+              )
+              .map(entry => {
+                const isEditing = editingEntryId === entry.id;
+                const currentValues = isEditing ? editingValues : entry;
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="grid grid-cols-7 gap-4 items-center">
+                      <div className="text-sm text-gray-600">
+                        {entry.dataInserimento}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {isEditing ? (
+                          <select
+                            value={currentValues.mese}
+                            onChange={e =>
+                              setEditingValues(prev => ({
+                                ...prev,
+                                mese: Number(e.target.value),
+                              }))
+                            }
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                           >
-                            Salva
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            {monthNames.map((month, index) => (
+                              <option key={index} value={index}>
+                                {month}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          `${monthNames[entry.mese].toLowerCase()} ${entry.anno}`
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {isEditing ? (
+                          <select
+                            value={currentValues.anno}
+                            onChange={e =>
+                              setEditingValues(prev => ({
+                                ...prev,
+                                anno: Number(e.target.value),
+                              }))
+                            }
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                           >
-                            Annulla
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEditEntry(entry)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            {Array.from(
+                              { length: 5 },
+                              (_, i) => new Date().getFullYear() - 2 + i
+                            ).map(year => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          entry.tipologiaCausale
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {isEditing ? (
+                          <select
+                            value={currentValues.tipologiaCausale}
+                            onChange={e =>
+                              setEditingValues(prev => ({
+                                ...prev,
+                                tipologiaCausale: e.target.value,
+                              }))
+                            }
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                           >
-                            Modifica
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEntry(entry.id)}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            <option value="">Seleziona tipologia</option>
+                            {availableTipologie.map(tipologia => (
+                              <option key={tipologia} value={tipologia}>
+                                {tipologia}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          entry.categoria
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {isEditing ? (
+                          <select
+                            value={currentValues.categoria}
+                            onChange={e =>
+                              setEditingValues(prev => ({
+                                ...prev,
+                                categoria: e.target.value,
+                              }))
+                            }
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                           >
-                            Elimina
-                          </button>
-                        </>
-                      )}
+                            <option value="">Seleziona categoria</option>
+                            {availableCategorie.map(categoriaItem => (
+                              <option key={categoriaItem} value={categoriaItem}>
+                                {categoriaItem}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          entry.causale
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={formatItalianNumber(
+                              currentValues.valore || 0
+                            )}
+                            onChange={e => {
+                              const numericValue = parseItalianNumber(
+                                e.target.value
+                              );
+                              setEditingValues(prev => ({
+                                ...prev,
+                                valore: numericValue,
+                              }));
+                            }}
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                          />
+                        ) : (
+                          `${formatItalianNumber(entry.valore)} €`
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => handleSaveEdit(entry.id)}
+                              className="text-green-600 hover:text-green-800 text-sm font-medium"
+                            >
+                              Salva
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            >
+                              Annulla
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditEntry(entry)}
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              Elimina
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </div>

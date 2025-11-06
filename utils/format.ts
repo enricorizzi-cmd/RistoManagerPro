@@ -7,7 +7,7 @@
 
 export const formatCurrency = (
   value: number | null | undefined,
-  { fallback = EURO_FORMATTER.format(0) }: { fallback?: string } = {},
+  { fallback = EURO_FORMATTER.format(0) }: { fallback?: string } = {}
 ): string => {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return fallback;

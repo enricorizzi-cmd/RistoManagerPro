@@ -28,11 +28,14 @@ export const useDataEntriesSums = (locationId?: string) => {
       setError(null);
 
       try {
-        const response = await fetch(`http://localhost:4000/api/data-entries/${locationId}/sums`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        const response = await fetch(
+          `http://localhost:4000/api/data-entries/${locationId}/sums`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -51,13 +54,20 @@ export const useDataEntriesSums = (locationId?: string) => {
     loadSums();
   }, [locationId, token]);
 
-  const getSumForCausale = (tipologia: string, categoria: string, causale: string, year: number, monthIndex: number): number => {
-    const sum = sums.find(s => 
-      s.tipologia_causale === tipologia &&
-      s.categoria === categoria &&
-      s.causale === causale &&
-      s.anno === year &&
-      s.mese === monthIndex
+  const getSumForCausale = (
+    tipologia: string,
+    categoria: string,
+    causale: string,
+    year: number,
+    monthIndex: number
+  ): number => {
+    const sum = sums.find(
+      s =>
+        s.tipologia_causale === tipologia &&
+        s.categoria === categoria &&
+        s.causale === causale &&
+        s.anno === year &&
+        s.mese === monthIndex
     );
     return sum?.total_value || 0;
   };
@@ -66,6 +76,6 @@ export const useDataEntriesSums = (locationId?: string) => {
     sums,
     loading,
     error,
-    getSumForCausale
+    getSumForCausale,
   };
 };

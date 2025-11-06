@@ -24,11 +24,11 @@ fs.mkdirSync(DATABASE_DIR, { recursive: true });
 // Database connection manager for multi-company support
 const dbConnections = new Map();
 
-const getDatabase = (locationId) => {
+const getDatabase = locationId => {
   if (!dbConnections.has(locationId)) {
     const dbFile = path.join(DATABASE_DIR, `ristomanager_${locationId}.db`);
     const db = new sqlite3.Database(dbFile);
-    
+
     // Initialize tables for this company
     initializeDatabase(db);
     dbConnections.set(locationId, db);
@@ -36,7 +36,7 @@ const getDatabase = (locationId) => {
   return dbConnections.get(locationId);
 };
 
-const initializeDatabase = (db) => {
+const initializeDatabase = db => {
   db.serialize(() => {
     // Financial Plan State Table (now per company)
     db.run(`CREATE TABLE IF NOT EXISTS financial_plan_state (
@@ -44,7 +44,7 @@ const initializeDatabase = (db) => {
       data TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
-    
+
     // Data entries table for InserisciDati
     db.run(`CREATE TABLE IF NOT EXISTS data_entries (
       id TEXT PRIMARY KEY,
@@ -80,11 +80,14 @@ const initializeDatabase = (db) => {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
-    
+
     // Add name column if it doesn't exist (migration)
-    db.run(`ALTER TABLE business_plan_drafts ADD COLUMN name TEXT DEFAULT 'Bozza'`, (err) => {
-      // Ignore error if column already exists
-    });
+    db.run(
+      `ALTER TABLE business_plan_drafts ADD COLUMN name TEXT DEFAULT 'Bozza'`,
+      err => {
+        // Ignore error if column already exists
+      }
+    );
 
     // Financial Stats Table (per company)
     db.run(`CREATE TABLE IF NOT EXISTS financial_stats (
@@ -121,11 +124,14 @@ masterDb.serialize(() => {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`);
-  
+
   // Add status column if it doesn't exist (for existing databases)
-  masterDb.run(`ALTER TABLE locations ADD COLUMN status TEXT DEFAULT 'active'`, (err) => {
-    // Ignore error if column already exists
-  });
+  masterDb.run(
+    `ALTER TABLE locations ADD COLUMN status TEXT DEFAULT 'active'`,
+    err => {
+      // Ignore error if column already exists
+    }
+  );
 
   // Users table
   masterDb.run(`CREATE TABLE IF NOT EXISTS users (
@@ -174,7 +180,6 @@ masterDb.serialize(() => {
   )`);
 });
 
-
 // Initialize default database for backward compatibility
 const defaultDb = getDatabase('default');
 
@@ -189,8 +194,9 @@ function generateToken() {
 
 // Middleware to check authentication
 function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-  
+  const token =
+    req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -239,7 +245,7 @@ function getState(locationId) {
         } catch (parseError) {
           reject(parseError);
         }
-      },
+      }
     );
   });
 }
@@ -251,131 +257,169 @@ async function aggregateFinancialData(payload, locationId) {
     if (locationId === 'all') return;
 
     // Get all active locations (excluding "all")
-    const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
-    
+    const locations = await masterDbQuery(
+      'SELECT id FROM locations WHERE status = "active" AND id != "all"'
+    );
+
     // Get current aggregated state for "all"
     const allDb = getDatabase('all');
     const aggregatedStateId = 'financial-plan-all';
-    
-    allDb.get('SELECT data FROM financial_plan_state WHERE id = ?', [aggregatedStateId], async (err, row) => {
-      if (err) {
-        console.error('Error getting aggregated state:', err);
-        return;
-      }
 
-      let aggregatedPayload = {
-        preventivoOverrides: {},
-        consuntivoOverrides: {},
-        manualLog: [],
-        monthlyMetrics: [],
-        statsOverrides: {},
-        causaliCatalog: [],
-        causaliVersion: null,
-      };
-
-      if (row) {
-        try {
-          aggregatedPayload = JSON.parse(row.data);
-        } catch (parseError) {
-          console.error('Error parsing aggregated state:', parseError);
+    allDb.get(
+      'SELECT data FROM financial_plan_state WHERE id = ?',
+      [aggregatedStateId],
+      async (err, row) => {
+        if (err) {
+          console.error('Error getting aggregated state:', err);
+          return;
         }
-      }
 
-      // Aggregate data from all locations
-      for (const location of locations) {
-        try {
-          const locationDb = getDatabase(location.id);
-          const locationStateId = `financial-plan-${location.id}`;
-          
-          locationDb.get('SELECT data FROM financial_plan_state WHERE id = ?', [locationStateId], (err, locationRow) => {
-            if (err || !locationRow) return;
+        let aggregatedPayload = {
+          preventivoOverrides: {},
+          consuntivoOverrides: {},
+          manualLog: [],
+          monthlyMetrics: [],
+          statsOverrides: {},
+          causaliCatalog: [],
+          causaliVersion: null,
+        };
 
-            try {
-              const locationPayload = JSON.parse(locationRow.data);
-              
-              // Aggregate preventivoOverrides
-              if (locationPayload.preventivoOverrides) {
-                Object.keys(locationPayload.preventivoOverrides).forEach(key => {
-                  if (!aggregatedPayload.preventivoOverrides[key]) {
-                    aggregatedPayload.preventivoOverrides[key] = {};
-                  }
-                  Object.keys(locationPayload.preventivoOverrides[key]).forEach(subKey => {
-                    const currentValue = aggregatedPayload.preventivoOverrides[key][subKey] || 0;
-                    const newValue = locationPayload.preventivoOverrides[key][subKey] || 0;
-                    aggregatedPayload.preventivoOverrides[key][subKey] = currentValue + newValue;
-                  });
-                });
-              }
-
-              // Aggregate consuntivoOverrides
-              if (locationPayload.consuntivoOverrides) {
-                Object.keys(locationPayload.consuntivoOverrides).forEach(key => {
-                  if (!aggregatedPayload.consuntivoOverrides[key]) {
-                    aggregatedPayload.consuntivoOverrides[key] = {};
-                  }
-                  Object.keys(locationPayload.consuntivoOverrides[key]).forEach(subKey => {
-                    const currentValue = aggregatedPayload.consuntivoOverrides[key][subKey] || 0;
-                    const newValue = locationPayload.consuntivoOverrides[key][subKey] || 0;
-                    aggregatedPayload.consuntivoOverrides[key][subKey] = currentValue + newValue;
-                  });
-                });
-              }
-
-              // Aggregate statsOverrides
-              if (locationPayload.statsOverrides) {
-                Object.keys(locationPayload.statsOverrides).forEach(key => {
-                  const currentValue = aggregatedPayload.statsOverrides[key] || 0;
-                  const newValue = locationPayload.statsOverrides[key] || 0;
-                  aggregatedPayload.statsOverrides[key] = currentValue + newValue;
-                });
-              }
-
-              // Aggregate monthlyMetrics
-              if (locationPayload.monthlyMetrics) {
-                locationPayload.monthlyMetrics.forEach(metric => {
-                  const existingMetric = aggregatedPayload.monthlyMetrics.find(m => 
-                    m.year === metric.year && m.monthIndex === metric.monthIndex
-                  );
-                  if (existingMetric) {
-                    // Sum numeric values
-                    Object.keys(metric).forEach(key => {
-                      if (typeof metric[key] === 'number') {
-                        existingMetric[key] = (existingMetric[key] || 0) + metric[key];
-                      }
-                    });
-                  } else {
-                    aggregatedPayload.monthlyMetrics.push({...metric});
-                  }
-                });
-              }
-
-            } catch (parseError) {
-              console.error(`Error parsing location ${location.id} data:`, parseError);
-            }
-          });
-        } catch (error) {
-          console.error(`Error processing location ${location.id}:`, error);
-        }
-      }
-
-      // Save aggregated state
-      const now = new Date().toISOString();
-      const aggregatedData = JSON.stringify(aggregatedPayload);
-      
-      allDb.run(
-        `INSERT INTO financial_plan_state (id, data, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-        [aggregatedStateId, aggregatedData, now],
-        (err) => {
-          if (err) {
-            console.error('Error saving aggregated state:', err);
-          } else {
-            console.log('Successfully updated aggregated financial data');
+        if (row) {
+          try {
+            aggregatedPayload = JSON.parse(row.data);
+          } catch (parseError) {
+            console.error('Error parsing aggregated state:', parseError);
           }
         }
-      );
-    });
+
+        // Aggregate data from all locations
+        for (const location of locations) {
+          try {
+            const locationDb = getDatabase(location.id);
+            const locationStateId = `financial-plan-${location.id}`;
+
+            locationDb.get(
+              'SELECT data FROM financial_plan_state WHERE id = ?',
+              [locationStateId],
+              (err, locationRow) => {
+                if (err || !locationRow) return;
+
+                try {
+                  const locationPayload = JSON.parse(locationRow.data);
+
+                  // Aggregate preventivoOverrides
+                  if (locationPayload.preventivoOverrides) {
+                    Object.keys(locationPayload.preventivoOverrides).forEach(
+                      key => {
+                        if (!aggregatedPayload.preventivoOverrides[key]) {
+                          aggregatedPayload.preventivoOverrides[key] = {};
+                        }
+                        Object.keys(
+                          locationPayload.preventivoOverrides[key]
+                        ).forEach(subKey => {
+                          const currentValue =
+                            aggregatedPayload.preventivoOverrides[key][
+                              subKey
+                            ] || 0;
+                          const newValue =
+                            locationPayload.preventivoOverrides[key][subKey] ||
+                            0;
+                          aggregatedPayload.preventivoOverrides[key][subKey] =
+                            currentValue + newValue;
+                        });
+                      }
+                    );
+                  }
+
+                  // Aggregate consuntivoOverrides
+                  if (locationPayload.consuntivoOverrides) {
+                    Object.keys(locationPayload.consuntivoOverrides).forEach(
+                      key => {
+                        if (!aggregatedPayload.consuntivoOverrides[key]) {
+                          aggregatedPayload.consuntivoOverrides[key] = {};
+                        }
+                        Object.keys(
+                          locationPayload.consuntivoOverrides[key]
+                        ).forEach(subKey => {
+                          const currentValue =
+                            aggregatedPayload.consuntivoOverrides[key][
+                              subKey
+                            ] || 0;
+                          const newValue =
+                            locationPayload.consuntivoOverrides[key][subKey] ||
+                            0;
+                          aggregatedPayload.consuntivoOverrides[key][subKey] =
+                            currentValue + newValue;
+                        });
+                      }
+                    );
+                  }
+
+                  // Aggregate statsOverrides
+                  if (locationPayload.statsOverrides) {
+                    Object.keys(locationPayload.statsOverrides).forEach(key => {
+                      const currentValue =
+                        aggregatedPayload.statsOverrides[key] || 0;
+                      const newValue = locationPayload.statsOverrides[key] || 0;
+                      aggregatedPayload.statsOverrides[key] =
+                        currentValue + newValue;
+                    });
+                  }
+
+                  // Aggregate monthlyMetrics
+                  if (locationPayload.monthlyMetrics) {
+                    locationPayload.monthlyMetrics.forEach(metric => {
+                      const existingMetric =
+                        aggregatedPayload.monthlyMetrics.find(
+                          m =>
+                            m.year === metric.year &&
+                            m.monthIndex === metric.monthIndex
+                        );
+                      if (existingMetric) {
+                        // Sum numeric values
+                        Object.keys(metric).forEach(key => {
+                          if (typeof metric[key] === 'number') {
+                            existingMetric[key] =
+                              (existingMetric[key] || 0) + metric[key];
+                          }
+                        });
+                      } else {
+                        aggregatedPayload.monthlyMetrics.push({ ...metric });
+                      }
+                    });
+                  }
+                } catch (parseError) {
+                  console.error(
+                    `Error parsing location ${location.id} data:`,
+                    parseError
+                  );
+                }
+              }
+            );
+          } catch (error) {
+            console.error(`Error processing location ${location.id}:`, error);
+          }
+        }
+
+        // Save aggregated state
+        const now = new Date().toISOString();
+        const aggregatedData = JSON.stringify(aggregatedPayload);
+
+        allDb.run(
+          `INSERT INTO financial_plan_state (id, data, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+          [aggregatedStateId, aggregatedData, now],
+          err => {
+            if (err) {
+              console.error('Error saving aggregated state:', err);
+            } else {
+              console.log('Successfully updated aggregated financial data');
+            }
+          }
+        );
+      }
+    );
   } catch (error) {
     console.error('Error in aggregateFinancialData:', error);
   }
@@ -392,17 +436,17 @@ function saveState(payload, locationId) {
        VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
       [stateId, data, now],
-      async (err) => {
+      async err => {
         if (err) {
           reject(err);
           return;
         }
-        
+
         // Trigger aggregation for "all" location
         await aggregateFinancialData(payload, locationId);
-        
+
         resolve(now);
-      },
+      }
     );
   });
 }
@@ -424,10 +468,16 @@ function buildPayload(body) {
 
   const payload = { ...fallback };
 
-  if (body.preventivoOverrides && typeof body.preventivoOverrides === 'object') {
+  if (
+    body.preventivoOverrides &&
+    typeof body.preventivoOverrides === 'object'
+  ) {
     payload.preventivoOverrides = body.preventivoOverrides;
   }
-  if (body.consuntivoOverrides && typeof body.consuntivoOverrides === 'object') {
+  if (
+    body.consuntivoOverrides &&
+    typeof body.consuntivoOverrides === 'object'
+  ) {
     payload.consuntivoOverrides = body.consuntivoOverrides;
   }
   if (Array.isArray(body.manualLog)) {
@@ -473,7 +523,7 @@ function dbGet(locationId, sql, params = []) {
 function dbRun(locationId, sql, params = []) {
   return new Promise((resolve, reject) => {
     const db = getDatabase(locationId);
-    db.run(sql, params, function(err) {
+    db.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve({ id: this.lastID, changes: this.changes });
     });
@@ -501,7 +551,7 @@ function masterDbGet(sql, params = []) {
 
 function masterDbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
-    masterDb.run(sql, params, function(err) {
+    masterDb.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve({ id: this.lastID, changes: this.changes });
     });
@@ -516,19 +566,24 @@ app.get('/health', (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
-    
+
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
     // Check if user already exists
-    const existingUser = await masterDbGet('SELECT id FROM users WHERE email = ?', [email]);
+    const existingUser = await masterDbGet(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
     // Check if this is the first user (make them admin)
-    const userCount = await masterDbQuery('SELECT COUNT(*) as count FROM users');
+    const userCount = await masterDbQuery(
+      'SELECT COUNT(*) as count FROM users'
+    );
     const isFirstUser = userCount[0].count === 0;
     const role = isFirstUser ? 'admin' : 'user';
 
@@ -558,8 +613,8 @@ app.post('/api/auth/register', async (req, res) => {
         firstName,
         lastName,
         email,
-        role
-      }
+        role,
+      },
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -570,7 +625,7 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
@@ -589,7 +644,7 @@ app.post('/api/auth/login', async (req, res) => {
     const token = generateToken();
     const sessionId = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     await masterDbRun(
       'INSERT INTO user_sessions (id, user_id, token, created_at) VALUES (?, ?, ?, ?)',
       [sessionId, user.id, token, now]
@@ -603,8 +658,8 @@ app.post('/api/auth/login', async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -614,7 +669,9 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
   try {
-    await masterDbRun('DELETE FROM user_sessions WHERE token = ?', [req.headers.authorization?.replace('Bearer ', '')]);
+    await masterDbRun('DELETE FROM user_sessions WHERE token = ?', [
+      req.headers.authorization?.replace('Bearer ', ''),
+    ]);
     res.json({ success: true });
   } catch (error) {
     console.error('Logout error:', error);
@@ -629,8 +686,8 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
       firstName: req.user.first_name,
       lastName: req.user.last_name,
       email: req.user.email,
-      role: req.user.role
-    }
+      role: req.user.role,
+    },
   });
 });
 
@@ -640,7 +697,7 @@ app.get('/api/financial-plan/state', requireAuth, async (req, res) => {
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     const state = await getState(locationId);
     if (!state) {
       res.json({
@@ -667,7 +724,7 @@ app.put('/api/financial-plan/state', requireAuth, async (req, res) => {
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     const payload = buildPayload(req.body);
     const updatedAt = await saveState(payload, locationId);
     res.json({ success: true, updatedAt });
@@ -680,7 +737,10 @@ app.put('/api/financial-plan/state', requireAuth, async (req, res) => {
 // Initialize "Tutti" location for aggregated data
 const initializeTuttiLocation = async () => {
   try {
-    const existingTutti = await masterDbGet('SELECT * FROM locations WHERE id = ?', ['all']);
+    const existingTutti = await masterDbGet(
+      'SELECT * FROM locations WHERE id = ?',
+      ['all']
+    );
     if (!existingTutti) {
       const now = new Date().toISOString();
       await masterDbRun(
@@ -700,7 +760,9 @@ initializeTuttiLocation();
 // Locations API (Master database - shared across companies)
 app.get('/api/locations', async (req, res) => {
   try {
-    const locations = await masterDbQuery('SELECT * FROM locations ORDER BY name');
+    const locations = await masterDbQuery(
+      'SELECT * FROM locations ORDER BY name'
+    );
     res.json(locations);
   } catch (error) {
     console.error('Failed to get locations', error);
@@ -712,13 +774,15 @@ app.post('/api/locations', async (req, res) => {
   try {
     const { id, name, capacity, openTime, closeTime } = req.body;
     const now = new Date().toISOString();
-    
+
     await masterDbRun(
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, name, capacity, openTime, closeTime, now, now]
     );
-    
-    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
+
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [
+      id,
+    ]);
     res.json(location);
   } catch (error) {
     console.error('Failed to create location', error);
@@ -731,13 +795,15 @@ app.put('/api/locations/:id', async (req, res) => {
     const { id } = req.params;
     const { name, capacity, openTime, closeTime } = req.body;
     const now = new Date().toISOString();
-    
+
     await masterDbRun(
       'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, updated_at = ? WHERE id = ?',
       [name, capacity, openTime, closeTime, now, id]
     );
-    
-    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
+
+    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [
+      id,
+    ]);
     res.json(location);
   } catch (error) {
     console.error('Failed to update location', error);
@@ -752,22 +818,25 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     const db = getDatabase(locationId);
     const drafts = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM business_plan_drafts ORDER BY target_year, name', (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      db.all(
+        'SELECT * FROM business_plan_drafts ORDER BY target_year, name',
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
     });
-    
+
     const draftsList = drafts.map(draft => ({
       id: draft.id,
       targetYear: draft.target_year,
       name: draft.name,
       data: JSON.parse(draft.data),
       createdAt: draft.created_at,
-      updatedAt: draft.updated_at
+      updatedAt: draft.updated_at,
     }));
     res.json(draftsList);
   } catch (error) {
@@ -780,24 +849,26 @@ app.put('/api/business-plan-drafts', requireAuth, async (req, res) => {
   try {
     const { targetYear, name, data, locationId } = req.body;
     if (!locationId || !name) {
-      return res.status(400).json({ error: 'Location ID and name are required' });
+      return res
+        .status(400)
+        .json({ error: 'Location ID and name are required' });
     }
-    
+
     const now = new Date().toISOString();
     const id = `draft-${targetYear}-${name.replace(/[^a-zA-Z0-9]/g, '-')}`;
-    
+
     const db = getDatabase(locationId);
     await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO business_plan_drafts (id, target_year, name, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
         [id, targetYear, name, JSON.stringify(data), now, now],
-        (err) => {
+        err => {
           if (err) reject(err);
           else resolve();
         }
       );
     });
-    
+
     res.json({ success: true, id });
   } catch (error) {
     console.error('Failed to save business plan draft', error);
@@ -809,19 +880,19 @@ app.delete('/api/business-plan-drafts/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { locationId } = req.query;
-    
+
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     const db = getDatabase(locationId);
     await new Promise((resolve, reject) => {
-      db.run('DELETE FROM business_plan_drafts WHERE id = ?', [id], (err) => {
+      db.run('DELETE FROM business_plan_drafts WHERE id = ?', [id], err => {
         if (err) reject(err);
         else resolve();
       });
     });
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete business plan draft', error);
@@ -833,25 +904,27 @@ app.delete('/api/business-plan-drafts/:id', requireAuth, async (req, res) => {
 app.post('/api/init-default-data', async (req, res) => {
   try {
     const now = new Date().toISOString();
-    
+
     // Check if data already exists
-    const existingLocations = await masterDbQuery('SELECT COUNT(*) as count FROM locations');
+    const existingLocations = await masterDbQuery(
+      'SELECT COUNT(*) as count FROM locations'
+    );
     if (existingLocations[0].count > 0) {
       res.json({ message: 'Default data already exists' });
       return;
     }
-    
+
     // Insert default locations
     await masterDbRun(
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['loc-1', 'Trattoria del Ponte', 50, '18:00', '23:00', now, now]
     );
-    
+
     await masterDbRun(
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['loc-2', 'Pizzeria al Forno', 80, '19:00', '24:00', now, now]
     );
-    
+
     res.json({ success: true, message: 'Default data initialized' });
   } catch (error) {
     console.error('Failed to initialize default data', error);
@@ -870,12 +943,12 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
       GROUP BY u.id
       ORDER BY u.created_at DESC
     `);
-    
+
     const formattedUsers = users.map(user => ({
       ...user,
-      locationIds: user.location_ids ? user.location_ids.split(',') : []
+      locationIds: user.location_ids ? user.location_ids.split(',') : [],
     }));
-    
+
     res.json(formattedUsers);
   } catch (error) {
     console.error('Failed to get users', error);
@@ -883,67 +956,89 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id/permissions', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { locationIds } = req.body;
-    
-    // Remove existing permissions
-    await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
-    
-    // Add new permissions
-    const now = new Date().toISOString();
-    for (const locationId of locationIds) {
-      const permissionId = crypto.randomUUID();
-      await masterDbRun(
-        'INSERT INTO user_location_permissions (id, user_id, location_id, created_at) VALUES (?, ?, ?, ?)',
-        [permissionId, id, locationId, now]
-      );
-    }
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to update user permissions', error);
-    res.status(500).json({ error: 'Failed to update user permissions' });
-  }
-});
+app.put(
+  '/api/users/:id/permissions',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { locationIds } = req.body;
 
-app.put('/api/users/:id/status', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { isActive } = req.body;
-    
-    await masterDbRun('UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?', 
-      [isActive ? 1 : 0, new Date().toISOString(), id]);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to update user status', error);
-    res.status(500).json({ error: 'Failed to update user status' });
+      // Remove existing permissions
+      await masterDbRun(
+        'DELETE FROM user_location_permissions WHERE user_id = ?',
+        [id]
+      );
+
+      // Add new permissions
+      const now = new Date().toISOString();
+      for (const locationId of locationIds) {
+        const permissionId = crypto.randomUUID();
+        await masterDbRun(
+          'INSERT INTO user_location_permissions (id, user_id, location_id, created_at) VALUES (?, ?, ?, ?)',
+          [permissionId, id, locationId, now]
+        );
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update user permissions', error);
+      res.status(500).json({ error: 'Failed to update user permissions' });
+    }
   }
-});
+);
+
+app.put(
+  '/api/users/:id/status',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      await masterDbRun(
+        'UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?',
+        [isActive ? 1 : 0, new Date().toISOString(), id]
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update user status', error);
+      res.status(500).json({ error: 'Failed to update user status' });
+    }
+  }
+);
 
 app.put('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
-    
+
     // Prevent admin from changing their own role
     if (id === req.user.id) {
       return res.status(400).json({ error: 'Cannot change your own role' });
     }
-    
-    await masterDbRun('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', 
-      [role, new Date().toISOString(), id]);
-    
+
+    await masterDbRun(
+      'UPDATE users SET role = ?, updated_at = ? WHERE id = ?',
+      [role, new Date().toISOString(), id]
+    );
+
     // If user is promoted to admin, give them access to all locations
     if (role === 'admin') {
       // Remove existing permissions
-      await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
-      
+      await masterDbRun(
+        'DELETE FROM user_location_permissions WHERE user_id = ?',
+        [id]
+      );
+
       // Get all active locations
-      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active"');
-      
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = "active"'
+      );
+
       // Add permissions for all locations
       const now = new Date().toISOString();
       for (const location of locations) {
@@ -954,7 +1049,7 @@ app.put('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
         );
       }
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to update user role', error);
@@ -965,27 +1060,30 @@ app.put('/api/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
 app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Check if user exists and is not the current admin
     const user = await masterDbGet('SELECT * FROM users WHERE id = ?', [id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Prevent admin from deleting themselves
     if (user.id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
-    
+
     // Delete user sessions
     await masterDbRun('DELETE FROM user_sessions WHERE user_id = ?', [id]);
-    
+
     // Delete user permissions
-    await masterDbRun('DELETE FROM user_location_permissions WHERE user_id = ?', [id]);
-    
+    await masterDbRun(
+      'DELETE FROM user_location_permissions WHERE user_id = ?',
+      [id]
+    );
+
     // Delete user
     await masterDbRun('DELETE FROM users WHERE id = ?', [id]);
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete user', error);
@@ -996,30 +1094,47 @@ app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
 app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { firstName, lastName, email, password, role } = req.body;
-    
+
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
     }
-    
+
     // Check if user already exists
-    const existingUser = await masterDbGet('SELECT id FROM users WHERE email = ?', [email]);
+    const existingUser = await masterDbGet(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res
+        .status(400)
+        .json({ error: 'User with this email already exists' });
     }
-    
+
     const userId = crypto.randomUUID();
     const passwordHash = hashPassword(password);
     const now = new Date().toISOString();
-    
+
     // Create user with specified role
     await masterDbRun(
       'INSERT INTO users (id, first_name, last_name, email, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, firstName, lastName, email, passwordHash, role || 'user', 1, now, now]
+      [
+        userId,
+        firstName,
+        lastName,
+        email,
+        passwordHash,
+        role || 'user',
+        1,
+        now,
+        now,
+      ]
     );
-    
+
     // If user is created as admin, give them access to all locations
     if (role === 'admin') {
-      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active"');
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = "active"'
+      );
       for (const location of locations) {
         const permissionId = crypto.randomUUID();
         await masterDbRun(
@@ -1028,16 +1143,16 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
         );
       }
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       user: {
         id: userId,
         firstName,
         lastName,
         email,
-        role: role || 'user'
-      }
+        role: role || 'user',
+      },
     });
   } catch (error) {
     console.error('Failed to create user', error);
@@ -1046,138 +1161,193 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Settings API (Admin only)
-app.get('/api/settings/locations', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const locations = await masterDbQuery('SELECT * FROM locations ORDER BY name');
-    res.json(locations);
-  } catch (error) {
-    console.error('Failed to get locations for settings', error);
-    res.status(500).json({ error: 'Failed to get locations' });
+app.get(
+  '/api/settings/locations',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const locations = await masterDbQuery(
+        'SELECT * FROM locations ORDER BY name'
+      );
+      res.json(locations);
+    } catch (error) {
+      console.error('Failed to get locations for settings', error);
+      res.status(500).json({ error: 'Failed to get locations' });
+    }
   }
-});
+);
 
-app.post('/api/settings/locations', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { name, capacity, openTime, closeTime } = req.body;
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
-    await masterDbRun(
-      'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, capacity, openTime, closeTime, 'active', now, now]
-    );
-    
-    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
-    res.json(location);
-  } catch (error) {
-    console.error('Failed to create location', error);
-    res.status(500).json({ error: 'Failed to create location' });
-  }
-});
+app.post(
+  '/api/settings/locations',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { name, capacity, openTime, closeTime } = req.body;
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
 
-app.put('/api/settings/locations/:id', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, capacity, openTime, closeTime, status } = req.body;
-    const now = new Date().toISOString();
-    
-    await masterDbRun(
-      'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, status = ?, updated_at = ? WHERE id = ?',
-      [name, capacity, openTime, closeTime, status, now, id]
-    );
-    
-    const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [id]);
-    res.json(location);
-  } catch (error) {
-    console.error('Failed to update location', error);
-    res.status(500).json({ error: 'Failed to update location' });
-  }
-});
+      await masterDbRun(
+        'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, name, capacity, openTime, closeTime, 'active', now, now]
+      );
 
-app.delete('/api/settings/locations/:id', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Delete user permissions for this location
-    await masterDbRun('DELETE FROM user_location_permissions WHERE location_id = ?', [id]);
-    
-    // Delete enabled tabs for this location
-    await masterDbRun('DELETE FROM location_enabled_tabs WHERE location_id = ?', [id]);
-    
-    // Delete location
-    await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to delete location', error);
-    res.status(500).json({ error: 'Failed to delete location' });
+      const location = await masterDbGet(
+        'SELECT * FROM locations WHERE id = ?',
+        [id]
+      );
+      res.json(location);
+    } catch (error) {
+      console.error('Failed to create location', error);
+      res.status(500).json({ error: 'Failed to create location' });
+    }
   }
-});
+);
+
+app.put(
+  '/api/settings/locations/:id',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, capacity, openTime, closeTime, status } = req.body;
+      const now = new Date().toISOString();
+
+      await masterDbRun(
+        'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, status = ?, updated_at = ? WHERE id = ?',
+        [name, capacity, openTime, closeTime, status, now, id]
+      );
+
+      const location = await masterDbGet(
+        'SELECT * FROM locations WHERE id = ?',
+        [id]
+      );
+      res.json(location);
+    } catch (error) {
+      console.error('Failed to update location', error);
+      res.status(500).json({ error: 'Failed to update location' });
+    }
+  }
+);
+
+app.delete(
+  '/api/settings/locations/:id',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Delete user permissions for this location
+      await masterDbRun(
+        'DELETE FROM user_location_permissions WHERE location_id = ?',
+        [id]
+      );
+
+      // Delete enabled tabs for this location
+      await masterDbRun(
+        'DELETE FROM location_enabled_tabs WHERE location_id = ?',
+        [id]
+      );
+
+      // Delete location
+      await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete location', error);
+      res.status(500).json({ error: 'Failed to delete location' });
+    }
+  }
+);
 
 // Get enabled tabs for a location
-app.get('/api/settings/locations/:id/tabs', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const tabs = await masterDbQuery(`
+app.get(
+  '/api/settings/locations/:id/tabs',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const tabs = await masterDbQuery(
+        `
       SELECT tab_name, is_enabled 
       FROM location_enabled_tabs 
       WHERE location_id = ? 
       ORDER BY tab_name
-    `, [id]);
-    
-    res.json(tabs);
-  } catch (error) {
-    console.error('Failed to get location tabs', error);
-    res.status(500).json({ error: 'Failed to get location tabs' });
+    `,
+        [id]
+      );
+
+      res.json(tabs);
+    } catch (error) {
+      console.error('Failed to get location tabs', error);
+      res.status(500).json({ error: 'Failed to get location tabs' });
+    }
   }
-});
+);
 
 // Update enabled tabs for a location
-app.put('/api/settings/locations/:id/tabs', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { tabs } = req.body;
-    
-    const now = new Date().toISOString();
-    
-    // Delete existing tabs for this location
-    await masterDbRun('DELETE FROM location_enabled_tabs WHERE location_id = ?', [id]);
-    
-    // Insert new tabs
-    for (const tab of tabs) {
-      const tabId = crypto.randomUUID();
+app.put(
+  '/api/settings/locations/:id/tabs',
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { tabs } = req.body;
+
+      const now = new Date().toISOString();
+
+      // Delete existing tabs for this location
       await masterDbRun(
-        'INSERT INTO location_enabled_tabs (id, location_id, tab_name, is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [tabId, id, tab.tab_name, tab.is_enabled ? 1 : 0, now, now]
+        'DELETE FROM location_enabled_tabs WHERE location_id = ?',
+        [id]
       );
+
+      // Insert new tabs
+      for (const tab of tabs) {
+        const tabId = crypto.randomUUID();
+        await masterDbRun(
+          'INSERT INTO location_enabled_tabs (id, location_id, tab_name, is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [tabId, id, tab.tab_name, tab.is_enabled ? 1 : 0, now, now]
+        );
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update location tabs', error);
+      res.status(500).json({ error: 'Failed to update location tabs' });
     }
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to update location tabs', error);
-    res.status(500).json({ error: 'Failed to update location tabs' });
   }
-});
+);
 
 // Get user's accessible locations
 app.get('/api/user/locations', requireAuth, async (req, res) => {
   try {
     let locations;
-    
+
     if (req.user.role === 'admin') {
       // Admin can see all active locations
-      locations = await masterDbQuery('SELECT * FROM locations WHERE status = "active" ORDER BY name');
+      locations = await masterDbQuery(
+        'SELECT * FROM locations WHERE status = "active" ORDER BY name'
+      );
     } else {
       // Regular users can only see locations they have permission for
-      locations = await masterDbQuery(`
+      locations = await masterDbQuery(
+        `
         SELECT l.* FROM locations l
         JOIN user_location_permissions ulp ON l.id = ulp.location_id
         WHERE ulp.user_id = ? AND l.status = 'active'
         ORDER BY l.name
-      `, [req.user.id]);
+      `,
+        [req.user.id]
+      );
     }
-    
+
     res.json(locations);
   } catch (error) {
     console.error('Failed to get user locations', error);
@@ -1189,20 +1359,25 @@ app.get('/api/user/locations', requireAuth, async (req, res) => {
 app.get('/api/user/locations/financial-plan', requireAuth, async (req, res) => {
   try {
     let locations;
-    
+
     if (req.user.role === 'admin') {
       // Admin can see all active locations + "Tutti" for aggregated view
-      locations = await masterDbQuery('SELECT * FROM locations WHERE status = "active" ORDER BY name');
+      locations = await masterDbQuery(
+        'SELECT * FROM locations WHERE status = "active" ORDER BY name'
+      );
     } else {
       // Regular users can only see locations they have permission for
-      locations = await masterDbQuery(`
+      locations = await masterDbQuery(
+        `
         SELECT l.* FROM locations l
         JOIN user_location_permissions ulp ON l.id = ulp.location_id
         WHERE ulp.user_id = ? AND l.status = 'active'
         ORDER BY l.name
-      `, [req.user.id]);
+      `,
+        [req.user.id]
+      );
     }
-    
+
     res.json(locations);
   } catch (error) {
     console.error('Failed to get user locations for financial plan', error);
@@ -1214,32 +1389,35 @@ app.get('/api/user/locations/financial-plan', requireAuth, async (req, res) => {
 app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
   try {
     const { locationId } = req.params;
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     // Get enabled tabs for this location
-    const enabledTabs = await masterDbQuery(`
+    const enabledTabs = await masterDbQuery(
+      `
       SELECT tab_name, is_enabled 
       FROM location_enabled_tabs 
       WHERE location_id = ? AND is_enabled = 1
       ORDER BY tab_name
-    `, [locationId]);
-    
+    `,
+      [locationId]
+    );
+
     // If no custom tabs are set, return default enabled tabs
     if (enabledTabs.length === 0) {
-      const defaultTabs = [
-        { tab_name: 'financial-plan', is_enabled: 1 }
-      ];
+      const defaultTabs = [{ tab_name: 'financial-plan', is_enabled: 1 }];
       res.json(defaultTabs);
     } else {
       res.json(enabledTabs);
@@ -1254,26 +1432,32 @@ app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
 app.get('/api/data-entries/:locationId', requireAuth, async (req, res) => {
   try {
     const { locationId } = req.params;
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     const db = getDatabase(locationId);
-    const entries = await dbQuery(locationId, `
+    const entries = await dbQuery(
+      locationId,
+      `
       SELECT * FROM data_entries 
       WHERE location_id = ? 
       ORDER BY created_at DESC
-    `, [locationId]);
-    
+    `,
+      [locationId]
+    );
+
     res.json(entries);
   } catch (error) {
     console.error('Failed to get data entries', error);
@@ -1284,32 +1468,58 @@ app.get('/api/data-entries/:locationId', requireAuth, async (req, res) => {
 app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
   try {
     const { locationId } = req.params;
-    const { dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore } = req.body;
-    
+    const {
+      dataInserimento,
+      mese,
+      anno,
+      tipologiaCausale,
+      categoria,
+      causale,
+      valore,
+    } = req.body;
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     const db = getDatabase(locationId);
     const entryId = crypto.randomUUID();
     const now = new Date().toISOString();
-    
-    await dbRun(locationId, `
+
+    await dbRun(
+      locationId,
+      `
       INSERT INTO data_entries (
         id, location_id, data_inserimento, mese, anno, 
         tipologia_causale, categoria, causale, valore, 
         created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [entryId, locationId, dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore, now, now]);
-    
+    `,
+      [
+        entryId,
+        locationId,
+        dataInserimento,
+        mese,
+        anno,
+        tipologiaCausale,
+        categoria,
+        causale,
+        valore,
+        now,
+        now,
+      ]
+    );
+
     res.json({ success: true, id: entryId });
   } catch (error) {
     console.error('Failed to create data entry', error);
@@ -1317,101 +1527,148 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/data-entries/:locationId/:entryId', requireAuth, async (req, res) => {
-  try {
-    const { locationId, entryId } = req.params;
-    const { dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore } = req.body;
-    
-    // Check if user has access to this location
-    if (req.user.role !== 'admin') {
-      const hasPermission = await masterDbGet(
-        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
-        [req.user.id, locationId]
-      );
-      
-      if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+app.put(
+  '/api/data-entries/:locationId/:entryId',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { locationId, entryId } = req.params;
+      const {
+        dataInserimento,
+        mese,
+        anno,
+        tipologiaCausale,
+        categoria,
+        causale,
+        valore,
+      } = req.body;
+
+      // Check if user has access to this location
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDbGet(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
       }
-    }
-    
-    const db = getDatabase(locationId);
-    const now = new Date().toISOString();
-    
-    await dbRun(locationId, `
+
+      const db = getDatabase(locationId);
+      const now = new Date().toISOString();
+
+      await dbRun(
+        locationId,
+        `
       UPDATE data_entries SET
         data_inserimento = ?, mese = ?, anno = ?, 
         tipologia_causale = ?, categoria = ?, causale = ?, valore = ?,
         updated_at = ?
       WHERE id = ? AND location_id = ?
-    `, [dataInserimento, mese, anno, tipologiaCausale, categoria, causale, valore, now, entryId, locationId]);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to update data entry', error);
-    res.status(500).json({ error: 'Failed to update data entry' });
-  }
-});
-
-app.delete('/api/data-entries/:locationId/:entryId', requireAuth, async (req, res) => {
-  try {
-    const { locationId, entryId } = req.params;
-    
-    // Check if user has access to this location
-    if (req.user.role !== 'admin') {
-      const hasPermission = await masterDbGet(
-        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
-        [req.user.id, locationId]
+    `,
+        [
+          dataInserimento,
+          mese,
+          anno,
+          tipologiaCausale,
+          categoria,
+          causale,
+          valore,
+          now,
+          entryId,
+          locationId,
+        ]
       );
-      
-      if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
-      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update data entry', error);
+      res.status(500).json({ error: 'Failed to update data entry' });
     }
-    
-    const db = getDatabase(locationId);
-    
-    await dbRun(locationId, `
+  }
+);
+
+app.delete(
+  '/api/data-entries/:locationId/:entryId',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { locationId, entryId } = req.params;
+
+      // Check if user has access to this location
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDbGet(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const db = getDatabase(locationId);
+
+      await dbRun(
+        locationId,
+        `
       DELETE FROM data_entries 
       WHERE id = ? AND location_id = ?
-    `, [entryId, locationId]);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to delete data entry', error);
-    res.status(500).json({ error: 'Failed to delete data entry' });
+    `,
+        [entryId, locationId]
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete data entry', error);
+      res.status(500).json({ error: 'Failed to delete data entry' });
+    }
   }
-});
+);
 
 // Get data entries sums for Piano Mensile
 app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
   try {
     const { locationId } = req.params;
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       // For "all" location, only admin can access
       if (locationId === 'all') {
-        return res.status(403).json({ error: 'Access denied to aggregated view' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to aggregated view' });
       }
-      
+
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     // If locationId is "all", aggregate data from all active locations
     if (locationId === 'all') {
-      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = "active" AND id != "all"'
+      );
       const aggregatedSums = new Map();
-      
+
       for (const location of locations) {
         try {
-          const locationSums = await dbQuery(location.id, `
+          const locationSums = await dbQuery(
+            location.id,
+            `
             SELECT 
               tipologia_causale,
               categoria,
@@ -1422,8 +1679,10 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
             FROM data_entries 
             WHERE location_id = ? 
             GROUP BY tipologia_causale, categoria, causale, anno, mese
-          `, [location.id]);
-          
+          `,
+            [location.id]
+          );
+
           // Aggregate sums by key
           locationSums.forEach(sum => {
             const key = `${sum.tipologia_causale}|${sum.categoria}|${sum.causale}|${sum.anno}|${sum.mese}`;
@@ -1434,18 +1693,25 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
             }
           });
         } catch (error) {
-          console.error(`Error aggregating data entries for location ${location.id}:`, error);
+          console.error(
+            `Error aggregating data entries for location ${location.id}:`,
+            error
+          );
         }
       }
-      
-      const result = Array.from(aggregatedSums.values()).sort((a, b) => b.anno - a.anno || b.mese - a.mese);
+
+      const result = Array.from(aggregatedSums.values()).sort(
+        (a, b) => b.anno - a.anno || b.mese - a.mese
+      );
       res.json(result);
       return;
     }
-    
+
     // Single location query
     const db = getDatabase(locationId);
-    const sums = await dbQuery(locationId, `
+    const sums = await dbQuery(
+      locationId,
+      `
       SELECT 
         tipologia_causale,
         categoria,
@@ -1457,8 +1723,10 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
       WHERE location_id = ? 
       GROUP BY tipologia_causale, categoria, causale, anno, mese
       ORDER BY anno DESC, mese DESC
-    `, [locationId]);
-    
+    `,
+      [locationId]
+    );
+
     res.json(sums);
   } catch (error) {
     console.error('Failed to get data entries sums', error);
@@ -1470,36 +1738,44 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
 app.get('/api/financial-stats', requireAuth, async (req, res) => {
   try {
     const locationId = req.query.locationId;
-    
+
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       // For "all" location, only admin can access
       if (locationId === 'all') {
-        return res.status(403).json({ error: 'Access denied to aggregated view' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to aggregated view' });
       }
-      
+
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     // If locationId is "all", aggregate financial stats from all active locations
     if (locationId === 'all') {
-      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = "active" AND id != "all"'
+      );
       const aggregatedStats = new Map();
-      
+
       for (const location of locations) {
         try {
-          const locationStats = await dbQuery(location.id, `
+          const locationStats = await dbQuery(
+            location.id,
+            `
             SELECT 
               month,
               fatturato_totale as fatturatoTotale,
@@ -1514,38 +1790,59 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
             FROM financial_stats 
             WHERE location_id = ? 
             ORDER BY month
-          `, [location.id]);
-          
+          `,
+            [location.id]
+          );
+
           // Aggregate stats by month
           locationStats.forEach(stat => {
             if (aggregatedStats.has(stat.month)) {
               const existing = aggregatedStats.get(stat.month);
-              existing.fatturatoTotale = (existing.fatturatoTotale || 0) + (stat.fatturatoTotale || 0);
-              existing.fatturatoImponibile = (existing.fatturatoImponibile || 0) + (stat.fatturatoImponibile || 0);
-              existing.fatturatoPrevisionale = (existing.fatturatoPrevisionale || 0) + (stat.fatturatoPrevisionale || 0);
-              existing.incassato = (existing.incassato || 0) + (stat.incassato || 0);
-              existing.incassatoPrevisionale = (existing.incassatoPrevisionale || 0) + (stat.incassatoPrevisionale || 0);
+              existing.fatturatoTotale =
+                (existing.fatturatoTotale || 0) + (stat.fatturatoTotale || 0);
+              existing.fatturatoImponibile =
+                (existing.fatturatoImponibile || 0) +
+                (stat.fatturatoImponibile || 0);
+              existing.fatturatoPrevisionale =
+                (existing.fatturatoPrevisionale || 0) +
+                (stat.fatturatoPrevisionale || 0);
+              existing.incassato =
+                (existing.incassato || 0) + (stat.incassato || 0);
+              existing.incassatoPrevisionale =
+                (existing.incassatoPrevisionale || 0) +
+                (stat.incassatoPrevisionale || 0);
               existing.utile = (existing.utile || 0) + (stat.utile || 0);
-              existing.utilePrevisionale = (existing.utilePrevisionale || 0) + (stat.utilePrevisionale || 0);
-              existing.debitiFornitore = (existing.debitiFornitore || 0) + (stat.debitiFornitore || 0);
-              existing.debitiBancari = (existing.debitiBancari || 0) + (stat.debitiBancari || 0);
+              existing.utilePrevisionale =
+                (existing.utilePrevisionale || 0) +
+                (stat.utilePrevisionale || 0);
+              existing.debitiFornitore =
+                (existing.debitiFornitore || 0) + (stat.debitiFornitore || 0);
+              existing.debitiBancari =
+                (existing.debitiBancari || 0) + (stat.debitiBancari || 0);
             } else {
               aggregatedStats.set(stat.month, { ...stat });
             }
           });
         } catch (error) {
-          console.error(`Error aggregating financial stats for location ${location.id}:`, error);
+          console.error(
+            `Error aggregating financial stats for location ${location.id}:`,
+            error
+          );
         }
       }
-      
-      const result = Array.from(aggregatedStats.values()).sort((a, b) => a.month.localeCompare(b.month));
+
+      const result = Array.from(aggregatedStats.values()).sort((a, b) =>
+        a.month.localeCompare(b.month)
+      );
       res.json(result);
       return;
     }
-    
+
     // Single location query
     const db = getDatabase(locationId);
-    const stats = await dbQuery(locationId, `
+    const stats = await dbQuery(
+      locationId,
+      `
       SELECT 
         month,
         fatturato_totale as fatturatoTotale,
@@ -1560,8 +1857,10 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
       FROM financial_stats 
       WHERE location_id = ? 
       ORDER BY month
-    `, [locationId]);
-    
+    `,
+      [locationId]
+    );
+
     res.json(stats);
   } catch (error) {
     console.error('Failed to get financial stats', error);
@@ -1572,49 +1871,69 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
 app.put('/api/financial-stats', requireAuth, async (req, res) => {
   try {
     const { locationId, stats } = req.body;
-    
+
     if (!locationId || !Array.isArray(stats)) {
-      return res.status(400).json({ error: 'Location ID and stats array are required' });
+      return res
+        .status(400)
+        .json({ error: 'Location ID and stats array are required' });
     }
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     const db = getDatabase(locationId);
     const now = new Date().toISOString();
-    
+
     // Clear existing stats for this location
-    await dbRun(locationId, 'DELETE FROM financial_stats WHERE location_id = ?', [locationId]);
-    
+    await dbRun(
+      locationId,
+      'DELETE FROM financial_stats WHERE location_id = ?',
+      [locationId]
+    );
+
     // Insert new stats
     for (const stat of stats) {
       const statId = crypto.randomUUID();
-      await dbRun(locationId, `
+      await dbRun(
+        locationId,
+        `
         INSERT INTO financial_stats (
           id, location_id, month, fatturato_totale, fatturato_imponibile, 
           fatturato_previsionale, incassato, incassato_previsionale, 
           utile, utile_previsionale, debiti_fornitore, debiti_bancari,
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        statId, locationId, stat.month, 
-        stat.fatturatoTotale || null, stat.fatturatoImponibile || null,
-        stat.fatturatoPrevisionale || null, stat.incassato || null, 
-        stat.incassatoPrevisionale || null, stat.utile || null, 
-        stat.utilePrevisionale || null, stat.debitiFornitore || null, 
-        stat.debitiBancari || null, now, now
-      ]);
+      `,
+        [
+          statId,
+          locationId,
+          stat.month,
+          stat.fatturatoTotale || null,
+          stat.fatturatoImponibile || null,
+          stat.fatturatoPrevisionale || null,
+          stat.incassato || null,
+          stat.incassatoPrevisionale || null,
+          stat.utile || null,
+          stat.utilePrevisionale || null,
+          stat.debitiFornitore || null,
+          stat.debitiBancari || null,
+          now,
+          now,
+        ]
+      );
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to save financial stats', error);
@@ -1626,58 +1945,153 @@ app.put('/api/financial-stats', requireAuth, async (req, res) => {
 app.post('/api/financial-stats/migrate', requireAuth, async (req, res) => {
   try {
     const { locationId } = req.body;
-    
+
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
     }
-    
+
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
       );
-      
+
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
-    
+
     // Default stats data (sample data for 2024)
     const defaultStats = [
-      { month: "Gen. 24", fatturatoImponibile: 15000.0, fatturatoTotale: 15000.0, incassato: 18000.0, saldoConto: 5000.0, saldoSecondoConto: 1000.0, saldoTotale: 6000.0, creditiPendenti: 2000.0, creditiScaduti: 500.0, debitiFornitore: 3000.0, debitiBancari: 1500.0 },
-      { month: "Feb. 24", fatturatoImponibile: 16000.0, fatturatoTotale: 16000.0, incassato: 19000.0, saldoConto: 5500.0, saldoSecondoConto: 1200.0, saldoTotale: 6700.0, creditiPendenti: 2200.0, creditiScaduti: 600.0, debitiFornitore: 3200.0, debitiBancari: 1600.0 },
-      { month: "Mar. 24", fatturatoImponibile: 17000.0, fatturatoTotale: 17000.0, incassato: 20000.0, saldoConto: 6000.0, saldoSecondoConto: 1400.0, saldoTotale: 7400.0, creditiPendenti: 2400.0, creditiScaduti: 700.0, debitiFornitore: 3400.0, debitiBancari: 1700.0 },
-      { month: "Apr. 24", fatturatoImponibile: 18000.0, fatturatoTotale: 18000.0, incassato: 21000.0, saldoConto: 6500.0, saldoSecondoConto: 1600.0, saldoTotale: 8100.0, creditiPendenti: 2600.0, creditiScaduti: 800.0, debitiFornitore: 3600.0, debitiBancari: 1800.0 },
-      { month: "Mag. 24", fatturatoImponibile: 19000.0, fatturatoTotale: 19000.0, incassato: 22000.0, saldoConto: 7000.0, saldoSecondoConto: 1800.0, saldoTotale: 8800.0, creditiPendenti: 2800.0, creditiScaduti: 900.0, debitiFornitore: 3800.0, debitiBancari: 1900.0 },
-      { month: "Giu. 24", fatturatoImponibile: 20000.0, fatturatoTotale: 20000.0, incassato: 23000.0, saldoConto: 7500.0, saldoSecondoConto: 2000.0, saldoTotale: 9500.0, creditiPendenti: 3000.0, creditiScaduti: 1000.0, debitiFornitore: 4000.0, debitiBancari: 2000.0 }
+      {
+        month: 'Gen. 24',
+        fatturatoImponibile: 15000.0,
+        fatturatoTotale: 15000.0,
+        incassato: 18000.0,
+        saldoConto: 5000.0,
+        saldoSecondoConto: 1000.0,
+        saldoTotale: 6000.0,
+        creditiPendenti: 2000.0,
+        creditiScaduti: 500.0,
+        debitiFornitore: 3000.0,
+        debitiBancari: 1500.0,
+      },
+      {
+        month: 'Feb. 24',
+        fatturatoImponibile: 16000.0,
+        fatturatoTotale: 16000.0,
+        incassato: 19000.0,
+        saldoConto: 5500.0,
+        saldoSecondoConto: 1200.0,
+        saldoTotale: 6700.0,
+        creditiPendenti: 2200.0,
+        creditiScaduti: 600.0,
+        debitiFornitore: 3200.0,
+        debitiBancari: 1600.0,
+      },
+      {
+        month: 'Mar. 24',
+        fatturatoImponibile: 17000.0,
+        fatturatoTotale: 17000.0,
+        incassato: 20000.0,
+        saldoConto: 6000.0,
+        saldoSecondoConto: 1400.0,
+        saldoTotale: 7400.0,
+        creditiPendenti: 2400.0,
+        creditiScaduti: 700.0,
+        debitiFornitore: 3400.0,
+        debitiBancari: 1700.0,
+      },
+      {
+        month: 'Apr. 24',
+        fatturatoImponibile: 18000.0,
+        fatturatoTotale: 18000.0,
+        incassato: 21000.0,
+        saldoConto: 6500.0,
+        saldoSecondoConto: 1600.0,
+        saldoTotale: 8100.0,
+        creditiPendenti: 2600.0,
+        creditiScaduti: 800.0,
+        debitiFornitore: 3600.0,
+        debitiBancari: 1800.0,
+      },
+      {
+        month: 'Mag. 24',
+        fatturatoImponibile: 19000.0,
+        fatturatoTotale: 19000.0,
+        incassato: 22000.0,
+        saldoConto: 7000.0,
+        saldoSecondoConto: 1800.0,
+        saldoTotale: 8800.0,
+        creditiPendenti: 2800.0,
+        creditiScaduti: 900.0,
+        debitiFornitore: 3800.0,
+        debitiBancari: 1900.0,
+      },
+      {
+        month: 'Giu. 24',
+        fatturatoImponibile: 20000.0,
+        fatturatoTotale: 20000.0,
+        incassato: 23000.0,
+        saldoConto: 7500.0,
+        saldoSecondoConto: 2000.0,
+        saldoTotale: 9500.0,
+        creditiPendenti: 3000.0,
+        creditiScaduti: 1000.0,
+        debitiFornitore: 4000.0,
+        debitiBancari: 2000.0,
+      },
     ];
-    
+
     const db = getDatabase(locationId);
     const now = new Date().toISOString();
-    
+
     // Clear existing stats for this location
-    await dbRun(locationId, 'DELETE FROM financial_stats WHERE location_id = ?', [locationId]);
-    
+    await dbRun(
+      locationId,
+      'DELETE FROM financial_stats WHERE location_id = ?',
+      [locationId]
+    );
+
     // Insert default stats
     for (const stat of defaultStats) {
       const statId = crypto.randomUUID();
-      await dbRun(locationId, `
+      await dbRun(
+        locationId,
+        `
         INSERT INTO financial_stats (
           id, location_id, month, fatturato_totale, fatturato_imponibile, 
           fatturato_previsionale, incassato, incassato_previsionale, 
           utile, utile_previsionale, debiti_fornitore, debiti_bancari,
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        statId, locationId, stat.month, 
-        stat.fatturatoTotale || null, stat.fatturatoImponibile || null,
-        null, stat.incassato || null, null, null, null,
-        stat.debitiFornitore || null, stat.debitiBancari || null, now, now
-      ]);
+      `,
+        [
+          statId,
+          locationId,
+          stat.month,
+          stat.fatturatoTotale || null,
+          stat.fatturatoImponibile || null,
+          null,
+          stat.incassato || null,
+          null,
+          null,
+          null,
+          stat.debitiFornitore || null,
+          stat.debitiBancari || null,
+          now,
+          now,
+        ]
+      );
     }
-    
-    res.json({ success: true, message: `Migrated ${defaultStats.length} stats records for location ${locationId}` });
+
+    res.json({
+      success: true,
+      message: `Migrated ${defaultStats.length} stats records for location ${locationId}`,
+    });
   } catch (error) {
     console.error('Failed to migrate financial stats', error);
     res.status(500).json({ error: 'Failed to migrate financial stats' });
@@ -1685,73 +2099,86 @@ app.post('/api/financial-stats/migrate', requireAuth, async (req, res) => {
 });
 
 // Calculate and save fatturatoTotale for existing records
-app.post('/api/financial-stats/calculate-fatturato-totale', requireAuth, async (req, res) => {
-  try {
-    const { locationId } = req.body;
-    
-    if (!locationId) {
-      return res.status(400).json({ error: 'Location ID is required' });
-    }
-    
-    // Check if user has access to this location
-    if (req.user.role !== 'admin') {
-      const hasPermission = await masterDbGet(
-        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
-        [req.user.id, locationId]
-      );
-      
-      if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+app.post(
+  '/api/financial-stats/calculate-fatturato-totale',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { locationId } = req.body;
+
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
       }
-    }
-    
-    const db = getDatabase(locationId);
-    const now = new Date().toISOString();
-    
-    // First, calculate fatturatoTotale in financial_plan_state statsOverrides
-    const stateResult = await dbGet(locationId, 'SELECT * FROM financial_plan_state WHERE id = ?', [`financial-plan-${locationId}`]);
-    
-    if (stateResult) {
-      const stateData = JSON.parse(stateResult.data);
-      const statsOverrides = stateData.statsOverrides || {};
-      
-      let updatedCount = 0;
-      
-      // Calculate fatturatoTotale for all months that have fatturatoImponibile
-      Object.keys(statsOverrides).forEach(key => {
-        if (key.includes('|fatturatoImponibile')) {
-          const monthKey = key.split('|')[0];
-          const fatturatoImponibile = statsOverrides[key] || 0;
-          const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] || 0;
-          const fatturatoTotale = fatturatoImponibile + corrispettivi;
-          
-          statsOverrides[`${monthKey}|fatturatoTotale`] = fatturatoTotale;
-          updatedCount++;
+
+      // Check if user has access to this location
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDbGet(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
         }
-      });
-      
-      // Save updated state
-      await dbRun(locationId, 'UPDATE financial_plan_state SET data = ?, updated_at = ? WHERE id = ?', [
-        JSON.stringify(stateData), now, `financial-plan-${locationId}`
-      ]);
-      
-      res.json({ 
-        success: true,
-        message: `Fatturato totale calculated successfully in statsOverrides`, 
-        updatedRecords: updatedCount 
-      });
-    } else {
-      res.json({ 
-        success: true,
-        message: 'No financial plan state found', 
-        updatedRecords: 0 
-      });
+      }
+
+      const db = getDatabase(locationId);
+      const now = new Date().toISOString();
+
+      // First, calculate fatturatoTotale in financial_plan_state statsOverrides
+      const stateResult = await dbGet(
+        locationId,
+        'SELECT * FROM financial_plan_state WHERE id = ?',
+        [`financial-plan-${locationId}`]
+      );
+
+      if (stateResult) {
+        const stateData = JSON.parse(stateResult.data);
+        const statsOverrides = stateData.statsOverrides || {};
+
+        let updatedCount = 0;
+
+        // Calculate fatturatoTotale for all months that have fatturatoImponibile
+        Object.keys(statsOverrides).forEach(key => {
+          if (key.includes('|fatturatoImponibile')) {
+            const monthKey = key.split('|')[0];
+            const fatturatoImponibile = statsOverrides[key] || 0;
+            const corrispettivi =
+              statsOverrides[`${monthKey}|corrispettivi`] || 0;
+            const fatturatoTotale = fatturatoImponibile + corrispettivi;
+
+            statsOverrides[`${monthKey}|fatturatoTotale`] = fatturatoTotale;
+            updatedCount++;
+          }
+        });
+
+        // Save updated state
+        await dbRun(
+          locationId,
+          'UPDATE financial_plan_state SET data = ?, updated_at = ? WHERE id = ?',
+          [JSON.stringify(stateData), now, `financial-plan-${locationId}`]
+        );
+
+        res.json({
+          success: true,
+          message: `Fatturato totale calculated successfully in statsOverrides`,
+          updatedRecords: updatedCount,
+        });
+      } else {
+        res.json({
+          success: true,
+          message: 'No financial plan state found',
+          updatedRecords: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error calculating fatturato totale:', error);
+      res.status(500).json({ error: 'Failed to calculate fatturato totale' });
     }
-  } catch (error) {
-    console.error('Error calculating fatturato totale:', error);
-    res.status(500).json({ error: 'Failed to calculate fatturato totale' });
   }
-});
+);
 
 // Serve React app for all non-API routes (SPA routing)
 if (fs.existsSync(distPath)) {
@@ -1773,5 +2200,3 @@ process.on('SIGINT', () => {
 app.listen(PORT, () => {
   console.log(`RistoManager backend listening on port ${PORT}`);
 });
-
-

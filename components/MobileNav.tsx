@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UsersIcon, CogIcon, CashIcon } from './icons/Icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,14 +6,17 @@ interface MobileNavProps {
   currentPage: string;
 }
 
-const NavLink: React.FC<{ href: string; icon: React.ReactNode; label: string; isActive: boolean }> = ({ href, icon, label, isActive }) => {
+const NavLink: React.FC<{
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  isActive: boolean;
+}> = ({ href, icon, label, isActive }) => {
   return (
     <a
       href={href}
       className={`flex flex-col items-center justify-center flex-1 pt-2 pb-1 text-xs transition-colors duration-200 ${
-        isActive
-          ? 'text-primary'
-          : 'text-gray-500 hover:text-primary-600'
+        isActive ? 'text-primary' : 'text-gray-500 hover:text-primary-600'
       }`}
       aria-current={isActive ? 'page' : undefined}
     >

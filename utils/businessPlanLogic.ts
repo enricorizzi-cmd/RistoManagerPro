@@ -53,7 +53,7 @@ export interface BusinessPlanMessage {
 export const createBusinessPlanFormFromMetrics = (
   metrics: BusinessPlanYearMetrics | undefined,
   baseYear: number,
-  targetYear: number,
+  targetYear: number
 ): BusinessPlanFormState => {
   if (!metrics) {
     return {
@@ -86,7 +86,6 @@ export const createBusinessPlanFormFromMetrics = (
   const costiFissi = metrics.costiFissi;
   const costiVariabili = metrics.costiVariabili;
   const utile = incassato - costiFissi - costiVariabili;
-  
 
   return {
     baseYear,
@@ -95,22 +94,38 @@ export const createBusinessPlanFormFromMetrics = (
     fatturatoIncrement: '0',
     fatturatoPrevisionale: round2(fatturato).toFixed(2),
     incassatoAnnoBase: round2(incassato).toFixed(2),
-    incassatoPercentAnnoBase: fatturato === 0 ? '0.00' : round2((incassato / fatturato) * 100).toFixed(2),
+    incassatoPercentAnnoBase:
+      fatturato === 0
+        ? '0.00'
+        : round2((incassato / fatturato) * 100).toFixed(2),
     incassatoPercent:
-      fatturato === 0 ? '0.00' : round2((incassato / fatturato) * 100).toFixed(2),
+      fatturato === 0
+        ? '0.00'
+        : round2((incassato / fatturato) * 100).toFixed(2),
     incassatoPrevisionale: round2(incassato).toFixed(2),
     costiFissiAnnoBase: round2(costiFissi).toFixed(2),
-    costiFissiPercentAnnoBase: incassato === 0 ? '0.00' : round2((costiFissi / incassato) * 100).toFixed(2),
+    costiFissiPercentAnnoBase:
+      incassato === 0
+        ? '0.00'
+        : round2((costiFissi / incassato) * 100).toFixed(2),
     costiFissiPercent:
-      incassato === 0 ? '0.00' : round2((costiFissi / incassato) * 100).toFixed(2),
+      incassato === 0
+        ? '0.00'
+        : round2((costiFissi / incassato) * 100).toFixed(2),
     costiFissiPrevisionale: round2(costiFissi).toFixed(2),
     costiVariabiliAnnoBase: round2(costiVariabili).toFixed(2),
-    costiVariabiliPercentAnnoBase: incassato === 0 ? '0.00' : round2((costiVariabili / incassato) * 100).toFixed(2),
+    costiVariabiliPercentAnnoBase:
+      incassato === 0
+        ? '0.00'
+        : round2((costiVariabili / incassato) * 100).toFixed(2),
     costiVariabiliPercent:
-      incassato === 0 ? '0.00' : round2((costiVariabili / incassato) * 100).toFixed(2),
+      incassato === 0
+        ? '0.00'
+        : round2((costiVariabili / incassato) * 100).toFixed(2),
     costiVariabiliPrevisionale: round2(costiVariabili).toFixed(2),
     utileAnnoBase: round2(utile).toFixed(2),
-    utilePercentAnnoBase: incassato === 0 ? '0.00' : round2((utile / incassato) * 100).toFixed(2),
+    utilePercentAnnoBase:
+      incassato === 0 ? '0.00' : round2((utile / incassato) * 100).toFixed(2),
     utilePrevisionale: round2(utile).toFixed(2),
     utilePercent:
       incassato === 0 ? '0.00' : round2((utile / incassato) * 100).toFixed(2),
@@ -118,7 +133,7 @@ export const createBusinessPlanFormFromMetrics = (
 };
 
 export const createBusinessPlanFormFromDraft = (
-  draft: BusinessPlanDraft,
+  draft: BusinessPlanDraft
 ): BusinessPlanFormState => {
   const utile =
     draft.incassatoPrevisionale -
@@ -156,7 +171,7 @@ export const createBusinessPlanFormFromDraft = (
 // Funzione per calcolare le incidenze mensili di una singola riga
 export const calculateMonthlyRatios = (
   monthlyValues: number[],
-  totalValue: number,
+  totalValue: number
 ): number[] => {
   if (totalValue === 0) {
     return new Array(12).fill(0);
@@ -168,14 +183,14 @@ export const calculateMonthlyRatios = (
 export const calculateAverageMonthlyRatios = (
   yearMetrics: Map<number, BusinessPlanYearMetrics>,
   baseYears: number[],
-  macroCategory: 'INCASSATO' | 'COSTI FISSI' | 'COSTI VARIABILI',
+  macroCategory: 'INCASSATO' | 'COSTI FISSI' | 'COSTI VARIABILI'
 ): number[] => {
   if (baseYears.length === 0) {
-    return new Array(12).fill(1/12); // Distribuzione uniforme se non ci sono dati
+    return new Array(12).fill(1 / 12); // Distribuzione uniforme se non ci sono dati
   }
 
   const ratiosByYear: number[][] = [];
-  
+
   baseYears.forEach(year => {
     const metrics = yearMetrics.get(year);
     if (!metrics) return;
@@ -206,14 +221,15 @@ export const calculateAverageMonthlyRatios = (
   });
 
   if (ratiosByYear.length === 0) {
-    return new Array(12).fill(1/12);
+    return new Array(12).fill(1 / 12);
   }
 
   // Calcola la media delle incidenze mensili
   const averageRatios: number[] = [];
   for (let month = 0; month < 12; month++) {
     const monthRatios = ratiosByYear.map(yearRatios => yearRatios[month]);
-    const average = monthRatios.reduce((sum, ratio) => sum + ratio, 0) / monthRatios.length;
+    const average =
+      monthRatios.reduce((sum, ratio) => sum + ratio, 0) / monthRatios.length;
     averageRatios.push(average);
   }
 
@@ -223,7 +239,7 @@ export const calculateAverageMonthlyRatios = (
 // Funzione per distribuire un valore annuale sui 12 mesi basandosi sulle incidenze
 export const distributeAnnualValueToMonths = (
   annualValue: number,
-  monthlyRatios: number[],
+  monthlyRatios: number[]
 ): number[] => {
   return monthlyRatios.map(ratio => round2(annualValue * ratio));
 };
@@ -239,7 +255,7 @@ export const recalcBusinessPlan = (
     | 'costiFissiPercent'
     | 'costiFissiValue'
     | 'costiVariabiliPercent'
-    | 'costiVariabiliValue',
+    | 'costiVariabiliValue'
 ): BusinessPlanFormState => {
   if (draft.baseYear === null) {
     return draft;
@@ -259,15 +275,29 @@ export const recalcBusinessPlan = (
 
   if (changedField === 'fatturatoIncrement') {
     fatturatoIncrement = fatturatoIncrement ?? 0;
-    fatturatoPrevisionale = round2(fatturatoBase * (1 + fatturatoIncrement / 100));
+    fatturatoPrevisionale = round2(
+      fatturatoBase * (1 + fatturatoIncrement / 100)
+    );
   } else if (changedField === 'fatturatoValue') {
     fatturatoPrevisionale = fatturatoPrevisionale ?? fatturatoBase;
-    fatturatoIncrement = fatturatoBase === 0 ? 0 : round2(((fatturatoPrevisionale - fatturatoBase) / fatturatoBase) * 100);
+    fatturatoIncrement =
+      fatturatoBase === 0
+        ? 0
+        : round2(
+            ((fatturatoPrevisionale - fatturatoBase) / fatturatoBase) * 100
+          );
   } else {
     if (fatturatoPrevisionale === null) {
-      fatturatoPrevisionale = round2(fatturatoBase * (1 + fatturatoIncrement / 100));
+      fatturatoPrevisionale = round2(
+        fatturatoBase * (1 + fatturatoIncrement / 100)
+      );
     } else {
-      fatturatoIncrement = fatturatoBase === 0 ? 0 : round2(((fatturatoPrevisionale - fatturatoBase) / fatturatoBase) * 100);
+      fatturatoIncrement =
+        fatturatoBase === 0
+          ? 0
+          : round2(
+              ((fatturatoPrevisionale - fatturatoBase) / fatturatoBase) * 100
+            );
     }
   }
 
@@ -286,9 +316,7 @@ export const recalcBusinessPlan = (
   } else {
     if (incPercent === null && incValue === null) {
       incPercent =
-        fatturatoBase === 0
-          ? 0
-          : round2((incassatoBase / fatturatoBase) * 100);
+        fatturatoBase === 0 ? 0 : round2((incassatoBase / fatturatoBase) * 100);
       incValue = round2((incPercent / 100) * fatturatoPrevisionale);
     } else if (incPercent === null) {
       incValue = incValue ?? 0;
@@ -308,7 +336,7 @@ export const recalcBusinessPlan = (
     basePercent: number,
     totalIncassato: number,
     percentField: 'costiFissiPercent' | 'costiVariabiliPercent',
-    valueField: 'costiFissiValue' | 'costiVariabiliValue',
+    valueField: 'costiFissiValue' | 'costiVariabiliValue'
   ) => {
     let percent = parseNumberInput(percentValue);
     let amount = parseNumberInput(amountValue);
@@ -318,14 +346,16 @@ export const recalcBusinessPlan = (
       amount = round2((percent / 100) * totalIncassato);
     } else if (changedField === valueField) {
       amount = amount ?? 0;
-      percent = totalIncassato === 0 ? 0 : round2((amount / totalIncassato) * 100);
+      percent =
+        totalIncassato === 0 ? 0 : round2((amount / totalIncassato) * 100);
     } else {
       if (percent === null && amount === null) {
         percent = basePercent;
         amount = round2((percent / 100) * totalIncassato);
       } else if (percent === null) {
         amount = amount ?? 0;
-        percent = totalIncassato === 0 ? 0 : round2((amount / totalIncassato) * 100);
+        percent =
+          totalIncassato === 0 ? 0 : round2((amount / totalIncassato) * 100);
       } else if (amount === null) {
         percent = percent ?? 0;
         amount = round2((percent / 100) * totalIncassato);
@@ -345,7 +375,7 @@ export const recalcBusinessPlan = (
     incassatoBase === 0 ? 0 : round2((costiFissiBase / incassatoBase) * 100),
     incassatoFinal,
     'costiFissiPercent',
-    'costiFissiValue',
+    'costiFissiValue'
   );
 
   const costiVariabiliCalc = computeCost(
@@ -356,11 +386,11 @@ export const recalcBusinessPlan = (
       : round2((costiVariabiliBase / incassatoBase) * 100),
     incassatoFinal,
     'costiVariabiliPercent',
-    'costiVariabiliValue',
+    'costiVariabiliValue'
   );
 
   const utile = round2(
-    incassatoFinal - costiFissiCalc.amount - costiVariabiliCalc.amount,
+    incassatoFinal - costiFissiCalc.amount - costiVariabiliCalc.amount
   );
   const utilePercent =
     incassatoFinal === 0 ? 0 : round2((utile / incassatoFinal) * 100);
@@ -371,19 +401,37 @@ export const recalcBusinessPlan = (
     fatturatoIncrement: fatturatoIncrement.toFixed(2),
     fatturatoPrevisionale: fatturatoPrevisionale.toFixed(2),
     incassatoAnnoBase: round2(incassatoBase).toFixed(2),
-    incassatoPercentAnnoBase: fatturatoBase === 0 ? '0.00' : round2((incassatoBase / fatturatoBase) * 100).toFixed(2),
+    incassatoPercentAnnoBase:
+      fatturatoBase === 0
+        ? '0.00'
+        : round2((incassatoBase / fatturatoBase) * 100).toFixed(2),
     incassatoPercent: (incPercent ?? 0).toFixed(2),
     incassatoPrevisionale: incassatoFinal.toFixed(2),
     costiFissiAnnoBase: round2(costiFissiBase).toFixed(2),
-    costiFissiPercentAnnoBase: incassatoBase === 0 ? '0.00' : round2((costiFissiBase / incassatoBase) * 100).toFixed(2),
+    costiFissiPercentAnnoBase:
+      incassatoBase === 0
+        ? '0.00'
+        : round2((costiFissiBase / incassatoBase) * 100).toFixed(2),
     costiFissiPercent: costiFissiCalc.percent.toFixed(2),
     costiFissiPrevisionale: costiFissiCalc.amount.toFixed(2),
     costiVariabiliAnnoBase: round2(costiVariabiliBase).toFixed(2),
-    costiVariabiliPercentAnnoBase: incassatoBase === 0 ? '0.00' : round2((costiVariabiliBase / incassatoBase) * 100).toFixed(2),
+    costiVariabiliPercentAnnoBase:
+      incassatoBase === 0
+        ? '0.00'
+        : round2((costiVariabiliBase / incassatoBase) * 100).toFixed(2),
     costiVariabiliPercent: costiVariabiliCalc.percent.toFixed(2),
     costiVariabiliPrevisionale: costiVariabiliCalc.amount.toFixed(2),
-    utileAnnoBase: round2(incassatoBase - costiFissiBase - costiVariabiliBase).toFixed(2),
-    utilePercentAnnoBase: incassatoBase === 0 ? '0.00' : round2(((incassatoBase - costiFissiBase - costiVariabiliBase) / incassatoBase) * 100).toFixed(2),
+    utileAnnoBase: round2(
+      incassatoBase - costiFissiBase - costiVariabiliBase
+    ).toFixed(2),
+    utilePercentAnnoBase:
+      incassatoBase === 0
+        ? '0.00'
+        : round2(
+            ((incassatoBase - costiFissiBase - costiVariabiliBase) /
+              incassatoBase) *
+              100
+          ).toFixed(2),
     utilePrevisionale: utile.toFixed(2),
     utilePercent: utilePercent.toFixed(2),
   };

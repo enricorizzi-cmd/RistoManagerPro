@@ -23,12 +23,15 @@ export const useFinancialPlanLocations = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const response = await fetch('http://localhost:4000/api/user/locations/financial-plan', {
-          headers: {
-            'Authorization': `Bearer ${token}`
+
+        const response = await fetch(
+          'http://localhost:4000/api/user/locations/financial-plan',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
+        );
 
         if (!response.ok) {
           throw new Error('Failed to fetch financial plan locations');
@@ -37,7 +40,9 @@ export const useFinancialPlanLocations = () => {
         const locs = await response.json();
         setLocations(locs);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch locations');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch locations'
+        );
         console.error('Error fetching financial plan locations:', err);
       } finally {
         setLoading(false);
@@ -49,5 +54,3 @@ export const useFinancialPlanLocations = () => {
 
   return { locations, loading, error };
 };
-
-

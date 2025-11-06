@@ -3,22 +3,27 @@
 ## ⚠️ Problema Comune: Conflitto di Porte
 
 ### Sintomi:
+
 - Errore: `Error: listen EADDRINUSE: address already in use :::4000`
 - I dati non si salvano quando cambi scheda
 - Il backend non si avvia
 
 ### Causa:
+
 Processi precedenti rimangono attivi sulle porte 4000 (backend) o 5173/5174 (frontend).
 
 ## ✅ Soluzioni
 
 ### 1. Avvio Pulito (Raccomandato)
+
 ```bash
 npm run dev:clean
 ```
+
 Questo script pulisce automaticamente le porte prima di avviare.
 
 ### 2. Pulizia Manuale
+
 ```powershell
 # Trova processi sulla porta 4000
 netstat -ano | findstr :4000
@@ -31,6 +36,7 @@ npm run dev
 ```
 
 ### 3. Pulizia Completa
+
 ```powershell
 # Termina tutti i processi Node.js
 taskkill /IM node.exe /F
@@ -54,6 +60,7 @@ netstat -ano | findstr ":4000\|:5174"
 ```
 
 Dovresti vedere:
+
 - Porta 4000: Backend API
 - Porta 5174: Frontend Vite
 

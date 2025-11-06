@@ -3,11 +3,13 @@
 ## REGOLA AUREA #1: Riferimenti alle Tipologie
 
 **QUANDO SI PARLA DI:**
+
 - **INCASSATO** → si intende sempre il **valore aggregato della tipologia 1** (macroId: 1)
-- **COSTI FISSI** → si intende sempre il **valore aggregato della tipologia 2** (macroId: 2)  
+- **COSTI FISSI** → si intende sempre il **valore aggregato della tipologia 2** (macroId: 2)
 - **COSTI VARIABILI** → si intende sempre il **valore aggregato della tipologia 3** (macroId: 3)
 
 **NON SI INTENDE MAI:**
+
 - Una singola causale chiamata "Incassato"
 - Una singola causale chiamata "Costi Fissi"
 - Una singola causale chiamata "Costi Variabili"
@@ -15,11 +17,13 @@
 ## REGOLA AUREA #2: Calcolo dell'Utile
 
 **FORMULA:**
+
 ```
 Utile = Tipologia1 - Tipologia2 - Tipologia3
 ```
 
 Dove:
+
 - Tipologia1 = INCASSATO (macroId: 1)
 - Tipologia2 = COSTI FISSI (macroId: 2)
 - Tipologia3 = COSTI VARIABILI (macroId: 3)
@@ -30,17 +34,20 @@ Dove:
 L'incidenza progressiva misura la percentuale del campo sul valore totale della tipologia INCASSATO.
 
 **FORMULA:**
+
 ```
 Incidenza = (ValoreCampo / ValoreTotaleTipologia1) * 100
 ```
 
 **ECCEZIONI:**
+
 - INCASSATO su INCASSATO = sempre 100%
 - Altri campi = percentuale basata sui totali annuali
 
 ## REGOLA AUREA #4: Ordine di Calcolo
 
 L'ordine di calcolo è determinato dal `macroId`:
+
 1. macroId: 1 (INCASSATO) - valore base
 2. macroId: 2 (COSTI FISSI) - sottratto
 3. macroId: 3 (COSTI VARIABILI) - sottratto
@@ -48,6 +55,7 @@ L'ordine di calcolo è determinato dal `macroId`:
 ## IMPLEMENTAZIONE TECNICA
 
 ### Funzione Principale
+
 ```typescript
 calculateUtileFromMacroTotals(
   causaliCatalog: FinancialCausaleGroup[],
@@ -59,6 +67,7 @@ calculateUtileFromMacroTotals(
 ```
 
 ### Logica
+
 1. Ordina le macro per `macroId`
 2. Prima macro (macroId: 1) = valore base
 3. Macro successive = sottratte dal valore base
@@ -73,6 +82,7 @@ calculateUtileFromMacroTotals(
 ## ESEMPI
 
 ### ✅ CORRETTO
+
 ```typescript
 const incassato = getMacroTotal('INCASSATO', year, monthIndex);
 const costiFissi = getMacroTotal('COSTI FISSI', year, monthIndex);
@@ -80,8 +90,15 @@ const utile = incassato - costiFissi - costiVariabili;
 ```
 
 ### ❌ SBAGLIATO
+
 ```typescript
-const incassato = getPlanConsuntivoValue('INCASSATO', 'Incassato', 'Incassato', year, monthIndex);
+const incassato = getPlanConsuntivoValue(
+  'INCASSATO',
+  'Incassato',
+  'Incassato',
+  year,
+  monthIndex
+);
 ```
 
 ---

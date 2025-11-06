@@ -23,13 +23,13 @@ export default defineConfig({
         'utils/**',
         'types.ts',
         'App.tsx',
-        'index.tsx'
-      ]
-    }
+        'index.tsx',
+      ],
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
-    }
-  }
+    },
+  },
 });
