@@ -1,6 +1,4 @@
-import { API_URL } from '../src/config/api';
-
-const API_BASE_URL = API_URL;
+import { API_BASE_URL } from '../src/config/api';
 
 // Helper function to get auth token
 function getAuthToken(): string | null {
