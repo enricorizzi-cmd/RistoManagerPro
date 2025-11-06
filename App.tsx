@@ -15,7 +15,6 @@ type Page = 'financial-plan' | 'settings' | 'users';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('financial-plan');
-  const { sidebarCollapsed } = useAppContext();
   const { user, loading } = useAuth();
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface User {
@@ -38,12 +38,7 @@ const UserManagement: React.FC = () => {
 
   const API_BASE_URL = 'http://localhost:4000';
 
-  useEffect(() => {
-    fetchUsers();
-    fetchLocations();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         headers: {
@@ -62,9 +57,9 @@ const UserManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/settings/locations`, {
         headers: {
@@ -79,7 +74,12 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchLocations();
+  }, [fetchUsers, fetchLocations]);
 
   const handleUserStatusToggle = async (userId: string, isActive: boolean) => {
     try {

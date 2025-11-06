@@ -39,11 +39,7 @@ const Settings: React.FC = () => {
 
   const API_BASE_URL = 'http://localhost:4000';
 
-    useEffect(() => {
-    fetchLocations();
-  }, []);
-
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/settings/locations`, {
         headers: {
@@ -62,7 +58,11 @@ const Settings: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
 
   const handleCreateLocation = async (e: React.FormEvent) => {
     e.preventDefault();

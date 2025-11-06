@@ -13,8 +13,8 @@ interface AnalisiFPProps {
   availableYears: number[];
   statsOverrides: StatsOverrides;
   financialStatsRows: FinancialStatsRow[];
-  getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
+  getPlanPreventivoValue: (_macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
+  getPlanConsuntivoValue: (_macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
   causaliCatalog: any[];
   planYear: any;
 }
@@ -568,7 +568,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       indicators,
       previsionaleConsuntivo,
       lastCompiledMonth: format(new Date(lastCompiledMonth.year, lastCompiledMonth.monthIndex, 1), 'MMMM yyyy', { locale: it }),
-      currentMonth: format(new Date(currentMonthData.year, currentMonthData.monthIndex, 1), 'MMMM yyyy', { locale: it }),
+      currentMonthLabel: format(new Date(currentMonthData.year, currentMonthData.monthIndex, 1), 'MMMM yyyy', { locale: it }),
       currentYear,
       currentMonth: currentMonthData.monthIndex,
       availableMonths,
@@ -618,7 +618,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
               Analisi FP
             </h2>
             <p className="text-gray-600">
-              Mese selezionato: <span className="font-semibold text-blue-600">{analysisData.currentMonth}</span>
+              Mese selezionato: <span className="font-semibold text-blue-600">{analysisData.currentMonthLabel}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -794,7 +794,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
               Previsionale / Consuntivo
             </h3>
             <p className="text-gray-600">
-              Mese selezionato: <span className="font-semibold text-orange-600">{analysisData.currentMonth}</span>
+              Mese selezionato: <span className="font-semibold text-orange-600">{analysisData.currentMonthLabel}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">

@@ -1,7 +1,7 @@
 // Financial Plan Component - Refactored
 // Main component orchestrating all financial plan functionality
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { useFinancialPlanData } from '../hooks/useFinancialPlanData';
 import { useBusinessPlan } from '../hooks/useBusinessPlan';
@@ -14,8 +14,8 @@ import { CausaliManager } from './financial/CausaliManager';
 import { InserisciDati } from './financial/InserisciDati';
 import { AnalisiFP } from './financial/AnalisiFP';
 import { financialCausali } from '../data/financialPlanData';
-import { calcRatios, round2, parseNumberInput, buildMonthKey, parseMonthKey } from '../utils/financialPlanUtils';
-import { calculateAverageMonthlyRatios, distributeAnnualValueToMonths } from '../utils/businessPlanLogic';
+import { round2, parseNumberInput, buildMonthKey, parseMonthKey } from '../utils/financialPlanUtils';
+import { distributeAnnualValueToMonths } from '../utils/businessPlanLogic';
 import { persistFinancialPlanState, saveFinancialStats } from '../services/financialPlanApi';
 import type { TabKey } from '../types';
 
@@ -53,7 +53,6 @@ const FinancialPlan: React.FC = () => {
     handleSavePlan,
     handleCancelPlan,
     handleCausaliPersist,
-    handleSaveMetrics,
     availableYears: hookAvailableYears,
     getPlanPreventivoValue,
     getPlanConsuntivoValue,
@@ -78,8 +77,10 @@ const FinancialPlan: React.FC = () => {
   // State for showing previsionale totals
   const [showPrevisionaleTotals, setShowPrevisionaleTotals] = useState(false);
 
-  // Use available years from hook
-  const availableYears = hookAvailableYears.length > 0 ? hookAvailableYears : [new Date().getFullYear()];
+  // Use available years from hook (memoized to prevent useEffect dependency issues)
+  const availableYears = useMemo(() => {
+    return hookAvailableYears.length > 0 ? hookAvailableYears : [new Date().getFullYear()];
+  }, [hookAvailableYears]);
 
   // Update selected year if not available
   useEffect(() => {
@@ -102,7 +103,6 @@ const FinancialPlan: React.FC = () => {
     handleBusinessPlanBaseYearChange,
     handleBusinessPlanTargetYearChange,
     handleSaveBusinessPlanDraft,
-    handleApplyBusinessPlanToOverrides,
     handleDeleteBusinessPlanDraft,
     recalculateForm,
     draftName,
@@ -277,20 +277,16 @@ const FinancialPlan: React.FC = () => {
 
       // Valore previsionale annuale per la macro
         let annualTarget = 0;
-        let monthlyRatios: number[] = [];
 
         switch (macroKey) {
           case 'INCASSATO':
           annualTarget = incassatoPrevisionale;
-            monthlyRatios = incassatoRatios;
             break;
           case 'COSTI FISSI':
           annualTarget = costiFissiPrevisionale;
-            monthlyRatios = costiFissiRatios;
             break;
           case 'COSTI VARIABILI':
           annualTarget = costiVariabiliPrevisionale;
-            monthlyRatios = costiVariabiliRatios;
             break;
         }
 
