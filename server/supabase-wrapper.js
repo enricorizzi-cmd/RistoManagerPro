@@ -377,7 +377,7 @@ function getLocationDb(locationId) {
         // Match GROUP BY that may be followed by ORDER BY or end of string
         const groupByMatch = normalizedSql.match(/GROUP\s+BY\s+([^O]+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i);
         if (groupByMatch) {
-          console.log('[SUPABASE] GROUP BY query detected:', sql.substring(0, 200));
+          console.log('[SUPABASE] GROUP BY query detected:', normalizedSql.substring(0, 200));
           // For GROUP BY queries, we need to fetch all data and aggregate in JS
           // because Supabase PostgREST doesn't support GROUP BY directly
           const groupByColumns = groupByMatch[1]
@@ -406,7 +406,7 @@ function getLocationDb(locationId) {
           const rawSelect = allColumns.join(',');
           console.log('[SUPABASE] Raw select for GROUP BY:', rawSelect);
           
-          const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i);
+          const whereMatch = normalizedSql.match(/WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i);
           const filters = { location_id: locationId };
           Object.assign(
             filters,
@@ -475,7 +475,7 @@ function getLocationDb(locationId) {
           let result = Array.from(grouped.values());
           
           // Apply ORDER BY if present
-          const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+          const orderMatch = normalizedSql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
           if (orderMatch) {
             const orderClause = orderMatch[1].trim();
             const orderParts = orderClause.split(',').map(p => p.trim());
@@ -523,17 +523,41 @@ function getLocationDb(locationId) {
         }
 
         // Regular SELECT query without GROUP BY
+        // Handle SELECT with aliases (e.g., "column as alias")
+        // For Supabase, we need to pass columns without aliases
+        // Then map the results back to use aliases
+        let cleanSelect = select;
+        const aliasMap = {}; // Map original column name -> alias
+        
+        if (select.includes(' as ')) {
+          // Extract column names (before "as") for Supabase query
+          // Keep track of aliases for mapping later
+          const selectParts = select.split(',');
+          cleanSelect = selectParts
+            .map(col => {
+              const trimmed = col.trim();
+              const asMatch = trimmed.match(/^(.+?)\s+as\s+(\w+)$/i);
+              if (asMatch) {
+                const originalCol = asMatch[1].trim();
+                const alias = asMatch[2].trim();
+                aliasMap[originalCol] = alias;
+                return originalCol;
+              }
+              return trimmed;
+            })
+            .join(',');
+        }
         // Remove spaces after commas in select clause for Supabase
-        const cleanSelect = select.replace(/\s*,\s*/g, ',');
+        cleanSelect = cleanSelect.replace(/\s*,\s*/g, ',');
 
-        const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
+        const whereMatch = normalizedSql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
         const filters = { location_id: locationId };
         Object.assign(
           filters,
           parseWhereClause(whereMatch ? whereMatch[1] : '', params)
         );
 
-        const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+        const orderMatch = normalizedSql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
         let order;
         if (orderMatch) {
           // Parse ORDER BY clause: handle multiple columns with optional ASC/DESC
@@ -561,10 +585,25 @@ function getLocationDb(locationId) {
         }
 
         console.log('[SUPABASE] Final query params - select:', cleanSelect, 'order:', order, 'filters:', Object.keys(filters));
-        return await supabaseCall('GET', table, { select: cleanSelect, filters, order });
+        const result = await supabaseCall('GET', table, { select: cleanSelect, filters, order });
+        
+        // Map aliases if needed
+        if (Object.keys(aliasMap).length > 0 && Array.isArray(result)) {
+          return result.map(row => {
+            const mapped = {};
+            Object.keys(row).forEach(key => {
+              // If this column has an alias, use the alias; otherwise use original name
+              const alias = aliasMap[key];
+              mapped[alias || key] = row[key];
+            });
+            return mapped;
+          });
+        }
+        
+        return result;
       } catch (error) {
         console.error(`[SUPABASE] Query error for table ${table}:`, error);
-        console.error(`[SUPABASE] SQL:`, sql.substring(0, 200));
+        console.error(`[SUPABASE] SQL:`, normalizedSql.substring(0, 200));
         throw error;
       }
     },
