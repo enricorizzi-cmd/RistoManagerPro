@@ -46,16 +46,25 @@ async function supabaseCall(method, table, options = {}) {
   }
 
   // Add filters (format: column=eq.value or column=neq.value)
-  // Supabase PostgREST uses operators like eq., neq., etc.
-  // We need to encode the value but NOT the operator prefix
+  // Supabase PostgREST REQUIRES operators like eq., neq., etc. for filters
+  // Without the operator, PostgREST treats it as a column selector, not a filter!
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      // If value already contains operator (like neq.value), use it directly
-      if (typeof value === 'string' && value.includes('.') && !value.startsWith('eq.') && !value.startsWith('neq.')) {
-        // Already has an operator, encode the whole thing
+      // Check if value already has an operator prefix
+      const hasOperator = typeof value === 'string' && 
+        (value.startsWith('eq.') || value.startsWith('neq.') || 
+         value.startsWith('gt.') || value.startsWith('gte.') ||
+         value.startsWith('lt.') || value.startsWith('lte.') ||
+         value.startsWith('like.') || value.startsWith('ilike.') ||
+         value.startsWith('in.') || value.startsWith('is.'));
+      
+      if (hasOperator) {
+        // Value already has operator, use as-is but encode properly
+        // Encode both key and value, but keep operator visible
         queryParams.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
       } else {
-        // Use 'eq.' operator for all values
+        // ALWAYS use 'eq.' operator for values that don't have one
+        // This is critical - without eq., PostgREST won't treat it as a filter!
         let filterValue;
         if (typeof value === 'boolean') {
           filterValue = value.toString();
@@ -66,8 +75,11 @@ async function supabaseCall(method, table, options = {}) {
           filterValue = value.toString();
         }
         // Build the filter string: column=eq.value
-        // Encode the column name, but keep eq. literal and encode only the value
-        queryParams.push(`${encodeURIComponent(key)}=eq.${filterValue}`);
+        // Format: email=eq.enricorizzi1991%40gmail.com
+        // CRITICAL: Never encode the 'eq.' part, only encode the value
+        const param = `${encodeURIComponent(key)}=eq.${filterValue}`;
+        queryParams.push(param);
+        console.log(`[SUPABASE] Filter added: ${key}=eq.${typeof value === 'string' ? value.substring(0, 30) + '...' : value}`);
       }
     }
   });
@@ -76,7 +88,9 @@ async function supabaseCall(method, table, options = {}) {
     url += `?${queryParams.join('&')}`;
   }
   
-  console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 300)}`);
+  console.log(`[SUPABASE] Query params count: ${queryParams.length}`);
+  console.log(`[SUPABASE] Query params:`, queryParams.slice(0, 5)); // Show first 5 params
+  console.log(`[SUPABASE] Final URL (truncated): ${url.substring(0, 400)}`);
 
   const headers = {
     'Content-Type': 'application/json',
