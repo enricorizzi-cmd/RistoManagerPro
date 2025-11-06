@@ -2,11 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto');
+const { masterDb, getLocationDb } = require('./supabase-wrapper');
 
 const PORT = process.env.PORT || 4000;
-const DATABASE_DIR = process.env.DATABASE_DIR || path.join(__dirname, 'data');
 
 const app = express();
 app.use(cors());
@@ -18,170 +17,10 @@ if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
 }
 
-// Ensure database directory exists
-fs.mkdirSync(DATABASE_DIR, { recursive: true });
-
-// Database connection manager for multi-company support
-const dbConnections = new Map();
-
+// Database wrapper functions - now using Supabase instead of SQLite
 const getDatabase = locationId => {
-  if (!dbConnections.has(locationId)) {
-    const dbFile = path.join(DATABASE_DIR, `ristomanager_${locationId}.db`);
-    const db = new sqlite3.Database(dbFile);
-
-    // Initialize tables for this company
-    initializeDatabase(db);
-    dbConnections.set(locationId, db);
-  }
-  return dbConnections.get(locationId);
+  return getLocationDb(locationId);
 };
-
-const initializeDatabase = db => {
-  db.serialize(() => {
-    // Financial Plan State Table (now per company)
-    db.run(`CREATE TABLE IF NOT EXISTS financial_plan_state (
-      id TEXT PRIMARY KEY,
-      data TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-
-    // Data entries table for InserisciDati
-    db.run(`CREATE TABLE IF NOT EXISTS data_entries (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      data_inserimento TEXT NOT NULL,
-      mese INTEGER NOT NULL,
-      anno INTEGER NOT NULL,
-      tipologia_causale TEXT NOT NULL,
-      categoria TEXT NOT NULL,
-      causale TEXT NOT NULL,
-      valore REAL NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-
-    // Locations Table (master locations - shared)
-    db.run(`CREATE TABLE IF NOT EXISTS locations (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      capacity INTEGER NOT NULL,
-      open_time TEXT NOT NULL,
-      close_time TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-
-    // Business Plan Drafts Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS business_plan_drafts (
-      id TEXT PRIMARY KEY,
-      target_year INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      data TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-
-    // Add name column if it doesn't exist (migration)
-    db.run(
-      `ALTER TABLE business_plan_drafts ADD COLUMN name TEXT DEFAULT 'Bozza'`,
-      err => {
-        // Ignore error if column already exists
-      }
-    );
-
-    // Financial Stats Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS financial_stats (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      month TEXT NOT NULL,
-      fatturato_totale REAL,
-      fatturato_imponibile REAL,
-      fatturato_previsionale REAL,
-      incassato REAL,
-      incassato_previsionale REAL,
-      utile REAL,
-      utile_previsionale REAL,
-      debiti_fornitore REAL,
-      debiti_bancari REAL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      UNIQUE(location_id, month)
-    )`);
-  });
-};
-
-// Initialize master database for locations, users, and auth (shared across companies)
-const masterDb = new sqlite3.Database(path.join(DATABASE_DIR, 'master.db'));
-masterDb.serialize(() => {
-  // Locations table
-  masterDb.run(`CREATE TABLE IF NOT EXISTS locations (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    capacity INTEGER NOT NULL,
-    open_time TEXT NOT NULL,
-    close_time TEXT NOT NULL,
-    status TEXT DEFAULT 'active',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
-
-  // Add status column if it doesn't exist (for existing databases)
-  masterDb.run(
-    `ALTER TABLE locations ADD COLUMN status TEXT DEFAULT 'active'`,
-    err => {
-      // Ignore error if column already exists
-    }
-  );
-
-  // Users table
-  masterDb.run(`CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'user',
-    is_active INTEGER DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
-
-  // User sessions table
-  masterDb.run(`CREATE TABLE IF NOT EXISTS user_sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    token TEXT UNIQUE NOT NULL,
-    created_at TEXT NOT NULL,
-    expires_at TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )`);
-
-  // User location permissions table
-  masterDb.run(`CREATE TABLE IF NOT EXISTS user_location_permissions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    location_id TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    UNIQUE(user_id, location_id)
-  )`);
-
-  // Location enabled tabs table
-  masterDb.run(`CREATE TABLE IF NOT EXISTS location_enabled_tabs (
-    id TEXT PRIMARY KEY,
-    location_id TEXT NOT NULL,
-    tab_name TEXT NOT NULL,
-    is_enabled INTEGER DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES locations(id),
-    UNIQUE(location_id, tab_name)
-  )`);
-});
-
-// Initialize default database for backward compatibility
-const defaultDb = getDatabase('default');
 
 // Authentication utilities
 function hashPassword(password) {
@@ -193,7 +32,7 @@ function generateToken() {
 }
 
 // Middleware to check authentication
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token =
     req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
@@ -201,17 +40,33 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  masterDb.get(
-    'SELECT u.*, s.id as session_id FROM users u JOIN user_sessions s ON u.id = s.user_id WHERE s.token = ? AND u.is_active = 1',
-    [token],
-    (err, user) => {
-      if (err || !user) {
-        return res.status(401).json({ error: 'Invalid token' });
-      }
-      req.user = user;
-      next();
+  try {
+    // Get session with token
+    const session = await masterDb.get(
+      'SELECT * FROM user_sessions WHERE token = ?',
+      [token]
+    );
+
+    if (!session) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
-  );
+
+    // Get user
+    const user = await masterDb.get(
+      'SELECT * FROM users WHERE id = ? AND is_active = 1',
+      [session.user_id]
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 }
 
 // Middleware to check admin role
@@ -223,31 +78,29 @@ function requireAdmin(req, res, next) {
 }
 
 // Multi-company state management
-function getState(locationId) {
-  return new Promise((resolve, reject) => {
+async function getState(locationId) {
+  try {
     const db = getDatabase(locationId);
     const stateId = `financial-plan-${locationId}`;
-    db.get(
+    const row = await db.get(
       'SELECT data FROM financial_plan_state WHERE id = ?',
-      [stateId],
-      (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        if (!row) {
-          resolve(null);
-          return;
-        }
-        try {
-          const parsed = JSON.parse(row.data);
-          resolve(parsed);
-        } catch (parseError) {
-          reject(parseError);
-        }
-      }
+      [stateId]
     );
-  });
+    
+    if (!row) {
+      return null;
+    }
+    
+    try {
+      const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      return parsed;
+    } catch (parseError) {
+      throw parseError;
+    }
+  } catch (error) {
+    console.error('Error getting state:', error);
+    throw error;
+  }
 }
 
 // Function to aggregate financial data across all locations
@@ -257,198 +110,189 @@ async function aggregateFinancialData(payload, locationId) {
     if (locationId === 'all') return;
 
     // Get all active locations (excluding "all")
-    const locations = await masterDbQuery(
-      'SELECT id FROM locations WHERE status = "active" AND id != "all"'
+    const allLocations = await masterDbQuery(
+      'SELECT id FROM locations WHERE status = ?',
+      ['active']
     );
+    const locations = allLocations.filter(loc => loc.id !== 'all');
 
     // Get current aggregated state for "all"
     const allDb = getDatabase('all');
     const aggregatedStateId = 'financial-plan-all';
 
-    allDb.get(
+    const row = await allDb.get(
       'SELECT data FROM financial_plan_state WHERE id = ?',
-      [aggregatedStateId],
-      async (err, row) => {
-        if (err) {
-          console.error('Error getting aggregated state:', err);
-          return;
-        }
-
-        let aggregatedPayload = {
-          preventivoOverrides: {},
-          consuntivoOverrides: {},
-          manualLog: [],
-          monthlyMetrics: [],
-          statsOverrides: {},
-          causaliCatalog: [],
-          causaliVersion: null,
-        };
-
-        if (row) {
-          try {
-            aggregatedPayload = JSON.parse(row.data);
-          } catch (parseError) {
-            console.error('Error parsing aggregated state:', parseError);
-          }
-        }
-
-        // Aggregate data from all locations
-        for (const location of locations) {
-          try {
-            const locationDb = getDatabase(location.id);
-            const locationStateId = `financial-plan-${location.id}`;
-
-            locationDb.get(
-              'SELECT data FROM financial_plan_state WHERE id = ?',
-              [locationStateId],
-              (err, locationRow) => {
-                if (err || !locationRow) return;
-
-                try {
-                  const locationPayload = JSON.parse(locationRow.data);
-
-                  // Aggregate preventivoOverrides
-                  if (locationPayload.preventivoOverrides) {
-                    Object.keys(locationPayload.preventivoOverrides).forEach(
-                      key => {
-                        if (!aggregatedPayload.preventivoOverrides[key]) {
-                          aggregatedPayload.preventivoOverrides[key] = {};
-                        }
-                        Object.keys(
-                          locationPayload.preventivoOverrides[key]
-                        ).forEach(subKey => {
-                          const currentValue =
-                            aggregatedPayload.preventivoOverrides[key][
-                              subKey
-                            ] || 0;
-                          const newValue =
-                            locationPayload.preventivoOverrides[key][subKey] ||
-                            0;
-                          aggregatedPayload.preventivoOverrides[key][subKey] =
-                            currentValue + newValue;
-                        });
-                      }
-                    );
-                  }
-
-                  // Aggregate consuntivoOverrides
-                  if (locationPayload.consuntivoOverrides) {
-                    Object.keys(locationPayload.consuntivoOverrides).forEach(
-                      key => {
-                        if (!aggregatedPayload.consuntivoOverrides[key]) {
-                          aggregatedPayload.consuntivoOverrides[key] = {};
-                        }
-                        Object.keys(
-                          locationPayload.consuntivoOverrides[key]
-                        ).forEach(subKey => {
-                          const currentValue =
-                            aggregatedPayload.consuntivoOverrides[key][
-                              subKey
-                            ] || 0;
-                          const newValue =
-                            locationPayload.consuntivoOverrides[key][subKey] ||
-                            0;
-                          aggregatedPayload.consuntivoOverrides[key][subKey] =
-                            currentValue + newValue;
-                        });
-                      }
-                    );
-                  }
-
-                  // Aggregate statsOverrides
-                  if (locationPayload.statsOverrides) {
-                    Object.keys(locationPayload.statsOverrides).forEach(key => {
-                      const currentValue =
-                        aggregatedPayload.statsOverrides[key] || 0;
-                      const newValue = locationPayload.statsOverrides[key] || 0;
-                      aggregatedPayload.statsOverrides[key] =
-                        currentValue + newValue;
-                    });
-                  }
-
-                  // Aggregate monthlyMetrics
-                  if (locationPayload.monthlyMetrics) {
-                    locationPayload.monthlyMetrics.forEach(metric => {
-                      const existingMetric =
-                        aggregatedPayload.monthlyMetrics.find(
-                          m =>
-                            m.year === metric.year &&
-                            m.monthIndex === metric.monthIndex
-                        );
-                      if (existingMetric) {
-                        // Sum numeric values
-                        Object.keys(metric).forEach(key => {
-                          if (typeof metric[key] === 'number') {
-                            existingMetric[key] =
-                              (existingMetric[key] || 0) + metric[key];
-                          }
-                        });
-                      } else {
-                        aggregatedPayload.monthlyMetrics.push({ ...metric });
-                      }
-                    });
-                  }
-                } catch (parseError) {
-                  console.error(
-                    `Error parsing location ${location.id} data:`,
-                    parseError
-                  );
-                }
-              }
-            );
-          } catch (error) {
-            console.error(`Error processing location ${location.id}:`, error);
-          }
-        }
-
-        // Save aggregated state
-        const now = new Date().toISOString();
-        const aggregatedData = JSON.stringify(aggregatedPayload);
-
-        allDb.run(
-          `INSERT INTO financial_plan_state (id, data, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-          [aggregatedStateId, aggregatedData, now],
-          err => {
-            if (err) {
-              console.error('Error saving aggregated state:', err);
-            } else {
-              console.log('Successfully updated aggregated financial data');
-            }
-          }
-        );
-      }
+      [aggregatedStateId]
     );
+
+    let aggregatedPayload = {
+      preventivoOverrides: {},
+      consuntivoOverrides: {},
+      manualLog: [],
+      monthlyMetrics: [],
+      statsOverrides: {},
+      causaliCatalog: [],
+      causaliVersion: null,
+    };
+
+    if (row) {
+      try {
+        const parsed = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+        aggregatedPayload = parsed;
+      } catch (parseError) {
+        console.error('Error parsing aggregated state:', parseError);
+      }
+    }
+
+    // Aggregate data from all locations
+    for (const location of locations) {
+      try {
+        const locationStateId = `financial-plan-${location.id}`;
+        const locationRow = await dbGet(
+          location.id,
+          'SELECT data FROM financial_plan_state WHERE id = ?',
+          [locationStateId]
+        );
+
+        if (locationRow) {
+          try {
+            const locationData = typeof locationRow.data === 'string' 
+              ? JSON.parse(locationRow.data) 
+              : locationRow.data;
+
+            // Aggregate preventivoOverrides
+            if (locationData.preventivoOverrides) {
+              Object.keys(locationData.preventivoOverrides).forEach(
+                key => {
+                  if (!aggregatedPayload.preventivoOverrides[key]) {
+                    aggregatedPayload.preventivoOverrides[key] = {};
+                  }
+                  Object.keys(
+                    locationData.preventivoOverrides[key]
+                  ).forEach(subKey => {
+                    const currentValue =
+                      aggregatedPayload.preventivoOverrides[key][subKey] || 0;
+                    const newValue =
+                      locationData.preventivoOverrides[key][subKey] || 0;
+                    aggregatedPayload.preventivoOverrides[key][subKey] =
+                      currentValue + newValue;
+                  });
+                }
+              );
+            }
+
+            // Aggregate consuntivoOverrides
+            if (locationData.consuntivoOverrides) {
+              Object.keys(locationData.consuntivoOverrides).forEach(
+                key => {
+                  if (!aggregatedPayload.consuntivoOverrides[key]) {
+                    aggregatedPayload.consuntivoOverrides[key] = {};
+                  }
+                  Object.keys(
+                    locationData.consuntivoOverrides[key]
+                  ).forEach(subKey => {
+                    const currentValue =
+                      aggregatedPayload.consuntivoOverrides[key][subKey] || 0;
+                    const newValue =
+                      locationData.consuntivoOverrides[key][subKey] || 0;
+                    aggregatedPayload.consuntivoOverrides[key][subKey] =
+                      currentValue + newValue;
+                  });
+                }
+              );
+            }
+
+            // Aggregate statsOverrides
+            if (locationData.statsOverrides) {
+              Object.keys(locationData.statsOverrides).forEach(key => {
+                const currentValue =
+                  aggregatedPayload.statsOverrides[key] || 0;
+                const newValue = locationData.statsOverrides[key] || 0;
+                aggregatedPayload.statsOverrides[key] = currentValue + newValue;
+              });
+            }
+
+            // Aggregate monthlyMetrics
+            if (locationData.monthlyMetrics) {
+              locationData.monthlyMetrics.forEach(metric => {
+                const existingMetric =
+                  aggregatedPayload.monthlyMetrics.find(
+                    m =>
+                      m.year === metric.year &&
+                      m.monthIndex === metric.monthIndex
+                  );
+                if (existingMetric) {
+                  // Sum numeric values
+                  Object.keys(metric).forEach(key => {
+                    if (typeof metric[key] === 'number') {
+                      existingMetric[key] =
+                        (existingMetric[key] || 0) + metric[key];
+                    }
+                  });
+                } else {
+                  aggregatedPayload.monthlyMetrics.push({ ...metric });
+                }
+              });
+            }
+          } catch (parseError) {
+            console.error(
+              `Error parsing location ${location.id} data:`,
+              parseError
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing location ${location.id}:`, error);
+      }
+    }
+
+    // Save aggregated state using Supabase
+    const { supabaseCall } = require('./supabase-wrapper');
+    const now = new Date().toISOString();
+    const aggregatedData = JSON.stringify(aggregatedPayload);
+
+    await supabaseCall('POST', 'financial_plan_state', {
+      data: {
+        id: aggregatedStateId,
+        location_id: 'all',
+        data: aggregatedData,
+        updated_at: now,
+      },
+      upsert: true,
+    });
+
+    console.log('Successfully updated aggregated financial data');
   } catch (error) {
     console.error('Error in aggregateFinancialData:', error);
   }
 }
 
-function saveState(payload, locationId) {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase(locationId);
+async function saveState(payload, locationId) {
+  try {
+    const { supabaseCall } = require('./supabase-wrapper');
     const now = new Date().toISOString();
     const data = JSON.stringify(payload);
     const stateId = `financial-plan-${locationId}`;
-    db.run(
-      `INSERT INTO financial_plan_state (id, data, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
-      [stateId, data, now],
-      async err => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    
+    // Upsert using Supabase REST API directly
+    await supabaseCall('POST', 'financial_plan_state', {
+      data: {
+        id: stateId,
+        location_id: locationId,
+        data: data,
+        updated_at: now,
+      },
+      upsert: true,
+    });
 
-        // Trigger aggregation for "all" location
-        await aggregateFinancialData(payload, locationId);
+    // Trigger aggregation for "all" location
+    await aggregateFinancialData(payload, locationId);
 
-        resolve(now);
-      }
-    );
-  });
+    return now;
+  } catch (error) {
+    console.error('Error saving state:', error);
+    throw error;
+  }
 }
 
 function buildPayload(body) {
@@ -499,63 +343,33 @@ function buildPayload(body) {
   return payload;
 }
 
-// Multi-company database helper functions
-function dbQuery(locationId, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase(locationId);
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+// Multi-company database helper functions - now using Supabase
+async function dbQuery(locationId, sql, params = []) {
+  const db = getDatabase(locationId);
+  return await db.query(sql, params);
 }
 
-function dbGet(locationId, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase(locationId);
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+async function dbGet(locationId, sql, params = []) {
+  const db = getDatabase(locationId);
+  return await db.get(sql, params);
 }
 
-function dbRun(locationId, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase(locationId);
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
-    });
-  });
+async function dbRun(locationId, sql, params = []) {
+  const db = getDatabase(locationId);
+  return await db.run(sql, params);
 }
 
-// Master database functions (for locations)
-function masterDbQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    masterDb.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+// Master database functions (for locations) - now using Supabase
+async function masterDbQuery(sql, params = []) {
+  return await masterDb.query(sql, params);
 }
 
-function masterDbGet(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    masterDb.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+async function masterDbGet(sql, params = []) {
+  return await masterDb.get(sql, params);
 }
 
-function masterDbRun(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    masterDb.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
-    });
-  });
+async function masterDbRun(sql, params = []) {
+  return await masterDb.run(sql, params);
 }
 
 app.get('/health', (req, res) => {
@@ -820,15 +634,9 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
     }
 
     const db = getDatabase(locationId);
-    const drafts = await new Promise((resolve, reject) => {
-      db.all(
-        'SELECT * FROM business_plan_drafts ORDER BY target_year, name',
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+    const drafts = await db.query(
+      'SELECT * FROM business_plan_drafts ORDER BY target_year, name'
+    );
 
     const draftsList = drafts.map(draft => ({
       id: draft.id,
@@ -857,16 +665,19 @@ app.put('/api/business-plan-drafts', requireAuth, async (req, res) => {
     const now = new Date().toISOString();
     const id = `draft-${targetYear}-${name.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
-    const db = getDatabase(locationId);
-    await new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO business_plan_drafts (id, target_year, name, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
-        [id, targetYear, name, JSON.stringify(data), now, now],
-        err => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
+    // Upsert business plan draft using Supabase
+    const { supabaseCall } = require('./supabase-wrapper');
+    await supabaseCall('POST', 'business_plan_drafts', {
+      data: {
+        id,
+        location_id: locationId,
+        target_year: targetYear,
+        name,
+        data: JSON.stringify(data),
+        created_at: now,
+        updated_at: now,
+      },
+      upsert: true,
     });
 
     res.json({ success: true, id });
@@ -886,12 +697,7 @@ app.delete('/api/business-plan-drafts/:id', requireAuth, async (req, res) => {
     }
 
     const db = getDatabase(locationId);
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM business_plan_drafts WHERE id = ?', [id], err => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    await db.run('DELETE FROM business_plan_drafts WHERE id = ?', [id]);
 
     res.json({ success: true });
   } catch (error) {
@@ -935,18 +741,29 @@ app.post('/api/init-default-data', async (req, res) => {
 // User Management API (Admin only)
 app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const users = await masterDbQuery(`
-      SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.is_active, u.created_at,
-             GROUP_CONCAT(ulp.location_id) as location_ids
-      FROM users u
-      LEFT JOIN user_location_permissions ulp ON u.id = ulp.user_id
-      GROUP BY u.id
-      ORDER BY u.created_at DESC
-    `);
+    // Get all users
+    const users = await masterDbQuery(
+      'SELECT id, first_name, last_name, email, role, is_active, created_at FROM users ORDER BY created_at DESC'
+    );
 
+    // Get all permissions and group by user_id
+    const permissions = await masterDbQuery(
+      'SELECT user_id, location_id FROM user_location_permissions'
+    );
+
+    // Group permissions by user_id
+    const permissionsByUser = {};
+    permissions.forEach(perm => {
+      if (!permissionsByUser[perm.user_id]) {
+        permissionsByUser[perm.user_id] = [];
+      }
+      permissionsByUser[perm.user_id].push(perm.location_id);
+    });
+
+    // Format users with location_ids
     const formattedUsers = users.map(user => ({
       ...user,
-      locationIds: user.location_ids ? user.location_ids.split(',') : [],
+      locationIds: permissionsByUser[user.id] || [],
     }));
 
     res.json(formattedUsers);
@@ -1337,15 +1154,24 @@ app.get('/api/user/locations', requireAuth, async (req, res) => {
       );
     } else {
       // Regular users can only see locations they have permission for
-      locations = await masterDbQuery(
-        `
-        SELECT l.* FROM locations l
-        JOIN user_location_permissions ulp ON l.id = ulp.location_id
-        WHERE ulp.user_id = ? AND l.status = 'active'
-        ORDER BY l.name
-      `,
+      // Get user's permissions first
+      const permissions = await masterDbQuery(
+        'SELECT location_id FROM user_location_permissions WHERE user_id = ?',
         [req.user.id]
       );
+      
+      if (permissions.length === 0) {
+        locations = [];
+      } else {
+        const locationIds = permissions.map(p => p.location_id);
+        // Get locations for these IDs
+        const allLocations = await masterDbQuery(
+          'SELECT * FROM locations WHERE status = ?',
+          ['active']
+        );
+        locations = allLocations.filter(loc => locationIds.includes(loc.id));
+        locations.sort((a, b) => a.name.localeCompare(b.name));
+      }
     }
 
     res.json(locations);
@@ -1367,15 +1193,24 @@ app.get('/api/user/locations/financial-plan', requireAuth, async (req, res) => {
       );
     } else {
       // Regular users can only see locations they have permission for
-      locations = await masterDbQuery(
-        `
-        SELECT l.* FROM locations l
-        JOIN user_location_permissions ulp ON l.id = ulp.location_id
-        WHERE ulp.user_id = ? AND l.status = 'active'
-        ORDER BY l.name
-      `,
+      // Get user's permissions first
+      const permissions = await masterDbQuery(
+        'SELECT location_id FROM user_location_permissions WHERE user_id = ?',
         [req.user.id]
       );
+      
+      if (permissions.length === 0) {
+        locations = [];
+      } else {
+        const locationIds = permissions.map(p => p.location_id);
+        // Get locations for these IDs
+        const allLocations = await masterDbQuery(
+          'SELECT * FROM locations WHERE status = ?',
+          ['active']
+        );
+        locations = allLocations.filter(loc => locationIds.includes(loc.id));
+        locations.sort((a, b) => a.name.localeCompare(b.name));
+      }
     }
 
     res.json(locations);
@@ -2192,8 +2027,7 @@ if (fs.existsSync(distPath)) {
 }
 
 process.on('SIGINT', () => {
-  masterDb.close();
-  dbConnections.forEach(db => db.close());
+  // No database connections to close with Supabase
   process.exit(0);
 });
 
