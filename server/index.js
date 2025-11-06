@@ -65,81 +65,6 @@ const initializeDatabase = (db) => {
       updated_at TEXT NOT NULL
     )`);
 
-    // Reservations Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS reservations (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      guest_name TEXT NOT NULL,
-      party_size INTEGER NOT NULL,
-      reservation_time TEXT NOT NULL,
-      status TEXT NOT NULL,
-      phone TEXT,
-      email TEXT,
-      notes TEXT,
-      table_id TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (location_id) REFERENCES locations(id),
-      FOREIGN KEY (table_id) REFERENCES tables(id)
-    )`);
-
-    // Tables Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS tables (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      capacity INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      shape TEXT NOT NULL,
-      x REAL NOT NULL,
-      y REAL NOT NULL,
-      width REAL NOT NULL,
-      height REAL NOT NULL,
-      reservation_id TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (location_id) REFERENCES locations(id),
-      FOREIGN KEY (reservation_id) REFERENCES reservations(id)
-    )`);
-
-    // Waitlist Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS waitlist (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      guest_name TEXT NOT NULL,
-      party_size INTEGER NOT NULL,
-      phone TEXT,
-      quoted_wait_time INTEGER,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (location_id) REFERENCES locations(id)
-    )`);
-
-    // Menu Items Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS menu_items (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      price REAL NOT NULL,
-      cost REAL NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
-
-    // Sales Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS sales (
-      id TEXT PRIMARY KEY,
-      location_id TEXT NOT NULL,
-      table_id TEXT,
-      reservation_id TEXT,
-      items TEXT NOT NULL,
-      total_amount REAL NOT NULL,
-      payment_method TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (location_id) REFERENCES locations(id),
-      FOREIGN KEY (table_id) REFERENCES tables(id),
-      FOREIGN KEY (reservation_id) REFERENCES reservations(id)
-    )`);
-
     // Business Plan Drafts Table (per company)
     db.run(`CREATE TABLE IF NOT EXISTS business_plan_drafts (
       id TEXT PRIMARY KEY,
@@ -154,19 +79,6 @@ const initializeDatabase = (db) => {
     db.run(`ALTER TABLE business_plan_drafts ADD COLUMN name TEXT DEFAULT 'Bozza'`, (err) => {
       // Ignore error if column already exists
     });
-
-    // Customers Table (per company)
-    db.run(`CREATE TABLE IF NOT EXISTS customers (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT,
-      phone TEXT,
-      total_visits INTEGER DEFAULT 0,
-      total_spent REAL DEFAULT 0,
-      last_visit TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`);
 
     // Financial Stats Table (per company)
     db.run(`CREATE TABLE IF NOT EXISTS financial_stats (
@@ -827,190 +739,6 @@ app.put('/api/locations/:id', async (req, res) => {
   }
 });
 
-// Reservations API (per company)
-app.get('/api/reservations/:locationId', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const reservations = await dbQuery(locationId,
-      'SELECT * FROM reservations WHERE location_id = ? ORDER BY reservation_time',
-      [locationId]
-    );
-    res.json(reservations);
-  } catch (error) {
-    console.error('Failed to get reservations', error);
-    res.status(500).json({ error: 'Failed to get reservations' });
-  }
-});
-
-app.post('/api/reservations', async (req, res) => {
-  try {
-    const { locationId, guestName, partySize, reservationTime, phone, email, notes, tableId } = req.body;
-    const id = Math.random().toString(36).substr(2, 9);
-    const now = new Date().toISOString();
-    
-    await dbRun(locationId,
-      'INSERT INTO reservations (id, location_id, guest_name, party_size, reservation_time, status, phone, email, notes, table_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, locationId, guestName, partySize, reservationTime, 'confirmed', phone, email, notes, tableId, now, now]
-    );
-    
-    const reservation = await dbGet(locationId, 'SELECT * FROM reservations WHERE id = ?', [id]);
-    res.json(reservation);
-  } catch (error) {
-    console.error('Failed to create reservation', error);
-    res.status(500).json({ error: 'Failed to create reservation' });
-  }
-});
-
-app.put('/api/reservations/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, locationId } = req.body;
-    const now = new Date().toISOString();
-    
-    await dbRun(locationId,
-      'UPDATE reservations SET status = ?, updated_at = ? WHERE id = ?',
-      [status, now, id]
-    );
-    
-    const reservation = await dbGet(locationId, 'SELECT * FROM reservations WHERE id = ?', [id]);
-    res.json(reservation);
-  } catch (error) {
-    console.error('Failed to update reservation status', error);
-    res.status(500).json({ error: 'Failed to update reservation status' });
-  }
-});
-
-// Tables API
-app.get('/api/tables/:locationId', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const tables = await dbQuery(locationId,
-      'SELECT * FROM tables WHERE location_id = ? ORDER BY name',
-      [locationId]
-    );
-    res.json(tables);
-  } catch (error) {
-    console.error('Failed to get tables', error);
-    res.status(500).json({ error: 'Failed to get tables' });
-  }
-});
-
-app.put('/api/tables/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const now = new Date().toISOString();
-    
-    await dbRun(
-      'UPDATE tables SET status = ?, updated_at = ? WHERE id = ?',
-      [status, now, id]
-    );
-    
-    const table = await dbGet('SELECT * FROM tables WHERE id = ?', [id]);
-    res.json(table);
-  } catch (error) {
-    console.error('Failed to update table status', error);
-    res.status(500).json({ error: 'Failed to update table status' });
-  }
-});
-
-app.put('/api/tables/:locationId/layout', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const { tables } = req.body;
-    const now = new Date().toISOString();
-    
-    // Delete existing tables for this location
-    await dbRun('DELETE FROM tables WHERE location_id = ?', [locationId]);
-    
-    // Insert new tables
-    for (const table of tables) {
-      await dbRun(
-        'INSERT INTO tables (id, location_id, name, capacity, status, shape, x, y, width, height, reservation_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [table.id, locationId, table.name, table.capacity, table.status, table.shape, table.x, table.y, table.width, table.height, table.reservationId, now, now]
-      );
-    }
-    
-    const updatedTables = await dbQuery(locationId, 'SELECT * FROM tables WHERE location_id = ?', [locationId]);
-    res.json(updatedTables);
-  } catch (error) {
-    console.error('Failed to save table layout', error);
-    res.status(500).json({ error: 'Failed to save table layout' });
-  }
-});
-
-// Waitlist API
-app.get('/api/waitlist/:locationId', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const waitlist = await dbQuery(locationId,
-      'SELECT * FROM waitlist WHERE location_id = ? ORDER BY created_at',
-      [locationId]
-    );
-    res.json(waitlist);
-  } catch (error) {
-    console.error('Failed to get waitlist', error);
-    res.status(500).json({ error: 'Failed to get waitlist' });
-  }
-});
-
-app.post('/api/waitlist', async (req, res) => {
-  try {
-    const { locationId, guestName, partySize, phone, quotedWaitTime } = req.body;
-    const id = 'w' + Math.random().toString(36).substr(2, 9);
-    const now = new Date().toISOString();
-    
-    await dbRun(
-      'INSERT INTO waitlist (id, location_id, guest_name, party_size, phone, quoted_wait_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, locationId, guestName, partySize, phone, quotedWaitTime, now]
-    );
-    
-    const entry = await dbGet('SELECT * FROM waitlist WHERE id = ?', [id]);
-    res.json(entry);
-  } catch (error) {
-    console.error('Failed to add waitlist entry', error);
-    res.status(500).json({ error: 'Failed to add waitlist entry' });
-  }
-});
-
-app.delete('/api/waitlist/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await dbRun('DELETE FROM waitlist WHERE id = ?', [id]);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to remove waitlist entry', error);
-    res.status(500).json({ error: 'Failed to remove waitlist entry' });
-  }
-});
-
-// Menu Items API
-app.get('/api/menu-items/:locationId', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const menuItems = await dbQuery(locationId, 'SELECT * FROM menu_items ORDER BY category, name');
-    res.json(menuItems);
-  } catch (error) {
-    console.error('Failed to get menu items', error);
-    res.status(500).json({ error: 'Failed to get menu items' });
-  }
-});
-
-// Sales API
-app.get('/api/sales/:locationId', async (req, res) => {
-  try {
-    const { locationId } = req.params;
-    const sales = await dbQuery(locationId,
-      'SELECT * FROM sales WHERE location_id = ? ORDER BY created_at DESC',
-      [locationId]
-    );
-    res.json(sales);
-  } catch (error) {
-    console.error('Failed to get sales', error);
-    res.status(500).json({ error: 'Failed to get sales' });
-  }
-});
-
 // Business Plan Drafts API
 app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
   try {
@@ -1117,32 +845,6 @@ app.post('/api/init-default-data', async (req, res) => {
       'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ['loc-2', 'Pizzeria al Forno', 80, '19:00', '24:00', now, now]
     );
-    
-    // Insert default menu items
-    const menuItems = [
-      { id: 'm1', name: 'Bruschetta al Pomodoro', category: 'Antipasto', price: 8, cost: 2.5 },
-      { id: 'm2', name: 'Caprese Salad', category: 'Antipasto', price: 10, cost: 4 },
-      { id: 'm3', name: 'Spaghetti Carbonara', category: 'Primo', price: 15, cost: 4.5 },
-      { id: 'm4', name: 'Lasagna alla Bolognese', category: 'Primo', price: 16, cost: 5 },
-      { id: 'm5', name: 'Risotto ai Funghi', category: 'Primo', price: 14, cost: 5.5 },
-      { id: 'm6', name: 'Bistecca alla Fiorentina', category: 'Secondo', price: 35, cost: 15 },
-      { id: 'm7', name: 'Pollo alla Cacciatora', category: 'Secondo', price: 20, cost: 7 },
-      { id: 'm8', name: 'Tiramisù', category: 'Dessert', price: 9, cost: 3 },
-      { id: 'm9', name: 'Panna Cotta', category: 'Dessert', price: 8, cost: 2.5 },
-      { id: 'm10', name: 'Vino Rosso (calice)', category: 'Bevanda', price: 7, cost: 2 },
-      { id: 'm11', name: 'Acqua Minerale', category: 'Bevanda', price: 3, cost: 0.5 },
-    ];
-    
-    // Get all locations and insert menu items for each
-    const locations = await masterDbQuery('SELECT id FROM locations');
-    for (const location of locations) {
-      for (const item of menuItems) {
-        await dbRun(location.id,
-          'INSERT INTO menu_items (id, name, category, price, cost, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [item.id, item.name, item.category, item.price, item.cost, now, now]
-        );
-      }
-    }
     
     res.json({ success: true, message: 'Default data initialized' });
   } catch (error) {
@@ -1530,13 +1232,6 @@ app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
     // If no custom tabs are set, return default enabled tabs
     if (enabledTabs.length === 0) {
       const defaultTabs = [
-        { tab_name: 'dashboard', is_enabled: 1 },
-        { tab_name: 'reservations', is_enabled: 1 },
-        { tab_name: 'waitlist', is_enabled: 1 },
-        { tab_name: 'tables', is_enabled: 1 },
-        { tab_name: 'menu', is_enabled: 1 },
-        { tab_name: 'sales', is_enabled: 1 },
-        { tab_name: 'customers', is_enabled: 1 },
         { tab_name: 'financial-plan', is_enabled: 1 }
       ];
       res.json(defaultTabs);
