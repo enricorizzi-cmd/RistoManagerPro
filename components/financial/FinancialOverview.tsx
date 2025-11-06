@@ -554,7 +554,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 w-full">
       <div className="flex items-center gap-3 mb-4">
         <label className="text-xs font-semibold uppercase text-gray-500">
           Anno
@@ -571,9 +571,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
           ))}
         </select>
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
         {/* Fatturato Card */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
             Fatturato
           </p>
@@ -693,7 +693,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         </div>
 
         {/* Incassato Card */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
             Incassato
           </p>
@@ -798,7 +798,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         </div>
 
         {/* Costi Fissi Card */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
             Costi fissi
           </p>
@@ -903,7 +903,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         </div>
 
         {/* Costi Variabili Card */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
             Costi variabili
           </p>
@@ -1014,7 +1014,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         </div>
 
         {/* Utile Card */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
             Utile
           </p>
@@ -1117,7 +1117,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
           </div>
         </div>
       </div>
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={overviewChartData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -1168,7 +1168,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       </div>
 
       {/* Istogramma utile mensile */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-white p-5 shadow-sm w-full">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">
           Utile Mensile {selectedYear}
         </h3>
@@ -1194,11 +1194,11 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       </div>
 
       {/* Grafico combinato 48 mesi */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-white p-5 shadow-sm w-full overflow-x-auto">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">
           Analisi Finanziaria 48 Mesi (Gennaio 2022 - Dicembre 2025)
         </h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={280} minWidth={800}>
           <ComposedChart data={combinedChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
