@@ -4,7 +4,6 @@
 import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
   Line,
   BarChart,
   Bar,
