@@ -5,6 +5,7 @@ import {
   CashIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  BeakerIcon,
 } from './icons/Icons';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,6 +69,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
           icon={<CashIcon className="h-6 w-6" />}
           label="Piano Finanziario"
           isActive={currentPage === 'financial-plan'}
+          collapsed={sidebarCollapsed}
+        />
+        <NavLink
+          href="#menu-engineering"
+          icon={<BeakerIcon className="h-6 w-6" />}
+          label="Menu Engineering"
+          isActive={currentPage === 'menu-engineering'}
           collapsed={sidebarCollapsed}
         />
         {user?.role === 'admin' && (

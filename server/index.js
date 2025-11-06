@@ -715,7 +715,8 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
       id: draft.id,
       targetYear: draft.target_year,
       name: draft.name,
-      data: typeof draft.data === 'string' ? JSON.parse(draft.data) : draft.data,
+      data:
+        typeof draft.data === 'string' ? JSON.parse(draft.data) : draft.data,
       createdAt: draft.created_at,
       updatedAt: draft.updated_at,
     }));
@@ -723,10 +724,10 @@ app.get('/api/business-plan-drafts', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get business plan drafts', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get business plan drafts',
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
@@ -1644,10 +1645,10 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get data entries sums', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get data entries sums',
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
@@ -2046,21 +2047,34 @@ app.post(
       const now = new Date().toISOString();
 
       // First, calculate fatturatoTotale in financial_plan_state statsOverrides
-      console.log('[CALCULATE_FATTURATO] Fetching financial plan state for location:', locationId);
+      console.log(
+        '[CALCULATE_FATTURATO] Fetching financial plan state for location:',
+        locationId
+      );
       const stateResult = await dbGet(
         locationId,
         'SELECT * FROM financial_plan_state WHERE id = ?',
         [`financial-plan-${locationId}`]
       );
-      console.log('[CALCULATE_FATTURATO] State result:', stateResult ? 'found' : 'not found');
+      console.log(
+        '[CALCULATE_FATTURATO] State result:',
+        stateResult ? 'found' : 'not found'
+      );
 
       if (stateResult) {
-        console.log('[CALCULATE_FATTURATO] Parsing state data, type:', typeof stateResult.data);
-        const stateData = typeof stateResult.data === 'string' 
-          ? JSON.parse(stateResult.data) 
-          : stateResult.data;
+        console.log(
+          '[CALCULATE_FATTURATO] Parsing state data, type:',
+          typeof stateResult.data
+        );
+        const stateData =
+          typeof stateResult.data === 'string'
+            ? JSON.parse(stateResult.data)
+            : stateResult.data;
         const statsOverrides = stateData.statsOverrides || {};
-        console.log('[CALCULATE_FATTURATO] Stats overrides keys:', Object.keys(statsOverrides).length);
+        console.log(
+          '[CALCULATE_FATTURATO] Stats overrides keys:',
+          Object.keys(statsOverrides).length
+        );
 
         let updatedCount = 0;
 
@@ -2100,10 +2114,10 @@ app.post(
     } catch (error) {
       console.error('Error calculating fatturato totale:', error);
       console.error('Error stack:', error.stack);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Failed to calculate fatturato totale',
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       });
     }
   }
@@ -2130,12 +2144,14 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
       );
 
       if (!hasPermission) {
-        return res.status(403).json({ error: 'Access denied to this location' });
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
       }
     }
 
     // ===== RECUPERO DATI COMPLETI DAL DATABASE =====
-    
+
     // 1. Get financial plan state
     const stateResult = await dbGet(
       locationId,
@@ -2145,12 +2161,13 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
 
     let financialPlanData = null;
     let availableYears = [];
-    
+
     if (stateResult) {
-      financialPlanData = typeof stateResult.data === 'string' 
-        ? JSON.parse(stateResult.data) 
-        : stateResult.data;
-      
+      financialPlanData =
+        typeof stateResult.data === 'string'
+          ? JSON.parse(stateResult.data)
+          : stateResult.data;
+
       availableYears = financialPlanData.availableYears || [];
     }
 
@@ -2173,16 +2190,18 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
           debiti_bancari as debitiBancari
         FROM financial_stats 
         WHERE location_id = ?
-        ORDER BY month DESC`
-      , [locationId]);
+        ORDER BY month DESC`,
+        [locationId]
+      );
     } catch (error) {
       console.error('Error fetching financial stats:', error);
       // Fallback: try with simpler query
       try {
         allStats = await dbQuery(
           locationId,
-          `SELECT * FROM financial_stats WHERE location_id = ? ORDER BY month DESC`
-        , [locationId]);
+          `SELECT * FROM financial_stats WHERE location_id = ? ORDER BY month DESC`,
+          [locationId]
+        );
       } catch (fallbackError) {
         console.error('Fallback query also failed:', fallbackError);
         allStats = [];
@@ -2198,8 +2217,9 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
           macro, category, detail, year, month_index, value, type
         FROM data_entries 
         WHERE location_id = ?
-        ORDER BY year DESC, month_index DESC`
-      , [locationId]);
+        ORDER BY year DESC, month_index DESC`,
+        [locationId]
+      );
     } catch (error) {
       console.error('Error fetching data entries:', error);
       dataEntries = [];
@@ -2208,7 +2228,7 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
     // 4. Calculate current year stats
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
-    
+
     // Filter stats by year - handle different month formats (Gen. 24, Gennaio 2024, etc.)
     const currentYearStats = allStats.filter(s => {
       if (!s.month) return false;
@@ -2230,12 +2250,13 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
     let ytdFatturato = 0;
     let ytdIncassato = 0;
     let ytdUtile = 0;
-    
+
     currentYearStats.forEach(stat => {
       // Handle both camelCase and snake_case column names
-      ytdFatturato += (stat.fatturatoImponibile || stat.fatturato_imponibile || 0);
-      ytdIncassato += (stat.incassato || 0);
-      ytdUtile += (stat.utileCassa || stat.utile || 0);
+      ytdFatturato +=
+        stat.fatturatoImponibile || stat.fatturato_imponibile || 0;
+      ytdIncassato += stat.incassato || 0;
+      ytdUtile += stat.utileCassa || stat.utile || 0;
     });
 
     // Get previous year for comparison
@@ -2259,36 +2280,50 @@ app.post('/api/chatbot', requireAuth, async (req, res) => {
     let prevYtdFatturato = 0;
     let prevYtdIncassato = 0;
     let prevYtdUtile = 0;
-    
+
     prevYearStats.slice(0, currentMonth + 1).forEach(stat => {
       // Handle both camelCase and snake_case column names
-      prevYtdFatturato += (stat.fatturatoImponibile || stat.fatturato_imponibile || 0);
-      prevYtdIncassato += (stat.incassato || 0);
-      prevYtdUtile += (stat.utileCassa || stat.utile || 0);
+      prevYtdFatturato +=
+        stat.fatturatoImponibile || stat.fatturato_imponibile || 0;
+      prevYtdIncassato += stat.incassato || 0;
+      prevYtdUtile += stat.utileCassa || stat.utile || 0;
     });
 
     // Calculate growth rates
-    const fatturatoGrowth = prevYtdFatturato > 0 
-      ? ((ytdFatturato - prevYtdFatturato) / prevYtdFatturato * 100).toFixed(1)
-      : null;
-    const incassatoGrowth = prevYtdIncassato > 0
-      ? ((ytdIncassato - prevYtdIncassato) / prevYtdIncassato * 100).toFixed(1)
-      : null;
-    const utileGrowth = prevYtdUtile !== 0
-      ? ((ytdUtile - prevYtdUtile) / Math.abs(prevYtdUtile) * 100).toFixed(1)
-      : null;
+    const fatturatoGrowth =
+      prevYtdFatturato > 0
+        ? (
+            ((ytdFatturato - prevYtdFatturato) / prevYtdFatturato) *
+            100
+          ).toFixed(1)
+        : null;
+    const incassatoGrowth =
+      prevYtdIncassato > 0
+        ? (
+            ((ytdIncassato - prevYtdIncassato) / prevYtdIncassato) *
+            100
+          ).toFixed(1)
+        : null;
+    const utileGrowth =
+      prevYtdUtile !== 0
+        ? (((ytdUtile - prevYtdUtile) / Math.abs(prevYtdUtile)) * 100).toFixed(
+            1
+          )
+        : null;
 
     // Get last 3 months detailed
     const last3Months = allStats.slice(0, 3);
 
     // Calculate average monthly values (only if we have data)
     const monthsWithData = Math.max(1, currentYearStats.length); // Avoid division by zero
-    const avgMonthlyFatturato = currentYearStats.length > 0
-      ? (ytdFatturato / monthsWithData).toFixed(0)
-      : '0';
-    const avgMonthlyIncassato = currentYearStats.length > 0
-      ? (ytdIncassato / monthsWithData).toFixed(0)
-      : '0';
+    const avgMonthlyFatturato =
+      currentYearStats.length > 0
+        ? (ytdFatturato / monthsWithData).toFixed(0)
+        : '0';
+    const avgMonthlyIncassato =
+      currentYearStats.length > 0
+        ? (ytdIncassato / monthsWithData).toFixed(0)
+        : '0';
 
     // Build comprehensive financial context
     let financialContext = `\n\n===== DATI FINANZIARI REALI DAL DATABASE =====
@@ -2315,7 +2350,7 @@ CRESCITE YTD:
 
 ULTIMI 3 MESI DETTAGLIATI:`;
 
-    last3Months.forEach((stat) => {
+    last3Months.forEach(stat => {
       financialContext += `\n\n${stat.month}:`;
       financialContext += `\n  - Fatturato: ${(stat.fatturatoImponibile || stat.fatturato_imponibile || 0).toLocaleString('it-IT')}€`;
       financialContext += `\n  - Incassato: ${(stat.incassato || 0).toLocaleString('it-IT')}€`;
@@ -2335,7 +2370,10 @@ ULTIMI 3 MESI DETTAGLIATI:`;
       const entriesByType = {};
       dataEntries.forEach(entry => {
         if (!entriesByType[entry.type]) entriesByType[entry.type] = 0;
-        const value = typeof entry.value === 'number' ? entry.value : parseFloat(entry.value) || 0;
+        const value =
+          typeof entry.value === 'number'
+            ? entry.value
+            : parseFloat(entry.value) || 0;
         entriesByType[entry.type] += value;
       });
       financialContext += `\n- Preventivo: ${(entriesByType.preventivo || 0).toLocaleString('it-IT')}€`;
@@ -2409,7 +2447,7 @@ ${financialContext}`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
+        Authorization: `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -2425,14 +2463,16 @@ ${financialContext}`;
     if (!response.ok) {
       const errorData = await response.text();
       console.error('OpenAI API error:', errorData);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Failed to get response from AI',
-        details: process.env.NODE_ENV === 'development' ? errorData : undefined
+        details: process.env.NODE_ENV === 'development' ? errorData : undefined,
       });
     }
 
     const data = await response.json();
-    const aiResponse = data.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
+    const aiResponse =
+      data.choices[0]?.message?.content ||
+      'Mi dispiace, non sono riuscito a generare una risposta.';
 
     res.json({
       success: true,
@@ -2440,12 +2480,588 @@ ${financialContext}`;
     });
   } catch (error) {
     console.error('Chatbot error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to process chatbot request',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });
+
+// ============================================
+// MENU ENGINEERING API ENDPOINTS
+// ============================================
+
+// Raw Materials API
+app.get(
+  '/api/menu-engineering/raw-materials',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.query.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const db = getDatabase(locationId);
+      const materials = await db.query(
+        'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
+        [locationId]
+      );
+
+      res.json(materials);
+    } catch (error) {
+      console.error('Failed to get raw materials', error);
+      res.status(500).json({ error: 'Failed to get raw materials' });
+    }
+  }
+);
+
+app.post(
+  '/api/menu-engineering/raw-materials',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const {
+        tipologia,
+        categoria,
+        codice,
+        materiaPrima,
+        unitaMisura,
+        fornitore,
+        prezzoAcquisto,
+        dataUltimoAcquisto,
+      } = req.body;
+
+      if (
+        !tipologia ||
+        !categoria ||
+        !codice ||
+        !materiaPrima ||
+        !unitaMisura ||
+        !fornitore ||
+        prezzoAcquisto === undefined ||
+        !dataUltimoAcquisto
+      ) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      const id = crypto.randomUUID();
+      const db = getDatabase(locationId);
+      await db.run(
+        'INSERT INTO raw_materials (id, location_id, tipologia, categoria, codice, materia_prima, unita_misura, fornitore, prezzo_acquisto, data_ultimo_acquisto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          id,
+          locationId,
+          tipologia,
+          categoria,
+          codice,
+          materiaPrima,
+          unitaMisura,
+          fornitore,
+          prezzoAcquisto,
+          new Date(dataUltimoAcquisto).toISOString(),
+        ]
+      );
+
+      const material = await db.get(
+        'SELECT * FROM raw_materials WHERE id = ?',
+        [id]
+      );
+      res.status(201).json(material);
+    } catch (error) {
+      console.error('Failed to create raw material', error);
+      res.status(500).json({ error: 'Failed to create raw material' });
+    }
+  }
+);
+
+app.put(
+  '/api/menu-engineering/raw-materials/:id',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const { id } = req.params;
+      const {
+        tipologia,
+        categoria,
+        codice,
+        materiaPrima,
+        unitaMisura,
+        fornitore,
+        prezzoAcquisto,
+        dataUltimoAcquisto,
+      } = req.body;
+
+      const db = getDatabase(locationId);
+      await db.run(
+        'UPDATE raw_materials SET tipologia = ?, categoria = ?, codice = ?, materia_prima = ?, unita_misura = ?, fornitore = ?, prezzo_acquisto = ?, data_ultimo_acquisto = ?, updated_at = ? WHERE id = ? AND location_id = ?',
+        [
+          tipologia,
+          categoria,
+          codice,
+          materiaPrima,
+          unitaMisura,
+          fornitore,
+          prezzoAcquisto,
+          new Date(dataUltimoAcquisto).toISOString(),
+          new Date().toISOString(),
+          id,
+          locationId,
+        ]
+      );
+
+      const material = await db.get(
+        'SELECT * FROM raw_materials WHERE id = ?',
+        [id]
+      );
+      res.json(material);
+    } catch (error) {
+      console.error('Failed to update raw material', error);
+      res.status(500).json({ error: 'Failed to update raw material' });
+    }
+  }
+);
+
+app.delete(
+  '/api/menu-engineering/raw-materials/:id',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.query.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const { id } = req.params;
+      const db = getDatabase(locationId);
+      await db.run(
+        'DELETE FROM raw_materials WHERE id = ? AND location_id = ?',
+        [id, locationId]
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete raw material', error);
+      res.status(500).json({ error: 'Failed to delete raw material' });
+    }
+  }
+);
+
+// Recipes API
+app.get('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'] || req.query.locationId;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDb.get(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      if (!hasPermission) {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
+      }
+    }
+
+    const db = getDatabase(locationId);
+    const recipes = await db.query(
+      'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
+      [locationId]
+    );
+
+    // Get ingredients for each recipe
+    for (const recipe of recipes) {
+      const ingredients = await db.query(
+        'SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY created_at',
+        [recipe.id]
+      );
+      recipe.ingredienti = ingredients;
+    }
+
+    res.json(recipes);
+  } catch (error) {
+    console.error('Failed to get recipes', error);
+    res.status(500).json({ error: 'Failed to get recipes' });
+  }
+});
+
+app.post('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'] || req.body.locationId;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDb.get(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      if (!hasPermission) {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
+      }
+    }
+
+    const { nomePiatto, categoria, prezzoVendita, ingredienti, order } =
+      req.body;
+
+    if (
+      !nomePiatto ||
+      !categoria ||
+      !prezzoVendita ||
+      !ingredienti ||
+      !Array.isArray(ingredienti)
+    ) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Calculate food cost, profit, and margin
+    const foodCost = ingredienti.reduce(
+      (sum, ing) => sum + (parseFloat(ing.costo) || 0),
+      0
+    );
+    const utile = parseFloat(prezzoVendita) - foodCost;
+    const marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+
+    const id = crypto.randomUUID();
+    const db = getDatabase(locationId);
+    await db.run(
+      'INSERT INTO recipes (id, location_id, nome_piatto, categoria, prezzo_vendita, food_cost, utile, marginalita, "order") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        locationId,
+        nomePiatto,
+        categoria,
+        prezzoVendita,
+        foodCost,
+        utile,
+        marginalita,
+        order || 0,
+      ]
+    );
+
+    // Insert ingredients
+    for (const ing of ingredienti) {
+      const ingId = crypto.randomUUID();
+      await db.run(
+        'INSERT INTO recipe_ingredients (id, recipe_id, cod_materia, materia_prima, unita_misura, peso, costo) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          ingId,
+          id,
+          ing.codMateria,
+          ing.materiaPrima,
+          ing.unitaMisura,
+          ing.peso,
+          ing.costo,
+        ]
+      );
+    }
+
+    const recipe = await db.get('SELECT * FROM recipes WHERE id = ?', [id]);
+    const ingredients = await db.query(
+      'SELECT * FROM recipe_ingredients WHERE recipe_id = ?',
+      [id]
+    );
+    recipe.ingredienti = ingredients;
+
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('Failed to create recipe', error);
+    res.status(500).json({ error: 'Failed to create recipe' });
+  }
+});
+
+app.put('/api/menu-engineering/recipes/:id', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'] || req.body.locationId;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDb.get(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      if (!hasPermission) {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
+      }
+    }
+
+    const { id } = req.params;
+    const { nomePiatto, categoria, prezzoVendita, ingredienti, order } =
+      req.body;
+
+    const db = getDatabase(locationId);
+
+    // If ingredients are provided, recalculate food cost
+    if (ingredienti && Array.isArray(ingredienti)) {
+      const foodCost = ingredienti.reduce(
+        (sum, ing) => sum + (parseFloat(ing.costo) || 0),
+        0
+      );
+      const utile = parseFloat(prezzoVendita || 0) - foodCost;
+      const marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+
+      // Update recipe
+      await db.run(
+        'UPDATE recipes SET nome_piatto = ?, categoria = ?, prezzo_vendita = ?, food_cost = ?, utile = ?, marginalita = ?, "order" = ?, updated_at = ? WHERE id = ? AND location_id = ?',
+        [
+          nomePiatto,
+          categoria,
+          prezzoVendita,
+          foodCost,
+          utile,
+          marginalita,
+          order,
+          new Date().toISOString(),
+          id,
+          locationId,
+        ]
+      );
+
+      // Delete old ingredients
+      await db.run('DELETE FROM recipe_ingredients WHERE recipe_id = ?', [id]);
+
+      // Insert new ingredients
+      for (const ing of ingredienti) {
+        const ingId = crypto.randomUUID();
+        await db.run(
+          'INSERT INTO recipe_ingredients (id, recipe_id, cod_materia, materia_prima, unita_misura, peso, costo) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            ingId,
+            id,
+            ing.codMateria,
+            ing.materiaPrima,
+            ing.unitaMisura,
+            ing.peso,
+            ing.costo,
+          ]
+        );
+      }
+    } else {
+      // Update only recipe fields
+      await db.run(
+        'UPDATE recipes SET nome_piatto = ?, categoria = ?, prezzo_vendita = ?, "order" = ?, updated_at = ? WHERE id = ? AND location_id = ?',
+        [
+          nomePiatto,
+          categoria,
+          prezzoVendita,
+          order,
+          new Date().toISOString(),
+          id,
+          locationId,
+        ]
+      );
+    }
+
+    const recipe = await db.get('SELECT * FROM recipes WHERE id = ?', [id]);
+    const ingredients = await db.query(
+      'SELECT * FROM recipe_ingredients WHERE recipe_id = ?',
+      [id]
+    );
+    recipe.ingredienti = ingredients;
+
+    res.json(recipe);
+  } catch (error) {
+    console.error('Failed to update recipe', error);
+    res.status(500).json({ error: 'Failed to update recipe' });
+  }
+});
+
+app.delete(
+  '/api/menu-engineering/recipes/:id',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.query.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const { id } = req.params;
+      const db = getDatabase(locationId);
+      // Ingredients will be deleted automatically due to CASCADE
+      await db.run('DELETE FROM recipes WHERE id = ? AND location_id = ?', [
+        id,
+        locationId,
+      ]);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete recipe', error);
+      res.status(500).json({ error: 'Failed to delete recipe' });
+    }
+  }
+);
+
+// Recipe Sales API (for BCG matrix)
+app.get('/api/menu-engineering/recipe-sales', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'] || req.query.locationId;
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin') {
+      const hasPermission = await masterDb.get(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+      if (!hasPermission) {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
+      }
+    }
+
+    const db = getDatabase(locationId);
+    const sales = await db.query(
+      'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+      [locationId]
+    );
+
+    res.json(sales);
+  } catch (error) {
+    console.error('Failed to get recipe sales', error);
+    res.status(500).json({ error: 'Failed to get recipe sales' });
+  }
+});
+
+app.post(
+  '/api/menu-engineering/recipe-sales',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const { recipeId, quantity, saleDate } = req.body;
+
+      if (!recipeId || quantity === undefined || !saleDate) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      const id = crypto.randomUUID();
+      const db = getDatabase(locationId);
+      await db.run(
+        'INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date) VALUES (?, ?, ?, ?, ?)',
+        [id, locationId, recipeId, quantity, saleDate]
+      );
+
+      const sale = await db.get('SELECT * FROM recipe_sales WHERE id = ?', [
+        id,
+      ]);
+      res.status(201).json(sale);
+    } catch (error) {
+      console.error('Failed to create recipe sale', error);
+      res.status(500).json({ error: 'Failed to create recipe sale' });
+    }
+  }
+);
 
 // Serve React app for all non-API routes (SPA routing)
 if (fs.existsSync(distPath)) {

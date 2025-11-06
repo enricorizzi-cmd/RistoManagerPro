@@ -362,16 +362,22 @@ function getLocationDb(locationId) {
       try {
         // Normalize SQL: remove extra whitespace and newlines
         const normalizedSql = sql.replace(/\s+/g, ' ').trim();
-        
-        const selectMatch = normalizedSql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)/i);
+
+        const selectMatch = normalizedSql.match(
+          /SELECT\s+(.+?)\s+FROM\s+(\w+)/i
+        );
         if (!selectMatch) {
-          throw new Error(`Invalid SELECT query: ${normalizedSql.substring(0, 100)}`);
+          throw new Error(
+            `Invalid SELECT query: ${normalizedSql.substring(0, 100)}`
+          );
         }
-        
+
         const select = selectMatch[1].trim();
         const table = selectMatch[2].trim();
-        
-        console.log(`[SUPABASE] Query: table=${table}, select=${select.substring(0, 100)}`);
+
+        console.log(
+          `[SUPABASE] Query: table=${table}, select=${select.substring(0, 100)}`
+        );
 
         // Check for GROUP BY queries (aggregation queries)
         // Match GROUP BY that may be followed by ORDER BY or end of string
@@ -381,9 +387,13 @@ function getLocationDb(locationId) {
           // Find the start of GROUP BY columns
           const groupByStart = groupByIndex + 9; // length of "GROUP BY"
           // Find the end: ORDER BY, LIMIT, or end of string
-          const orderByIndex = normalizedSql.toUpperCase().indexOf(' ORDER BY', groupByStart);
-          const limitIndex = normalizedSql.toUpperCase().indexOf(' LIMIT', groupByStart);
-          
+          const orderByIndex = normalizedSql
+            .toUpperCase()
+            .indexOf(' ORDER BY', groupByStart);
+          const limitIndex = normalizedSql
+            .toUpperCase()
+            .indexOf(' LIMIT', groupByStart);
+
           let groupByEnd = normalizedSql.length;
           if (orderByIndex !== -1 && orderByIndex < groupByEnd) {
             groupByEnd = orderByIndex;
@@ -391,25 +401,30 @@ function getLocationDb(locationId) {
           if (limitIndex !== -1 && limitIndex < groupByEnd) {
             groupByEnd = limitIndex;
           }
-          
-          const groupByClause = normalizedSql.substring(groupByStart, groupByEnd).trim();
-          console.log('[SUPABASE] GROUP BY query detected:', normalizedSql.substring(0, 200));
+
+          const groupByClause = normalizedSql
+            .substring(groupByStart, groupByEnd)
+            .trim();
+          console.log(
+            '[SUPABASE] GROUP BY query detected:',
+            normalizedSql.substring(0, 200)
+          );
           console.log('[SUPABASE] GROUP BY clause:', groupByClause);
-          
+
           // For GROUP BY queries, we need to fetch all data and aggregate in JS
           // because Supabase PostgREST doesn't support GROUP BY directly
           const groupByColumns = groupByClause
             .trim()
             .split(',')
             .map(col => col.trim());
-          
+
           console.log('[SUPABASE] GROUP BY columns:', groupByColumns);
-          
+
           // Extract aggregation functions (SUM, COUNT, AVG, etc.)
           const hasSum = select.includes('SUM(');
           const hasCount = select.includes('COUNT(');
           const hasAvg = select.includes('AVG(');
-          
+
           // Get all columns needed (group by columns + aggregated columns)
           const allColumns = [...groupByColumns];
           if (hasSum) {
@@ -419,12 +434,14 @@ function getLocationDb(locationId) {
               console.log('[SUPABASE] SUM column:', sumMatch[1]);
             }
           }
-          
+
           // Build select clause for fetching raw data
           const rawSelect = allColumns.join(',');
           console.log('[SUPABASE] Raw select for GROUP BY:', rawSelect);
-          
-          const whereMatch = normalizedSql.match(/WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i);
+
+          const whereMatch = normalizedSql.match(
+            /WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i
+          );
           const filters = { location_id: locationId };
           Object.assign(
             filters,
@@ -439,8 +456,11 @@ function getLocationDb(locationId) {
             filters,
             limit: 10000, // Large limit for aggregation
           });
-          
-          console.log('[SUPABASE] Fetched rows for aggregation:', allRows.length);
+
+          console.log(
+            '[SUPABASE] Fetched rows for aggregation:',
+            allRows.length
+          );
 
           if (!Array.isArray(allRows)) {
             console.error('[SUPABASE] Expected array but got:', typeof allRows);
@@ -449,11 +469,11 @@ function getLocationDb(locationId) {
 
           // Perform aggregation in JavaScript
           const grouped = new Map();
-          
+
           allRows.forEach(row => {
             // Create key from group by columns
             const key = groupByColumns.map(col => row[col]).join('|');
-            
+
             if (!grouped.has(key)) {
               grouped.set(key, {});
               groupByColumns.forEach(col => {
@@ -471,29 +491,35 @@ function getLocationDb(locationId) {
                 }
               }
             }
-            
+
             // Aggregate values
             if (hasSum) {
               const sumMatch = select.match(/SUM\((\w+)\)\s+as\s+(\w+)/i);
               if (sumMatch) {
                 const colName = sumMatch[1];
                 const alias = sumMatch[2];
-                grouped.get(key)[alias] = (grouped.get(key)[alias] || 0) + (parseFloat(row[colName]) || 0);
+                grouped.get(key)[alias] =
+                  (grouped.get(key)[alias] || 0) +
+                  (parseFloat(row[colName]) || 0);
               } else {
                 const sumMatchSimple = select.match(/SUM\((\w+)\)/i);
                 if (sumMatchSimple) {
                   const colName = sumMatchSimple[1];
                   const alias = `sum_${colName}`;
-                  grouped.get(key)[alias] = (grouped.get(key)[alias] || 0) + (parseFloat(row[colName]) || 0);
+                  grouped.get(key)[alias] =
+                    (grouped.get(key)[alias] || 0) +
+                    (parseFloat(row[colName]) || 0);
                 }
               }
             }
           });
 
           let result = Array.from(grouped.values());
-          
+
           // Apply ORDER BY if present
-          const orderMatch = normalizedSql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+          const orderMatch = normalizedSql.match(
+            /ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i
+          );
           if (orderMatch) {
             const orderClause = orderMatch[1].trim();
             const orderParts = orderClause.split(',').map(p => p.trim());
@@ -511,14 +537,14 @@ function getLocationDb(locationId) {
               return 0;
             });
           }
-          
+
           // Map result to match expected column names
           const finalResult = result.map(row => {
             const mapped = {};
             groupByColumns.forEach(col => {
               mapped[col] = row[col];
             });
-            
+
             // Map SUM results
             if (hasSum) {
               const sumMatch = select.match(/SUM\((\w+)\)\s+as\s+(\w+)/i);
@@ -532,10 +558,10 @@ function getLocationDb(locationId) {
                 }
               }
             }
-            
+
             return mapped;
           });
-          
+
           console.log('[SUPABASE] GROUP BY result count:', finalResult.length);
           return finalResult;
         }
@@ -546,7 +572,7 @@ function getLocationDb(locationId) {
         // Then map the results back to use aliases
         let cleanSelect = select;
         const aliasMap = {}; // Map original column name -> alias
-        
+
         if (select.includes(' as ')) {
           // Extract column names (before "as") for Supabase query
           // Keep track of aliases for mapping later
@@ -568,14 +594,18 @@ function getLocationDb(locationId) {
         // Remove spaces after commas in select clause for Supabase
         cleanSelect = cleanSelect.replace(/\s*,\s*/g, ',');
 
-        const whereMatch = normalizedSql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
+        const whereMatch = normalizedSql.match(
+          /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
+        );
         const filters = { location_id: locationId };
         Object.assign(
           filters,
           parseWhereClause(whereMatch ? whereMatch[1] : '', params)
         );
 
-        const orderMatch = normalizedSql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+        const orderMatch = normalizedSql.match(
+          /ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i
+        );
         let order;
         if (orderMatch) {
           // Parse ORDER BY clause: handle multiple columns with optional ASC/DESC
@@ -588,9 +618,13 @@ function getLocationDb(locationId) {
               const trimmed = col.trim();
               const upper = trimmed.toUpperCase();
               if (upper.includes(' DESC')) {
-                return trimmed.replace(/\s+DESC/i, '.desc').replace(/\s+ASC/i, '');
+                return trimmed
+                  .replace(/\s+DESC/i, '.desc')
+                  .replace(/\s+ASC/i, '');
               } else if (upper.includes(' ASC')) {
-                return trimmed.replace(/\s+ASC/i, '.asc').replace(/\s+DESC/i, '');
+                return trimmed
+                  .replace(/\s+ASC/i, '.asc')
+                  .replace(/\s+DESC/i, '');
               } else {
                 // Default to ASC if not specified
                 return trimmed + '.asc';
@@ -602,9 +636,20 @@ function getLocationDb(locationId) {
           order = 'created_at.desc';
         }
 
-        console.log('[SUPABASE] Final query params - select:', cleanSelect, 'order:', order, 'filters:', Object.keys(filters));
-        const result = await supabaseCall('GET', table, { select: cleanSelect, filters, order });
-        
+        console.log(
+          '[SUPABASE] Final query params - select:',
+          cleanSelect,
+          'order:',
+          order,
+          'filters:',
+          Object.keys(filters)
+        );
+        const result = await supabaseCall('GET', table, {
+          select: cleanSelect,
+          filters,
+          order,
+        });
+
         // Map aliases if needed
         if (Object.keys(aliasMap).length > 0 && Array.isArray(result)) {
           return result.map(row => {
@@ -617,7 +662,7 @@ function getLocationDb(locationId) {
             return mapped;
           });
         }
-        
+
         return result;
       } catch (error) {
         console.error(`[SUPABASE] Query error:`, error);

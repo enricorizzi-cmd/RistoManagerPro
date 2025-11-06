@@ -14,7 +14,8 @@ const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Ciao! Sono il tuo consulente esperto di gestione finanziaria aziendale specializzato in ristorazione.\n\nAnalizzo i DATI CONCRETI del tuo database per fornirti:\n\n• Analisi finanziarie approfondite basate sui dati reali\n• Identificazione di problemi e opportunità specifiche\n• Confronti con benchmark di settore\n• Raccomandazioni concrete e azionabili\n• Interpretazione di indicatori KPI\n• Analisi di trend e proiezioni\n\nCome posso aiutarti oggi con i tuoi dati finanziari?',
+      content:
+        'Ciao! Sono il tuo consulente esperto di gestione finanziaria aziendale specializzato in ristorazione.\n\nAnalizzo i DATI CONCRETI del tuo database per fornirti:\n\n• Analisi finanziarie approfondite basate sui dati reali\n• Identificazione di problemi e opportunità specifiche\n• Confronti con benchmark di settore\n• Raccomandazioni concrete e azionabili\n• Interpretazione di indicatori KPI\n• Analisi di trend e proiezioni\n\nCome posso aiutarti oggi con i tuoi dati finanziari?',
       timestamp: new Date(),
     },
   ]);
@@ -101,33 +102,98 @@ const Chatbot: React.FC = () => {
     }
   };
 
+  // Helper function to parse markdown inline formatting
+  const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
+    const boldRegex = /\*\*(.+?)\*\*/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      // Add bold text
+      parts.push(
+        <strong key={`bold-${match.index}`} className="font-semibold">
+          {match[1]}
+        </strong>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : [text];
+  };
+
   const formatMessage = (content: string) => {
-    // Convert newlines to <br> and format lists
+    // Split by lines and process each
     return content.split('\n').map((line, index) => {
-      // Check if line is a bullet point
-      if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+      const trimmedLine = line.trim();
+
+      // Empty line
+      if (!trimmedLine) {
+        return <div key={index} className="my-2"></div>;
+      }
+
+      // Headings (### Title)
+      if (trimmedLine.startsWith('###')) {
+        const title = trimmedLine.replace(/^###+\s*/, '');
+        return (
+          <h3 key={index} className="font-bold text-lg mt-4 mb-2 text-gray-900">
+            {parseInlineMarkdown(title)}
+          </h3>
+        );
+      }
+
+      // Subheadings (## Title)
+      if (trimmedLine.startsWith('##')) {
+        const title = trimmedLine.replace(/^##+\s*/, '');
+        return (
+          <h4
+            key={index}
+            className="font-semibold text-base mt-3 mb-2 text-gray-800"
+          >
+            {parseInlineMarkdown(title)}
+          </h4>
+        );
+      }
+
+      // Bullet points
+      if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-')) {
+        const text = trimmedLine.substring(1).trim();
         return (
           <div key={index} className="flex items-start gap-2 my-1">
-            <span className="text-primary-600 mt-1">•</span>
-            <span>{line.trim().substring(1).trim()}</span>
+            <span className="text-primary-600 mt-1 flex-shrink-0">•</span>
+            <span className="flex-1">{parseInlineMarkdown(text)}</span>
           </div>
         );
       }
-      // Check if line is a numbered list
-      if (/^\d+\./.test(line.trim())) {
-        return (
-          <div key={index} className="flex items-start gap-2 my-1">
-            <span className="text-primary-600 font-semibold mt-1">
-              {line.match(/^\d+\./)?.[0]}
-            </span>
-            <span>{line.replace(/^\d+\.\s*/, '')}</span>
-          </div>
-        );
+
+      // Numbered list
+      if (/^\d+\./.test(trimmedLine)) {
+        const match = trimmedLine.match(/^(\d+)\.\s*(.+)/);
+        if (match) {
+          return (
+            <div key={index} className="flex items-start gap-2 my-1">
+              <span className="text-primary-600 font-semibold mt-1 flex-shrink-0">
+                {match[1]}.
+              </span>
+              <span className="flex-1">{parseInlineMarkdown(match[2])}</span>
+            </div>
+          );
+        }
       }
-      // Regular line
+
+      // Regular line with inline formatting
       return (
-        <div key={index} className={line.trim() ? 'my-1' : 'my-2'}>
-          {line || '\u00A0'}
+        <div key={index} className="my-1 text-gray-700 leading-relaxed">
+          {parseInlineMarkdown(trimmedLine)}
         </div>
       );
     });
@@ -225,9 +291,7 @@ const Chatbot: React.FC = () => {
               </div>
               <div
                 className={`text-xs mt-2 ${
-                  message.role === 'user'
-                    ? 'text-primary-100'
-                    : 'text-gray-500'
+                  message.role === 'user' ? 'text-primary-100' : 'text-gray-500'
                 }`}
               >
                 {message.timestamp.toLocaleTimeString('it-IT', {
@@ -243,8 +307,14 @@ const Chatbot: React.FC = () => {
             <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-200">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0.2s' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0.4s' }}
+                ></div>
               </div>
             </div>
           </div>
@@ -294,4 +364,3 @@ const Chatbot: React.FC = () => {
 };
 
 export default Chatbot;
-

@@ -10,8 +10,9 @@ import { useAuth } from './contexts/AuthContext';
 const Settings = lazy(() => import('./components/Settings'));
 const FinancialPlan = lazy(() => import('./components/FinancialPlan'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
+const MenuEngineering = lazy(() => import('./components/MenuEngineering'));
 
-type Page = 'financial-plan' | 'settings' | 'users';
+type Page = 'financial-plan' | 'settings' | 'users' | 'menu-engineering';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('financial-plan');
@@ -20,7 +21,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Page;
-      if (['financial-plan', 'settings', 'users'].includes(hash)) {
+      if (
+        ['financial-plan', 'settings', 'users', 'menu-engineering'].includes(
+          hash
+        )
+      ) {
         setCurrentPage(hash);
       } else {
         setCurrentPage('financial-plan');
@@ -43,6 +48,8 @@ const App: React.FC = () => {
         return <Settings />;
       case 'users':
         return <UserManagement />;
+      case 'menu-engineering':
+        return <MenuEngineering />;
       default:
         return <FinancialPlan />;
     }
