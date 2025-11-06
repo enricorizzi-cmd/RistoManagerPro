@@ -326,6 +326,143 @@ function getState(locationId) {
   });
 }
 
+// Function to aggregate financial data across all locations
+async function aggregateFinancialData(payload, locationId) {
+  try {
+    // Skip aggregation if this is already for "all" location
+    if (locationId === 'all') return;
+
+    // Get all active locations (excluding "all")
+    const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
+    
+    // Get current aggregated state for "all"
+    const allDb = getDatabase('all');
+    const aggregatedStateId = 'financial-plan-all';
+    
+    allDb.get('SELECT data FROM financial_plan_state WHERE id = ?', [aggregatedStateId], async (err, row) => {
+      if (err) {
+        console.error('Error getting aggregated state:', err);
+        return;
+      }
+
+      let aggregatedPayload = {
+        preventivoOverrides: {},
+        consuntivoOverrides: {},
+        manualLog: [],
+        monthlyMetrics: [],
+        statsOverrides: {},
+        causaliCatalog: [],
+        causaliVersion: null,
+      };
+
+      if (row) {
+        try {
+          aggregatedPayload = JSON.parse(row.data);
+        } catch (parseError) {
+          console.error('Error parsing aggregated state:', parseError);
+        }
+      }
+
+      // Aggregate data from all locations
+      for (const location of locations) {
+        try {
+          const locationDb = getDatabase(location.id);
+          const locationStateId = `financial-plan-${location.id}`;
+          
+          locationDb.get('SELECT data FROM financial_plan_state WHERE id = ?', [locationStateId], (err, locationRow) => {
+            if (err || !locationRow) return;
+
+            try {
+              const locationPayload = JSON.parse(locationRow.data);
+              
+              // Aggregate preventivoOverrides
+              if (locationPayload.preventivoOverrides) {
+                Object.keys(locationPayload.preventivoOverrides).forEach(key => {
+                  if (!aggregatedPayload.preventivoOverrides[key]) {
+                    aggregatedPayload.preventivoOverrides[key] = {};
+                  }
+                  Object.keys(locationPayload.preventivoOverrides[key]).forEach(subKey => {
+                    const currentValue = aggregatedPayload.preventivoOverrides[key][subKey] || 0;
+                    const newValue = locationPayload.preventivoOverrides[key][subKey] || 0;
+                    aggregatedPayload.preventivoOverrides[key][subKey] = currentValue + newValue;
+                  });
+                });
+              }
+
+              // Aggregate consuntivoOverrides
+              if (locationPayload.consuntivoOverrides) {
+                Object.keys(locationPayload.consuntivoOverrides).forEach(key => {
+                  if (!aggregatedPayload.consuntivoOverrides[key]) {
+                    aggregatedPayload.consuntivoOverrides[key] = {};
+                  }
+                  Object.keys(locationPayload.consuntivoOverrides[key]).forEach(subKey => {
+                    const currentValue = aggregatedPayload.consuntivoOverrides[key][subKey] || 0;
+                    const newValue = locationPayload.consuntivoOverrides[key][subKey] || 0;
+                    aggregatedPayload.consuntivoOverrides[key][subKey] = currentValue + newValue;
+                  });
+                });
+              }
+
+              // Aggregate statsOverrides
+              if (locationPayload.statsOverrides) {
+                Object.keys(locationPayload.statsOverrides).forEach(key => {
+                  const currentValue = aggregatedPayload.statsOverrides[key] || 0;
+                  const newValue = locationPayload.statsOverrides[key] || 0;
+                  aggregatedPayload.statsOverrides[key] = currentValue + newValue;
+                });
+              }
+
+              // Aggregate monthlyMetrics
+              if (locationPayload.monthlyMetrics) {
+                locationPayload.monthlyMetrics.forEach(metric => {
+                  const existingMetric = aggregatedPayload.monthlyMetrics.find(m => 
+                    m.year === metric.year && m.monthIndex === metric.monthIndex
+                  );
+                  if (existingMetric) {
+                    // Sum numeric values
+                    Object.keys(metric).forEach(key => {
+                      if (typeof metric[key] === 'number') {
+                        existingMetric[key] = (existingMetric[key] || 0) + metric[key];
+                      }
+                    });
+                  } else {
+                    aggregatedPayload.monthlyMetrics.push({...metric});
+                  }
+                });
+              }
+
+            } catch (parseError) {
+              console.error(`Error parsing location ${location.id} data:`, parseError);
+            }
+          });
+        } catch (error) {
+          console.error(`Error processing location ${location.id}:`, error);
+        }
+      }
+
+      // Save aggregated state
+      const now = new Date().toISOString();
+      const aggregatedData = JSON.stringify(aggregatedPayload);
+      
+      allDb.run(
+        `INSERT INTO financial_plan_state (id, data, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+        [aggregatedStateId, aggregatedData, now],
+        (err) => {
+          if (err) {
+            console.error('Error saving aggregated state:', err);
+          } else {
+            console.log('Successfully updated aggregated financial data');
+          }
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error in aggregateFinancialData:', error);
+  }
+}
+
 function saveState(payload, locationId) {
   return new Promise((resolve, reject) => {
     const db = getDatabase(locationId);
@@ -337,11 +474,15 @@ function saveState(payload, locationId) {
        VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
       [stateId, data, now],
-      (err) => {
+      async (err) => {
         if (err) {
           reject(err);
           return;
         }
+        
+        // Trigger aggregation for "all" location
+        await aggregateFinancialData(payload, locationId);
+        
         resolve(now);
       },
     );
@@ -617,6 +758,26 @@ app.put('/api/financial-plan/state', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to save state' });
   }
 });
+
+// Initialize "Tutti" location for aggregated data
+const initializeTuttiLocation = async () => {
+  try {
+    const existingTutti = await masterDbGet('SELECT * FROM locations WHERE id = ?', ['all']);
+    if (!existingTutti) {
+      const now = new Date().toISOString();
+      await masterDbRun(
+        'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ['all', 'Tutti', 0, '00:00', '23:59', 'active', now, now]
+      );
+      console.log('Created "Tutti" location for aggregated data');
+    }
+  } catch (error) {
+    console.error('Failed to initialize Tutti location:', error);
+  }
+};
+
+// Initialize Tutti location on server start
+initializeTuttiLocation();
 
 // Locations API (Master database - shared across companies)
 app.get('/api/locations', async (req, res) => {
@@ -1316,6 +1477,31 @@ app.get('/api/user/locations', requireAuth, async (req, res) => {
   }
 });
 
+// Get user's accessible locations for financial plan (includes "Tutti" for admin)
+app.get('/api/user/locations/financial-plan', requireAuth, async (req, res) => {
+  try {
+    let locations;
+    
+    if (req.user.role === 'admin') {
+      // Admin can see all active locations + "Tutti" for aggregated view
+      locations = await masterDbQuery('SELECT * FROM locations WHERE status = "active" ORDER BY name');
+    } else {
+      // Regular users can only see locations they have permission for
+      locations = await masterDbQuery(`
+        SELECT l.* FROM locations l
+        JOIN user_location_permissions ulp ON l.id = ulp.location_id
+        WHERE ulp.user_id = ? AND l.status = 'active'
+        ORDER BY l.name
+      `, [req.user.id]);
+    }
+    
+    res.json(locations);
+  } catch (error) {
+    console.error('Failed to get user locations for financial plan', error);
+    res.status(500).json({ error: 'Failed to get locations' });
+  }
+});
+
 // Get enabled tabs for current user's location
 app.get('/api/user/enabled-tabs/:locationId', requireAuth, async (req, res) => {
   try {
@@ -1502,6 +1688,11 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
     
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
+      // For "all" location, only admin can access
+      if (locationId === 'all') {
+        return res.status(403).json({ error: 'Access denied to aggregated view' });
+      }
+      
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
@@ -1512,6 +1703,46 @@ app.get('/api/data-entries/:locationId/sums', requireAuth, async (req, res) => {
       }
     }
     
+    // If locationId is "all", aggregate data from all active locations
+    if (locationId === 'all') {
+      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
+      const aggregatedSums = new Map();
+      
+      for (const location of locations) {
+        try {
+          const locationSums = await dbQuery(location.id, `
+            SELECT 
+              tipologia_causale,
+              categoria,
+              causale,
+              anno,
+              mese,
+              SUM(valore) as total_value
+            FROM data_entries 
+            WHERE location_id = ? 
+            GROUP BY tipologia_causale, categoria, causale, anno, mese
+          `, [location.id]);
+          
+          // Aggregate sums by key
+          locationSums.forEach(sum => {
+            const key = `${sum.tipologia_causale}|${sum.categoria}|${sum.causale}|${sum.anno}|${sum.mese}`;
+            if (aggregatedSums.has(key)) {
+              aggregatedSums.get(key).total_value += sum.total_value;
+            } else {
+              aggregatedSums.set(key, { ...sum });
+            }
+          });
+        } catch (error) {
+          console.error(`Error aggregating data entries for location ${location.id}:`, error);
+        }
+      }
+      
+      const result = Array.from(aggregatedSums.values()).sort((a, b) => b.anno - a.anno || b.mese - a.mese);
+      res.json(result);
+      return;
+    }
+    
+    // Single location query
     const db = getDatabase(locationId);
     const sums = await dbQuery(locationId, `
       SELECT 
@@ -1545,6 +1776,11 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
     
     // Check if user has access to this location
     if (req.user.role !== 'admin') {
+      // For "all" location, only admin can access
+      if (locationId === 'all') {
+        return res.status(403).json({ error: 'Access denied to aggregated view' });
+      }
+      
       const hasPermission = await masterDbGet(
         'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
         [req.user.id, locationId]
@@ -1555,6 +1791,58 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
       }
     }
     
+    // If locationId is "all", aggregate financial stats from all active locations
+    if (locationId === 'all') {
+      const locations = await masterDbQuery('SELECT id FROM locations WHERE status = "active" AND id != "all"');
+      const aggregatedStats = new Map();
+      
+      for (const location of locations) {
+        try {
+          const locationStats = await dbQuery(location.id, `
+            SELECT 
+              month,
+              fatturato_totale as fatturatoTotale,
+              fatturato_imponibile as fatturatoImponibile,
+              fatturato_previsionale as fatturatoPrevisionale,
+              incassato,
+              incassato_previsionale as incassatoPrevisionale,
+              utile,
+              utile_previsionale as utilePrevisionale,
+              debiti_fornitore as debitiFornitore,
+              debiti_bancari as debitiBancari
+            FROM financial_stats 
+            WHERE location_id = ? 
+            ORDER BY month
+          `, [location.id]);
+          
+          // Aggregate stats by month
+          locationStats.forEach(stat => {
+            if (aggregatedStats.has(stat.month)) {
+              const existing = aggregatedStats.get(stat.month);
+              existing.fatturatoTotale = (existing.fatturatoTotale || 0) + (stat.fatturatoTotale || 0);
+              existing.fatturatoImponibile = (existing.fatturatoImponibile || 0) + (stat.fatturatoImponibile || 0);
+              existing.fatturatoPrevisionale = (existing.fatturatoPrevisionale || 0) + (stat.fatturatoPrevisionale || 0);
+              existing.incassato = (existing.incassato || 0) + (stat.incassato || 0);
+              existing.incassatoPrevisionale = (existing.incassatoPrevisionale || 0) + (stat.incassatoPrevisionale || 0);
+              existing.utile = (existing.utile || 0) + (stat.utile || 0);
+              existing.utilePrevisionale = (existing.utilePrevisionale || 0) + (stat.utilePrevisionale || 0);
+              existing.debitiFornitore = (existing.debitiFornitore || 0) + (stat.debitiFornitore || 0);
+              existing.debitiBancari = (existing.debitiBancari || 0) + (stat.debitiBancari || 0);
+            } else {
+              aggregatedStats.set(stat.month, { ...stat });
+            }
+          });
+        } catch (error) {
+          console.error(`Error aggregating financial stats for location ${location.id}:`, error);
+        }
+      }
+      
+      const result = Array.from(aggregatedStats.values()).sort((a, b) => a.month.localeCompare(b.month));
+      res.json(result);
+      return;
+    }
+    
+    // Single location query
     const db = getDatabase(locationId);
     const stats = await dbQuery(locationId, `
       SELECT 

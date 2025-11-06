@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppContext } from '../contexts/AppContext';
+import { useFinancialPlanLocations } from '../hooks/useFinancialPlanLocations';
 import { PlusIcon } from './icons/Icons';
 
 interface HeaderProps {
@@ -9,6 +10,10 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onOpenWalkinModal, currentPage }) => {
   const { currentLocation, locations, setCurrentLocation, loading } = useAppContext();
+  const { locations: financialPlanLocations } = useFinancialPlanLocations();
+  
+  // Use financial plan locations if we're in the financial plan page
+  const displayLocations = currentPage === 'financial-plan' ? financialPlanLocations : locations;
 
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrentLocation(e.target.value);
@@ -25,11 +30,11 @@ const Header: React.FC<HeaderProps> = ({ onOpenWalkinModal, currentPage }) => {
         <select
           value={currentLocation?.id || ''}
           onChange={handleLocationChange}
-          disabled={loading || locations.length <= 1}
+          disabled={loading || displayLocations.length <= 1}
           className="bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-100"
           aria-label="Seleziona una sede"
         >
-          {locations.map(loc => (
+          {displayLocations.map(loc => (
             <option key={loc.id} value={loc.id}>{loc.name}</option>
           ))}
         </select>

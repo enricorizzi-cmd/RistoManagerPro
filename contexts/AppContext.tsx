@@ -92,6 +92,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (newLocation) {
         setInternalCurrentLocation(newLocation);
         await fetchLocationData(locationId);
+    } else {
+        // Handle virtual locations (like "all" for financial plan)
+        // Create a virtual location object
+        const virtualLocation = {
+            id: locationId,
+            name: locationId === 'all' ? 'Tutti' : locationId,
+            capacity: 0,
+            openTime: '00:00',
+            closeTime: '23:59',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        setInternalCurrentLocation(virtualLocation);
+        // Don't fetch location data for virtual locations
     }
   };
   
