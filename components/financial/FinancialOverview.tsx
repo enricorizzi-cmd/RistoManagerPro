@@ -21,6 +21,7 @@ import type { FinancialStatsRow, FinancialCausaleGroup } from '../../data/financ
 
 interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
+  selectedYear: number;
   availableYears: number[];
   onYearChange: (_selectedYear: number) => void;
   financialStatsRows: FinancialStatsRow[];
@@ -30,7 +31,8 @@ interface FinancialOverviewProps {
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
-  planYear, 
+  planYear,
+  selectedYear,
   availableYears,
   onYearChange,
   financialStatsRows,

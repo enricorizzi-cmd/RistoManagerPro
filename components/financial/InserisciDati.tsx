@@ -151,7 +151,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     };
     
     loadExistingData();
-  }, [currentLocation?.id, token]);
+  }, [currentLocation?.id, token, showNotification]);
 
   // Format current date for display
   const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm');

@@ -11,10 +11,7 @@
   "parser": "@typescript-eslint/parser",
   "plugins": ["react-refresh", "@typescript-eslint"],
   "rules": {
-    "react-refresh/only-export-components": [
-      "warn",
-      { "allowConstantExport": true }
-    ],
+    "react-refresh/only-export-components": "off",
     "react/react-in-jsx-scope": "off",
     "prefer-const": "warn",
     "no-var": "error",

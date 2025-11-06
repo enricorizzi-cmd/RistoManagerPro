@@ -387,7 +387,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     } finally {
       setSavingState(false);
     }
-  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, monthlyMetrics, financialStatsRows, locationId]);
+  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, monthlyMetrics, locationId]);
 
   const handleSaveMetrics = useCallback(async (metricsData: any) => {
     if (!locationId) return false;

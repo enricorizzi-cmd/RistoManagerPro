@@ -152,7 +152,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         };
       })
     };
-  }, [businessPlanForm?.baseYear, causaliCatalog, planYear, getPlanConsuntivoValue, financialStatsRows, statsOverrides]);
+  }, [businessPlanForm?.baseYear]);
 
   if (!businessPlanForm) {
     return (
@@ -207,7 +207,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               Business Plan
             </h2>
             <p className="text-gray-600">
-              Configurazione previsionale per l'anno {businessPlanForm.targetYear}
+              Configurazione previsionale per l&apos;anno {businessPlanForm.targetYear}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -690,11 +690,11 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      Dati mancanti per l'anno {businessPlanForm.baseYear}
+                      Dati mancanti per l&apos;anno {businessPlanForm.baseYear}
                     </h3>
                     <div className="mt-4">
                       <p className="text-sm text-gray-500 mb-4">
-                        Per utilizzare il Business Plan, è necessario compilare tutti i dati per l'anno base selezionato.
+                        Per utilizzare il Business Plan, è necessario compilare tutti i dati per l&apos;anno base selezionato.
                       </p>
                       <div className="space-y-3 max-h-60 overflow-y-auto">
                         {getMissingDataForBaseYear.missingMonths.map((month) => (

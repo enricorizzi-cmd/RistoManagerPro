@@ -359,7 +359,7 @@ export const useBusinessPlan = (
           console.error('Failed to save business plan draft:', error);
         });
     }
-  }, [businessPlanForm, yearMetrics, locationId]);
+  }, [businessPlanForm, yearMetrics, locationId, draftName]);
 
   const handleApplyBusinessPlanToOverrides = useCallback(() => {
     if (!businessPlanForm || businessPlanForm.baseYear === null) {
