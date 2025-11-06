@@ -1,6 +1,6 @@
 ﻿/// <reference types='vite/client' />
 import type { FinancialCausaleGroup } from '../data/financialPlanData';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../src/config/api';
 
 type ManualLogSnapshot = {
   id: string;

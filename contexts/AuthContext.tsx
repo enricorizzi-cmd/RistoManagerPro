@@ -5,7 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../src/config/api';
 
 export interface User {
   id: string;
@@ -29,8 +29,6 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
 }
-
-import { API_BASE_URL } from '../config/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

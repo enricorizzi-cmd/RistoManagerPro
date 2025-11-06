@@ -7,7 +7,7 @@ import { useAppContext } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFinancialPlanData } from '../../hooks/useFinancialPlanData';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL } from '../../src/config/api';
 
 interface DataEntry {
   id: string;

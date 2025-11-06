@@ -12,5 +12,8 @@
     "express": "^4.19.2",
     "node-fetch": "^3.3.2",
     "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16"
   }
 }

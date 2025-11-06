@@ -1,7 +1,7 @@
 // Hook for loading data entries sums for Piano Mensile
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../src/config/api';
 
 interface DataEntrySum {
   tipologia_causale: string;

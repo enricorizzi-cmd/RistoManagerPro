@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../src/config/api';
 
 interface Location {
   id: string;
@@ -41,8 +42,6 @@ const Settings: React.FC = () => {
       is_enabled: true,
     },
   ]);
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:4000');
 
   const fetchLocations = useCallback(async () => {
     try {

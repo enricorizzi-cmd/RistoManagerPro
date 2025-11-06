@@ -1,5 +1,5 @@
 import { RestaurantLocation } from '../types';
-import { API_URL } from '../config/api';
+import { API_URL } from '../src/config/api';
 
 const API_BASE_URL = API_URL;
 

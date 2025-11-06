@@ -2,7 +2,7 @@
 // Manages business plan form state and calculations
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL } from '../src/config/api';
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 import { parseNumberInput } from '../utils/financialPlanUtils';
 import {
