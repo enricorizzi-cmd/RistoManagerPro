@@ -37,14 +37,20 @@ async function supabaseCall(method, table, options = {}) {
     'Authorization': `Bearer ${SUPABASE_KEY}`,
   };
   
-  if (single) {
-    headers['Accept'] = 'application/vnd.pgjson.object+json';
-  }
+  // Don't use Accept header for single - we'll handle it in the response
+  // if (single) {
+  //   headers['Accept'] = 'application/vnd.pgjson.object+json';
+  // }
   
   if (upsert) {
     headers['Prefer'] = 'resolution=merge-duplicates';
   } else if (method === 'POST' || method === 'PATCH') {
     headers['Prefer'] = 'return=representation';
+  }
+  
+  // For single results, limit to 1
+  if (single && !limit) {
+    params.append('limit', '1');
   }
   
   const config = { method, headers };
@@ -66,7 +72,11 @@ async function supabaseCall(method, table, options = {}) {
     }
     
     const result = await response.json();
-    return Array.isArray(result) ? (single ? result[0] : result) : result;
+    if (single) {
+      // For single results, return first item or null if array is empty
+      return Array.isArray(result) ? (result.length > 0 ? result[0] : null) : result;
+    }
+    return Array.isArray(result) ? result : result;
   } catch (error) {
     console.error(`Supabase error (${method} ${table}):`, error.message);
     throw error;

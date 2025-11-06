@@ -7,7 +7,7 @@
     "plugin:react-hooks/recommended",
     "plugin:@typescript-eslint/recommended"
   ],
-  "ignorePatterns": ["dist", ".eslintrc.cjs"],
+  "ignorePatterns": ["dist", ".eslintrc.cjs", "temp_*.tsx", "temp_*.ts", "tmp_*.tsx", "tmp_*.ts"],
   "parser": "@typescript-eslint/parser",
   "plugins": ["react-refresh", "@typescript-eslint"],
   "rules": {
