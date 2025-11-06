@@ -31,6 +31,11 @@ export default defineConfig({
         singleThread: true,
       },
     },
+    server: {
+      deps: {
+        inline: ['whatwg-url', 'webidl-conversions'],
+      },
+    },
   },
   resolve: {
     alias: {
