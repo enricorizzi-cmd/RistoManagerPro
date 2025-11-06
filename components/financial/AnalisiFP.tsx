@@ -13,8 +13,8 @@ interface AnalisiFPProps {
   availableYears: number[];
   statsOverrides: StatsOverrides;
   financialStatsRows: FinancialStatsRow[];
-  getPlanPreventivoValue: (_macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  getPlanConsuntivoValue: (_macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
+  getPlanPreventivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
+  getPlanConsuntivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
   causaliCatalog: any[];
   planYear: any;
 }

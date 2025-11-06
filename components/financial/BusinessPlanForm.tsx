@@ -2,11 +2,9 @@
 // Manages business plan form and calculations
 
 import React from 'react';
-import { formatCurrencyValue, parseNumberInput, buildMonthKey, parsePlanMonthLabel } from '../../utils/financialPlanUtils';
-import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal, calculateUtileFromMacroTotals } from '../../utils/financialCalculations';
+import { formatCurrencyValue, parseNumberInput } from '../../utils/financialPlanUtils';
 import { useAppContext } from '../../contexts/AppContext';
 import { calculateFatturatoTotale } from '../../services/financialPlanApi';
-import { createBusinessPlanFormFromDraft } from '../../utils/businessPlanLogic';
 import type { BusinessPlanFormState, BusinessPlanMessage } from '../../utils/businessPlanLogic';
 
 interface BusinessPlanFormProps {
@@ -18,13 +16,13 @@ interface BusinessPlanFormProps {
   yearMetrics: Map<number, any>;
   causaliCatalog: any[];
   planYear: any;
-  getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
+  getPlanConsuntivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
   financialStatsRows: any[];
   statsOverrides: any;
   draftName: string;
   setDraftName: (name: string) => void;
   onFieldChange: (
-    field:
+    _field:
       | 'fatturatoIncrement'
       | 'fatturatoValue'
       | 'incassatoPercent'
@@ -33,16 +31,16 @@ interface BusinessPlanFormProps {
       | 'costiFissiValue'
       | 'costiVariabiliPercent'
       | 'costiVariabiliValue',
-    value: string,
+    _value: string,
   ) => void;
-  onBaseYearChange: (year: number) => void;
-  onTargetYearChange: (value: string) => void;
+  onBaseYearChange: (_year: number) => void;
+  onTargetYearChange: (_value: string) => void;
   onSaveDraft: () => void;
   onApplyToOverrides: () => Promise<void>;
   onReset: () => Promise<void>;
-  onDeleteDraft: (draftId: string) => void;
+  onDeleteDraft: (_draftId: string) => void;
   onRecalculate?: () => void;
-  onLoadDraft?: (draftData: any) => void;
+  onLoadDraft?: (_draftData: any) => void;
   isLoading?: boolean;
 }
 
@@ -52,12 +50,12 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   completeYears,
   availableYears,
   businessPlanDrafts,
-  yearMetrics,
-  causaliCatalog,
-  planYear,
-  getPlanConsuntivoValue,
-  financialStatsRows,
-  statsOverrides,
+  yearMetrics: _yearMetrics,
+  causaliCatalog: _causaliCatalog,
+  planYear: _planYear,
+  getPlanConsuntivoValue: _getPlanConsuntivoValue,
+  financialStatsRows: _financialStatsRows,
+  statsOverrides: _statsOverrides,
   draftName,
   setDraftName,
   onFieldChange,

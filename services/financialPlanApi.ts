@@ -47,14 +47,14 @@ function buildUrl(path: string): string {
   return `${API_BASE_URL.replace(/\/$/, '')}${trimmed}`;
 }
 
-function getAuthHeaders(): HeadersInit {
+function getAuthHeaders(): globalThis.HeadersInit {
   const token = localStorage.getItem('auth_token');
-  const headers: HeadersInit = {
+  const headers: globalThis.HeadersInit = {
     'Content-Type': 'application/json',
   };
   
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
   
   return headers;
@@ -186,7 +186,7 @@ export async function calculateFatturatoTotale(locationId: string): Promise<bool
     if (!response.ok) {
       throw new Error(`Failed to calculate fatturato totale: ${response.statusText}`);
     }
-    const result = await response.json();
+    await response.json();
     return true;
   } catch (error) {
     return false;

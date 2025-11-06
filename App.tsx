@@ -4,7 +4,6 @@ import Header from './components/Header';
 import MobileNav from './components/MobileNav';
 import NotificationContainer from './components/NotificationContainer';
 import AuthPage from './components/auth/AuthPage';
-import { useAppContext } from './contexts/AppContext';
 import { useAuth } from './contexts/AuthContext';
 
 const Settings = lazy(() => import('./components/Settings'));

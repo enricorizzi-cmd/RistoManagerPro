@@ -184,7 +184,7 @@ export const useFinancialPlanData = (locationId?: string) => {
       
       setLoadingState(false);
       setDataLoaded(true);
-    }).catch((error) => {
+    }).catch(() => {
       // If API fails, use empty array (NO fallback to static data)
       setFinancialStatsRows([]);
       setLoadingState(false);
@@ -330,7 +330,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     } finally {
       setSavingState(false);
     }
-  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, causaliCatalog, monthlyMetrics, financialStatsRows, locationId]);
+  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, causaliCatalog, monthlyMetrics, locationId]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!locationId) return false;
@@ -416,7 +416,7 @@ export const useFinancialPlanData = (locationId?: string) => {
     } finally {
       setSavingState(false);
     }
-  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, causaliCatalog, monthlyMetrics, financialStatsRows, locationId]);
+  }, [dbPlanOverrides, dbConsuntivoOverrides, dbStatsOverrides, causaliCatalog, monthlyMetrics, locationId]);
 
   // Wrapper function for setStatsOverrides that saves to database
   const setStatsOverrides = useCallback(async (newStatsOverrides: StatsOverrides) => {

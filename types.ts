@@ -37,9 +37,9 @@ export interface AppContextType {
     loading: boolean;
     error: string | null;
     notifications: AppNotification[];
-    showNotification: (message: string, type: NotificationType) => void;
-    setCurrentLocation: (locationId: string) => Promise<void>;
-    updateLocationSettings: (locationId: string, newSettings: RestaurantLocation) => Promise<void>;
+    showNotification: (_message: string, _type: NotificationType) => void;
+    setCurrentLocation: (_locationId: string) => Promise<void>;
+    updateLocationSettings: (_locationId: string, _newSettings: RestaurantLocation) => Promise<void>;
     sidebarCollapsed: boolean;
     toggleSidebar: () => void;
 }

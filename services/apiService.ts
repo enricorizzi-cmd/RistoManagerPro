@@ -3,7 +3,7 @@ import { RestaurantLocation } from '../types';
 const API_BASE_URL = 'http://localhost:4000/api';
 
 // Helper function to make API calls
-async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function apiCall<T>(endpoint: string, options: globalThis.RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',

@@ -8,7 +8,7 @@
         "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/start-clean.ps1",
         "dev:frontend": "vite",
         "build": "vite build",
-        "build:production": "npm install && cd server && npm install && cd .. && npm run build",
+        "build:production": "NODE_ENV=development npm install && cd server && npm install && cd .. && npm run build",
         "preview": "vite preview",
         "start": "npm --prefix server start",
         "start:backend": "npm --prefix server start",
@@ -17,7 +17,7 @@
         "audit:fix": "npm audit fix",
         "security:check": "npm audit && npm run security:deps",
         "security:deps": "npx audit-ci --config .audit-ci.json",
-        "bundle:analyze": "npx vite-bundle-analyzer dist",
+        "bundle:analyze": "echo 'Bundle analysis requires dist folder. Run: npm run build && npx --yes source-map-explorer dist/assets/*.js'",
         "lighthouse": "npx lighthouse http://localhost:3000 --output html --output-path ./reports/lighthouse.html",
         "test": "vitest",
         "test:coverage": "vitest --coverage",
@@ -55,8 +55,7 @@
         "lighthouse": "^12.8.2",
         "prettier": "^3.6.2",
         "typescript": "~5.8.2",
-        "vite": "^6.2.0",
-        "vite-bundle-analyzer": "^0.11.1",
+        "vite": "^6.4.1",
         "vitest": "^3.2.4"
     }
 }

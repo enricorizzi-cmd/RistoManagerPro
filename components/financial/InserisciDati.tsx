@@ -3,11 +3,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { it } from 'date-fns/locale';
 import { useAppContext } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFinancialPlanData } from '../../hooks/useFinancialPlanData';
-import { buildMonthKey, parseMonthKey } from '../../utils/financialPlanUtils';
 import type { FinancialCausaleGroup } from '../../data/financialPlanData';
 
 interface DataEntry {
@@ -35,7 +33,7 @@ interface InserisciDatiProps {
 export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) => {
   const { showNotification, currentLocation } = useAppContext();
   const { token } = useAuth();
-  const { setOverride, handleSavePlan, handleSaveMetrics, consuntivoOverrides } = useFinancialPlanData(currentLocation?.id);
+  const { handleSaveMetrics } = useFinancialPlanData(currentLocation?.id);
   
   // Form state
   const [mese, setMese] = useState<number>(new Date().getMonth());
@@ -66,7 +64,6 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({ causaliCatalog }) 
     { id: 'debiti-pendenti', label: 'Debiti pendenti fine mese', value: '', lastValue: '-' },
     { id: 'debiti-scaduti', label: 'Debiti scaduti fine mese', value: '', lastValue: '-' },
   ]);
-  const waitForStateFlush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
   // Get available tipologie
   const availableTipologie = useMemo(() => 

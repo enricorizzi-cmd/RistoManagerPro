@@ -14,9 +14,9 @@ interface StatsTableProps {
   statsOverrides: StatsOverrides;
   financialStatsRows: FinancialStatsRow[];
   editMode: boolean;
-  getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  onStatsOverride: (monthKey: string, field: string, value: number | null) => void;
+  getPlanPreventivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
+  getPlanConsuntivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
+  onStatsOverride: (_monthKey: string, _field: string, _value: number | null) => void;
   causaliCatalog: any[];
   planYear: any;
 }

@@ -22,9 +22,9 @@ interface PlanTableProps {
   showPrevisionaleTotals: boolean;
   dirtyKeys: Set<string>;
   loadingState: boolean;
-  getPlanPreventivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  getPlanConsuntivoValue: (macro: string, category: string, detail: string, year: number, monthIndex: number) => number;
-  setOverride: (target: 'preventivo' | 'consuntivo', macro: string, category: string, detail: string, year: number, monthIndex: number, value: number | null) => void;
+  getPlanPreventivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
+  getPlanConsuntivoValue: (_macro: string, _category: string, _detail: string, _year: number, _monthIndex: number) => number;
+  setOverride: (_target: 'preventivo' | 'consuntivo', _macro: string, _category: string, _detail: string, _year: number, _monthIndex: number, _value: number | null) => void;
   consuntivoOverrides?: any;
 }
 

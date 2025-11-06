@@ -2,10 +2,8 @@
 // Manages business plan form state and calculations
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { debounce } from 'lodash';
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
-import { parseNumberInput, buildMonthKey, parsePlanMonthLabel } from '../utils/financialPlanUtils';
-import { getIncassatoTotal, getCostiFissiTotal, getCostiVariabiliTotal } from '../utils/financialCalculations';
+import { parseNumberInput } from '../utils/financialPlanUtils';
 import { 
   createBusinessPlanFormFromMetrics, 
   createBusinessPlanFormFromDraft, 
@@ -19,9 +17,9 @@ import {
 const fetchBusinessPlanDrafts = async (locationId: string): Promise<any[]> => {
   try {
     const token = localStorage.getItem('auth_token');
-    const headers: HeadersInit = {};
+    const headers: globalThis.HeadersInit = {};
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
     
     const response = await fetch(`http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`, {
@@ -38,9 +36,9 @@ const fetchBusinessPlanDrafts = async (locationId: string): Promise<any[]> => {
 const saveBusinessPlanDraft = async (targetYear: number, name: string, data: BusinessPlanDraft, locationId: string): Promise<void> => {
   try {
     const token = localStorage.getItem('auth_token');
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    const headers: globalThis.HeadersInit = { 'Content-Type': 'application/json' };
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
     
     const response = await fetch('http://localhost:4000/api/business-plan-drafts', {
@@ -58,9 +56,9 @@ const saveBusinessPlanDraft = async (targetYear: number, name: string, data: Bus
 const deleteBusinessPlanDraft = async (draftId: string, locationId: string): Promise<void> => {
   try {
     const token = localStorage.getItem('auth_token');
-    const headers: HeadersInit = {};
+    const headers: globalThis.HeadersInit = {};
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
     
     const response = await fetch(`http://localhost:4000/api/business-plan-drafts/${draftId}?locationId=${locationId}`, {

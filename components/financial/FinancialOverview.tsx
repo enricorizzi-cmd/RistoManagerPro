@@ -4,7 +4,6 @@
 import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
   Line,
   BarChart,
   Bar,
@@ -22,9 +21,8 @@ import type { FinancialStatsRow, FinancialCausaleGroup } from '../../data/financ
 
 interface FinancialOverviewProps {
   planYear: PlanYearData | undefined;
-  selectedYear: number;
   availableYears: number[];
-  onYearChange: (selectedYear: number) => void;
+  onYearChange: (_selectedYear: number) => void;
   financialStatsRows: FinancialStatsRow[];
   causaliCatalog: FinancialCausaleGroup[];
   getPlanConsuntivoValue: (..._args: any[]) => number;
@@ -33,7 +31,6 @@ interface FinancialOverviewProps {
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ 
   planYear, 
-  selectedYear,
   availableYears,
   onYearChange,
   financialStatsRows,

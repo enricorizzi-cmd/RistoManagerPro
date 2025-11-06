@@ -4,7 +4,8 @@
   "extends": [
     "eslint:recommended",
     "plugin:react/recommended",
-    "plugin:react-hooks/recommended"
+    "plugin:react-hooks/recommended",
+    "plugin:@typescript-eslint/recommended"
   ],
   "ignorePatterns": ["dist", ".eslintrc.cjs"],
   "parser": "@typescript-eslint/parser",
@@ -17,8 +18,17 @@
     "react/react-in-jsx-scope": "off",
     "prefer-const": "warn",
     "no-var": "error",
-    "no-unused-vars": "warn",
-    "no-undef": "warn",
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "no-undef": "off",
+    "@typescript-eslint/no-undef": "warn",
     "no-redeclare": "warn",
     "no-irregular-whitespace": "warn",
     "no-case-declarations": "warn",
