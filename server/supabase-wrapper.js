@@ -93,7 +93,9 @@ function parseWhereClause(whereClause, params) {
   let paramIndex = 0;
   
   conditions.forEach(condition => {
-    // Handle = ?
+    condition = condition.trim();
+    
+    // Handle = ? (parameterized)
     const eqMatch = condition.match(/(\w+)\s*=\s*\?/);
     if (eqMatch && params[paramIndex] !== undefined) {
       filters[eqMatch[1]] = params[paramIndex];
@@ -101,7 +103,7 @@ function parseWhereClause(whereClause, params) {
       return;
     }
     
-    // Handle != ? or <> ?
+    // Handle != ? or <> ? (parameterized)
     const neMatch = condition.match(/(\w+)\s*(?:!=|<>)\s*\?/);
     if (neMatch && params[paramIndex] !== undefined) {
       // Supabase uses neq. for not equal
@@ -110,10 +112,18 @@ function parseWhereClause(whereClause, params) {
       return;
     }
     
-    // Handle string literals like status = "active"
+    // Handle numeric literals like is_active = 1
+    const numericMatch = condition.match(/(\w+)\s*=\s*(\d+)/);
+    if (numericMatch) {
+      filters[numericMatch[1]] = parseInt(numericMatch[2], 10);
+      return;
+    }
+    
+    // Handle string literals like status = "active" or status = 'active'
     const literalMatch = condition.match(/(\w+)\s*=\s*["']([^"']+)["']/);
     if (literalMatch) {
       filters[literalMatch[1]] = literalMatch[2];
+      return;
     }
   });
   
