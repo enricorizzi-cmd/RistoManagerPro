@@ -40,6 +40,11 @@ async function supabaseCall(method, table, options = {}) {
     urlParams.append('limit', limit.toString());
   }
 
+  // For single results, limit to 1 if no limit specified
+  if (single && !limit) {
+    urlParams.append('limit', '1');
+  }
+
   // Add filters (format: column=eq.value or column=neq.value)
   // Supabase PostgREST uses operators like eq., neq., etc.
   // URLSearchParams will handle URL encoding automatically
@@ -90,11 +95,6 @@ async function supabaseCall(method, table, options = {}) {
     headers['Prefer'] = 'resolution=merge-duplicates';
   } else if (method === 'POST' || method === 'PATCH') {
     headers['Prefer'] = 'return=representation';
-  }
-
-  // For single results, limit to 1
-  if (single && !limit) {
-    params.append('limit', '1');
   }
 
   const config = { method, headers };
