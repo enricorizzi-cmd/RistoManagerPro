@@ -67,7 +67,15 @@ async function supabaseCall(method, table, options = {}) {
         // This is critical - without eq., PostgREST won't treat it as a filter!
         let filterValue;
         if (typeof value === 'boolean') {
-          filterValue = value.toString();
+          // For boolean values, check if column is integer type (like is_active)
+          // Supabase integer columns expect 1/0, not true/false
+          if (key.startsWith('is_')) {
+            // Convert boolean to integer: true -> 1, false -> 0
+            filterValue = value ? '1' : '0';
+          } else {
+            // For actual boolean columns, use string representation
+            filterValue = value.toString();
+          }
         } else if (typeof value === 'string') {
           // For strings, encode only the value part, not the eq. prefix
           filterValue = encodeURIComponent(value);
@@ -76,6 +84,7 @@ async function supabaseCall(method, table, options = {}) {
         }
         // Build the filter string: column=eq.value
         // Format: email=eq.enricorizzi1991%40gmail.com
+        // Format: is_active=eq.1 (for integer boolean columns)
         // CRITICAL: Never encode the 'eq.' part, only encode the value
         const param = `${encodeURIComponent(key)}=eq.${filterValue}`;
         queryParams.push(param);
