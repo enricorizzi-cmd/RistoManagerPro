@@ -281,9 +281,6 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             <h3 className="font-bold text-base md:text-lg truncate">
               {recipe.nomePiatto}
             </h3>
-            <p className="text-xs md:text-sm text-primary-100 mt-1">
-              Prezzo: €{recipe.prezzoVendita.toFixed(2)}
-            </p>
           </div>
           <div className="flex gap-1 flex-shrink-0">
             <button
@@ -310,77 +307,105 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
       </div>
 
-      {/* Ingredients Table */}
-      <div className="flex-1 p-2 md:p-3 overflow-x-auto">
-        <table className="w-full text-xs min-w-[400px]">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-1 px-1 text-gray-600 font-medium">
-                Cod.
-              </th>
-              <th className="text-left py-1 px-1 text-gray-600 font-medium">
-                Materia
-              </th>
-              <th className="text-right py-1 px-1 text-gray-600 font-medium">
-                UM
-              </th>
-              <th className="text-right py-1 px-1 text-gray-600 font-medium">
-                Peso
-              </th>
-              <th className="text-right py-1 px-1 text-gray-600 font-medium">
-                Costo
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {recipe.ingredienti.map((ing, idx) => (
-              <tr key={idx} className="border-b border-gray-100">
-                <td className="py-1 px-1 text-gray-700">{ing.codMateria}</td>
-                <td
-                  className="py-1 px-1 text-gray-700 truncate max-w-[100px]"
-                  title={ing.materiaPrima}
-                >
-                  {ing.materiaPrima}
-                </td>
-                <td className="py-1 px-1 text-right text-gray-600">
-                  {ing.unitaMisura}
-                </td>
-                <td className="py-1 px-1 text-right text-gray-700">
-                  {ing.peso.toFixed(2)}
-                </td>
-                <td className="py-1 px-1 text-right font-medium text-gray-900">
-                  €{ing.costo.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-50 font-bold">
-              <td colSpan={4} className="py-2 px-1 text-gray-700 text-xs">
-                FOOD COST DEL PIATTO
-              </td>
-              <td className="py-2 px-1 text-right text-primary-600">
-                €{recipe.foodCost.toFixed(2)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+      {/* Price */}
+      <div className="px-2 md:px-3 pt-2 pb-1">
+        <p className="text-sm text-gray-700 font-medium">
+          Prezzo: €{recipe.prezzoVendita.toFixed(2)}
+        </p>
       </div>
 
-      {/* Footer with Profit Info */}
-      <div className="p-2 md:p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-t border-gray-200 rounded-b-lg">
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <span className="text-gray-600">Utile:</span>
-            <span className="ml-1 font-bold text-green-700">
-              €{recipe.utile.toFixed(2)}
-            </span>
+      {/* Ingredients Table */}
+      <div className="flex-1 p-2 md:p-3 overflow-x-auto">
+        {recipe.ingredienti.length === 0 ? (
+          <div className="text-center py-4 text-gray-500 text-xs border-2 border-dashed border-gray-200 rounded-lg">
+            Nessun ingrediente aggiunto
           </div>
-          <div className="text-right">
-            <span className="text-gray-600">Marginalità:</span>
-            <span className="ml-1 font-bold text-green-700">
-              {recipe.marginalita.toFixed(1)}%
-            </span>
+        ) : (
+          <div className="border border-gray-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-xs min-w-[400px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-1.5 px-2 text-gray-600 font-medium">
+                    Cod.
+                  </th>
+                  <th className="text-left py-1.5 px-2 text-gray-600 font-medium">
+                    Materia Prima
+                  </th>
+                  <th className="text-right py-1.5 px-2 text-gray-600 font-medium">
+                    UM
+                  </th>
+                  <th className="text-right py-1.5 px-2 text-gray-600 font-medium">
+                    Peso
+                  </th>
+                  <th className="text-right py-1.5 px-2 text-gray-600 font-medium">
+                    Costo
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {recipe.ingredienti.map((ing, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="py-1.5 px-2 text-gray-900 text-xs">
+                      {ing.codMateria}
+                    </td>
+                    <td
+                      className="py-1.5 px-2 text-gray-700 text-xs truncate max-w-[120px]"
+                      title={ing.materiaPrima}
+                    >
+                      {ing.materiaPrima}
+                    </td>
+                    <td className="py-1.5 px-2 text-right text-gray-600 text-xs">
+                      {ing.unitaMisura}
+                    </td>
+                    <td className="py-1.5 px-2 text-right text-gray-700 text-xs">
+                      {ing.peso.toFixed(2)}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-medium text-gray-900 text-xs">
+                      €{ing.costo.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="py-2 px-2 text-xs font-bold text-gray-700"
+                  >
+                    FOOD COST DEL PIATTO
+                  </td>
+                  <td className="py-2 px-2 text-right text-xs font-bold text-primary-600">
+                    €{recipe.foodCost.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Summary - matching form layout */}
+      <div className="px-2 md:px-3 pb-2 md:pb-3">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-xs">
+            <div>
+              <span className="text-gray-600">Food Cost:</span>
+              <span className="ml-2 font-bold text-gray-900">
+                €{recipe.foodCost.toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Utile:</span>
+              <span className="ml-2 font-bold text-green-700">
+                €{recipe.utile.toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Marginalità:</span>
+              <span className="ml-2 font-bold text-green-700">
+                {recipe.marginalita.toFixed(1)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
