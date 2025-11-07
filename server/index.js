@@ -2383,11 +2383,137 @@ ULTIMI 3 MESI DETTAGLIATI:`;
     financialContext += `\n\nTOTALE MESI DISPONIBILI: ${allStats.length}`;
     financialContext += `\nANNI DISPONIBILI: ${availableYears.length > 0 ? availableYears.join(', ') : 'Nessun dato'}`;
 
-    // System prompt - Expert in restaurant financial management
-    const systemPrompt = `Sei un ESPERTO DI GESTIONE FINANZIARIA AZIENDALE SPECIALIZZATO IN RISTORAZIONE.
+    // ===== RECUPERO DATI MENU ENGINEERING DAL DATABASE =====
+    let menuEngineeringContext = '';
+    try {
+      const db = getDatabase(locationId);
+      
+      // 1. Get raw materials
+      const rawMaterials = await db.query(
+        'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
+        [locationId]
+      );
+      
+      // 2. Get recipes with ingredients
+      const recipes = await db.query(
+        'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
+        [locationId]
+      );
+      
+      // Get ingredients for each recipe
+      for (const recipe of recipes) {
+        const ingredients = await db.query(
+          'SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY created_at',
+          [recipe.id]
+        );
+        recipe.ingredienti = ingredients;
+      }
+      
+      // 3. Get recipe sales
+      const recipeSales = await db.query(
+        'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+        [locationId]
+      );
+      
+      // Build Menu Engineering context
+      menuEngineeringContext = `\n\n===== DATI MENU ENGINEERING DAL DATABASE =====
+      
+MATERIE PRIME:
+- Totale materie prime: ${rawMaterials.length}
+${rawMaterials.length > 0 ? `- Tipologie uniche: ${Array.from(new Set(rawMaterials.map(m => m.tipologia))).length}` : ''}
+${rawMaterials.length > 0 ? `- Categorie uniche: ${Array.from(new Set(rawMaterials.map(m => m.categoria))).length}` : ''}
+${rawMaterials.length > 0 ? `- Fornitori unici: ${Array.from(new Set(rawMaterials.map(m => m.fornitore))).length}` : ''}
+${rawMaterials.length > 0 ? `- Prezzo medio acquisto: ${(rawMaterials.reduce((sum, m) => sum + parseFloat(m.prezzo_acquisto || 0), 0) / rawMaterials.length).toFixed(2)}€` : ''}
+
+RICETTE:
+- Totale ricette: ${recipes.length}
+${recipes.length > 0 ? `- Ricette per categoria:` : ''}
+${recipes.length > 0 ? Object.entries(recipes.reduce((acc, r) => {
+  acc[r.categoria] = (acc[r.categoria] || 0) + 1;
+  return acc;
+}, {})).map(([cat, count]) => `  - ${cat}: ${count}`).join('\n') : ''}
+${recipes.length > 0 ? `- Prezzo medio vendita: ${(recipes.reduce((sum, r) => sum + parseFloat(r.prezzo_vendita || 0), 0) / recipes.length).toFixed(2)}€` : ''}
+${recipes.length > 0 ? `- Food cost medio: ${(recipes.reduce((sum, r) => sum + parseFloat(r.food_cost || 0), 0) / recipes.length).toFixed(2)}€` : ''}
+${recipes.length > 0 ? `- Marginalità media: ${(recipes.reduce((sum, r) => sum + parseFloat(r.marginalita || 0), 0) / recipes.length).toFixed(1)}%` : ''}
+${recipes.length > 0 ? `- Utile medio per ricetta: ${(recipes.reduce((sum, r) => sum + parseFloat(r.utile || 0), 0) / recipes.length).toFixed(2)}€` : ''}
+
+VENDITE RICETTE:
+- Totale vendite registrate: ${recipeSales.length}
+${recipeSales.length > 0 ? `- Quantità totale venduta: ${recipeSales.reduce((sum, s) => sum + parseFloat(s.quantity || 0), 0)}` : ''}
+${recipeSales.length > 0 ? `- Ricette vendute (uniche): ${Array.from(new Set(recipeSales.map(s => s.recipe_id))).length}` : ''}`;
+      
+      // Add top recipes by sales
+      if (recipeSales.length > 0) {
+        const salesByRecipe = recipeSales.reduce((acc, sale) => {
+          acc[sale.recipe_id] = (acc[sale.recipe_id] || 0) + parseFloat(sale.quantity || 0);
+          return acc;
+        }, {});
+        
+        const topRecipes = Object.entries(salesByRecipe)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([recipeId, quantity]) => {
+            const recipe = recipes.find(r => r.id === recipeId);
+            return recipe ? `${recipe.nome_piatto}: ${quantity} vendite` : null;
+          })
+          .filter(Boolean);
+        
+        if (topRecipes.length > 0) {
+          menuEngineeringContext += `\n\nTOP 5 RICETTE PER VENDITE:\n${topRecipes.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
+        }
+      }
+      
+      // Add BCG Matrix analysis
+      if (recipes.length > 0 && recipeSales.length > 0) {
+        const avgPopularity = recipes.reduce((sum, r) => {
+          const sales = recipeSales.filter(s => s.recipe_id === r.id);
+          const totalQuantity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
+          return sum + totalQuantity;
+        }, 0) / recipes.length;
+        
+        const avgMargin = recipes.reduce((sum, r) => sum + parseFloat(r.marginalita || 0), 0) / recipes.length;
+        
+        const stars = recipes.filter(r => {
+          const sales = recipeSales.filter(s => s.recipe_id === r.id);
+          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
+          return popularity >= avgPopularity && parseFloat(r.marginalita || 0) >= avgMargin;
+        });
+        
+        const cashCows = recipes.filter(r => {
+          const sales = recipeSales.filter(s => s.recipe_id === r.id);
+          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
+          return popularity >= avgPopularity && parseFloat(r.marginalita || 0) < avgMargin;
+        });
+        
+        const questionMarks = recipes.filter(r => {
+          const sales = recipeSales.filter(s => s.recipe_id === r.id);
+          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
+          return popularity < avgPopularity && parseFloat(r.marginalita || 0) >= avgMargin;
+        });
+        
+        const dogs = recipes.filter(r => {
+          const sales = recipeSales.filter(s => s.recipe_id === r.id);
+          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
+          return popularity < avgPopularity && parseFloat(r.marginalita || 0) < avgMargin;
+        });
+        
+        menuEngineeringContext += `\n\nANALISI MATRICE BCG:
+- Stelle (alta popolarità, alto margine): ${stars.length} ricette
+- Mucche da Latte (alta popolarità, basso margine): ${cashCows.length} ricette
+- Punti Interrogativi (bassa popolarità, alto margine): ${questionMarks.length} ricette
+- Cani (bassa popolarità, basso margine): ${dogs.length} ricette`;
+      }
+    } catch (error) {
+      console.error('Error fetching menu engineering data:', error);
+      menuEngineeringContext = '\n\n===== DATI MENU ENGINEERING =====\nErrore nel recupero dei dati di Menu Engineering dal database.';
+    }
+
+    // System prompt - Expert in restaurant financial management AND menu engineering
+    const systemPrompt = `Sei un ESPERTO DI GESTIONE FINANZIARIA AZIENDALE E MENU ENGINEERING SPECIALIZZATO IN RISTORAZIONE.
 
 RUOLO E COMPETENZE:
 - Sei un consulente finanziario esperto con anni di esperienza nella gestione finanziaria di ristoranti
+- Sei anche un ESPERTO DI MENU ENGINEERING con competenze avanzate in analisi del menu, food cost, marginalità e ottimizzazione delle ricette
 - Conosci perfettamente i KPI del settore ristorazione e le best practices
 - Analizzi sempre i DATI CONCRETI dal database prima di rispondere
 - Fornisci analisi approfondite, non risposte generiche
@@ -2417,6 +2543,46 @@ KPI SETTORE RISTORAZIONE (RIFERIMENTI):
 - Giorni di credito clienti: <30 giorni (buono), >60 giorni (critico)
 - Giorni di debito fornitori: 30-60 giorni (normale), >90 giorni (critico)
 
+MENU ENGINEERING - CONOSCENZE E COMPETENZE:
+1. STRUTTURA DATI:
+   - MATERIE PRIME (raw_materials): ogni materia prima ha tipologia, categoria, codice, materia_prima, unita_misura (KG/LT/PZ), fornitore, prezzo_acquisto, data_ultimo_acquisto
+   - RICETTE (recipes): ogni ricetta ha nome_piatto, categoria (antipasti/primi/secondi/dessert/altro), prezzo_vendita, ingredienti (array), food_cost (calcolato), utile (calcolato), marginalita (calcolata in %), order (per ordinamento)
+   - INGREDIENTI RICETTE (recipe_ingredients): ogni ingrediente ha cod_materia, materia_prima, unita_misura, peso, costo (calcolato dal prezzo_acquisto della materia prima)
+   - VENDITE RICETTE (recipe_sales): ogni vendita ha recipe_id, quantity, sale_date
+
+2. CALCOLI MENU ENGINEERING:
+   - FOOD COST = somma dei costi di tutti gli ingredienti di una ricetta
+   - UTILE = prezzo_vendita - food_cost
+   - MARGINALITÀ (%) = (utile / prezzo_vendita) * 100
+   - POPOLARITÀ = quantità totale venduta di una ricetta (da recipe_sales)
+   - TUTTI I DATI SONO SALVATI NEL DATABASE, MAI IN LOCALSTORAGE
+
+3. MATRICE BCG (Boston Consulting Group):
+   - STELLE: alta popolarità (>= media) E alto margine (>= media) → Mantieni e promuovi
+   - MUCCHE DA LATTE: alta popolarità (>= media) MA basso margine (< media) → Ottimizza costi o aumenta prezzo
+   - PUNTI INTERROGATIVI: bassa popolarità (< media) MA alto margine (>= media) → Strategie di marketing
+   - CANI: bassa popolarità (< media) E basso margine (< media) → Valuta rimozione dal menu
+
+4. KPI MENU ENGINEERING:
+   - Food cost target: 25-35% del prezzo vendita (buono), <25% (eccellente), >35% (da migliorare)
+   - Marginalità target: >30% (eccellente), 20-30% (buono), <20% (da migliorare)
+   - Mix di vendita: analizza distribuzione vendite tra categorie (antipasti/primi/secondi/dessert)
+   - Rotazione materie prime: monitora data_ultimo_acquisto per evitare scorte obsolete
+
+5. GESTIONE MATERIE PRIME:
+   - Tipologie, Categorie, Materie Prime e Fornitori sono gestiti tramite modali dedicati
+   - Quando si modifica/elimina una tipologia/categoria/materia_prima/fornitore, tutte le materie prime che la utilizzano vengono aggiornate automaticamente
+   - Le modifiche sono sempre salvate nel database, mai in localStorage
+
+6. ANALISI DA FORNIRE:
+   - Analisi food cost per ricetta e per categoria
+   - Identificazione ricette con marginalità critica (<20%)
+   - Analisi popolarità vs marginalità (matrice BCG)
+   - Suggerimenti per ottimizzazione menu (rimuovere "cani", promuovere "stelle")
+   - Analisi costi materie prime e confronto fornitori
+   - Calcolo food cost totale del menu
+   - Analisi mix di vendita e suggerimenti per bilanciamento menu
+
 TIPI DI ANALISI DA FORNIRE:
 1. ANALISI PERFORMANCE: confronta dati reali con benchmark di settore
 2. ANALISI TREND: identifica tendenze nei dati (crescita, declino, stagionalità)
@@ -2434,7 +2600,8 @@ FORMATO RISPOSTE:
 - Usa un linguaggio professionale ma chiaro
 
 RISPONDI SEMPRE IN ITALIANO. Sii un vero esperto che analizza dati concreti, non un assistente generico.
-${financialContext}`;
+${financialContext}
+${menuEngineeringContext}`;
 
     // Call OpenAI API
     const openaiKey = process.env.OPENAI_KEY;

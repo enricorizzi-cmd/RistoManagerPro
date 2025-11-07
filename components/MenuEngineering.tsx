@@ -197,6 +197,30 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
+      // Create template materials for new tipologie that don't exist yet
+      const existingTipologie = new Set(rawMaterials.map(m => m.tipologia));
+      const newTipologieToCreate = newTipologie.filter(
+        t => !existingTipologie.has(t) && t.trim() !== ''
+      );
+
+      for (const newTipologia of newTipologieToCreate) {
+        // Use first available values or defaults
+        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
+        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
+        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
+        
+        await handleAddRawMaterial({
+          tipologia: newTipologia,
+          categoria: firstCategoria,
+          codice: `TMP-${newTipologia.toUpperCase().substring(0, 3)}-${Date.now()}`,
+          materiaPrima: firstMateriaPrima,
+          unitaMisura: 'KG',
+          fornitore: firstFornitore,
+          prezzoAcquisto: 0,
+          dataUltimoAcquisto: new Date().toISOString(),
+        });
+      }
+
       // Reload data
       await loadData();
       showNotification('Tipologie aggiornate con successo', 'success');
@@ -274,6 +298,30 @@ const MenuEngineering: React.FC = () => {
             dataUltimoAcquisto: material.dataUltimoAcquisto,
           });
         }
+      }
+
+      // Create template materials for new categorie that don't exist yet
+      const existingCategorie = new Set(rawMaterials.map(m => m.categoria));
+      const newCategorieToCreate = newCategorie.filter(
+        c => !existingCategorie.has(c) && c.trim() !== ''
+      );
+
+      for (const newCategoria of newCategorieToCreate) {
+        // Use first available values or defaults
+        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
+        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
+        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
+        
+        await handleAddRawMaterial({
+          tipologia: firstTipologia,
+          categoria: newCategoria,
+          codice: `TMP-${newCategoria.toUpperCase().substring(0, 3)}-${Date.now()}`,
+          materiaPrima: firstMateriaPrima,
+          unitaMisura: 'KG',
+          fornitore: firstFornitore,
+          prezzoAcquisto: 0,
+          dataUltimoAcquisto: new Date().toISOString(),
+        });
       }
 
       // Reload data
@@ -355,6 +403,30 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
+      // Create template materials for new materie prime that don't exist yet
+      const existingMateriePrime = new Set(rawMaterials.map(m => m.materiaPrima));
+      const newMateriePrimeToCreate = newMateriePrime.filter(
+        m => !existingMateriePrime.has(m) && m.trim() !== ''
+      );
+
+      for (const newMateriaPrima of newMateriePrimeToCreate) {
+        // Use first available values or defaults
+        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
+        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
+        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
+        
+        await handleAddRawMaterial({
+          tipologia: firstTipologia,
+          categoria: firstCategoria,
+          codice: `TMP-${newMateriaPrima.toUpperCase().substring(0, 3)}-${Date.now()}`,
+          materiaPrima: newMateriaPrima,
+          unitaMisura: 'KG',
+          fornitore: firstFornitore,
+          prezzoAcquisto: 0,
+          dataUltimoAcquisto: new Date().toISOString(),
+        });
+      }
+
       // Reload data
       await loadData();
       showNotification('Materie prime aggiornate con successo', 'success');
@@ -432,6 +504,30 @@ const MenuEngineering: React.FC = () => {
             dataUltimoAcquisto: material.dataUltimoAcquisto,
           });
         }
+      }
+
+      // Create template materials for new fornitori that don't exist yet
+      const existingFornitori = new Set(rawMaterials.map(m => m.fornitore));
+      const newFornitoriToCreate = newFornitori.filter(
+        f => !existingFornitori.has(f) && f.trim() !== ''
+      );
+
+      for (const newFornitore of newFornitoriToCreate) {
+        // Use first available values or defaults
+        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
+        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
+        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
+        
+        await handleAddRawMaterial({
+          tipologia: firstTipologia,
+          categoria: firstCategoria,
+          codice: `TMP-${newFornitore.toUpperCase().substring(0, 3)}-${Date.now()}`,
+          materiaPrima: firstMateriaPrima,
+          unitaMisura: 'KG',
+          fornitore: newFornitore,
+          prezzoAcquisto: 0,
+          dataUltimoAcquisto: new Date().toISOString(),
+        });
       }
 
       // Reload data
