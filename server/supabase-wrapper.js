@@ -300,7 +300,9 @@ const masterDb = {
     );
     if (insertMatch) {
       const table = insertMatch[1].trim();
-      const columns = insertMatch[2].split(',').map(c => c.trim());
+      const columns = insertMatch[2]
+        .split(',')
+        .map(c => c.trim().replace(/^["']|["']$/g, '')); // Remove quotes from column names
       const placeholders = insertMatch[3].split(',').map(p => p.trim());
 
       const data = {};
@@ -328,11 +330,12 @@ const masterDb = {
 
       setPairs.forEach(pair => {
         const [col, val] = pair.split('=').map(s => s.trim());
+        const cleanCol = col.replace(/^["']|["']$/g, ''); // Remove quotes from column names
         if (val === '?') {
-          data[col] = params[paramIndex++];
+          data[cleanCol] = params[paramIndex++];
         } else if (!val.includes('?')) {
           // Handle non-parameter values
-          data[col] = val.replace(/'/g, '').trim();
+          data[cleanCol] = val.replace(/'/g, '').trim();
         }
       });
 
@@ -702,7 +705,9 @@ function getLocationDb(locationId) {
       );
       if (insertMatch) {
         const table = insertMatch[1].trim();
-        const columns = insertMatch[2].split(',').map(c => c.trim());
+        const columns = insertMatch[2]
+          .split(',')
+          .map(c => c.trim().replace(/^["']|["']$/g, '')); // Remove quotes from column names
         const placeholders = insertMatch[3].split(',').map(p => p.trim());
 
         const data = { location_id: locationId };
@@ -734,8 +739,9 @@ function getLocationDb(locationId) {
 
         setPairs.forEach(pair => {
           const [col, val] = pair.split('=').map(s => s.trim());
+          const cleanCol = col.replace(/^["']|["']$/g, ''); // Remove quotes from column names
           if (val === '?') {
-            data[col] = params[paramIndex++];
+            data[cleanCol] = params[paramIndex++];
           }
         });
 
