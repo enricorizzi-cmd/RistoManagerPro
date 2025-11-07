@@ -710,7 +710,13 @@ function getLocationDb(locationId) {
           .map(c => c.trim().replace(/^["']|["']$/g, '')); // Remove quotes from column names
         const placeholders = insertMatch[3].split(',').map(p => p.trim());
 
-        const data = { location_id: locationId };
+        // Tables that don't have location_id column
+        const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
+        const data = {};
+        // Only add location_id if the table requires it
+        if (!tablesWithoutLocationId.includes(table)) {
+          data.location_id = locationId;
+        }
         columns.forEach((col, index) => {
           if (
             col !== 'location_id' &&
