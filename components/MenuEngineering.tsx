@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import MateriePrime from './menu-engineering/MateriePrime';
 import Ricette from './menu-engineering/Ricette';
 import MenuMix from './menu-engineering/MenuMix';
+import ManageListModal from './menu-engineering/ManageListModal';
 import { useMenuEngineering } from '../hooks/useMenuEngineering';
 import { useAppContext } from '../contexts/AppContext';
 import type { MainTab } from './menu-engineering/types';
 
 const MenuEngineering: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainTab>('materie-prime');
-  const { showNotification } = useAppContext();
+  const [showTipologiaModal, setShowTipologiaModal] = useState(false);
+  const [showCategoriaModal, setShowCategoriaModal] = useState(false);
+  const [showMateriaPrimaModal, setShowMateriaPrimaModal] = useState(false);
+  const [showFornitoreModal, setShowFornitoreModal] = useState(false);
+  const { showNotification, currentLocation } = useAppContext();
 
   const {
     rawMaterials,
@@ -23,7 +28,26 @@ const MenuEngineering: React.FC = () => {
     handleUpdateRecipe,
     handleDeleteRecipe,
     handleReorderRecipes,
+    loadData,
   } = useMenuEngineering();
+
+  // Extract unique tipologie and categorie
+  const tipologie = useMemo(
+    () => Array.from(new Set(rawMaterials.map(m => m.tipologia))).sort(),
+    [rawMaterials]
+  );
+  const categorie = useMemo(
+    () => Array.from(new Set(rawMaterials.map(m => m.categoria))).sort(),
+    [rawMaterials]
+  );
+  const materiePrime = useMemo(
+    () => Array.from(new Set(rawMaterials.map(m => m.materiaPrima))).sort(),
+    [rawMaterials]
+  );
+  const fornitori = useMemo(
+    () => Array.from(new Set(rawMaterials.map(m => m.fornitore))).sort(),
+    [rawMaterials]
+  );
 
   // Wrap handlers with notifications
   const handleAddRawMaterialWithNotification = async (
@@ -106,17 +130,320 @@ const MenuEngineering: React.FC = () => {
     }
   };
 
-  const handleDeleteRecipeWithNotification = async (id: string) => {
+  // Handle tipologia management
+  const handleManageTipologia = async (newTipologie: string[]) => {
+    if (!currentLocation?.id) {
+      showNotification('Location ID richiesto', 'error');
+      return;
+    }
+
     try {
-      await handleDeleteRecipe(id);
-      showNotification('Ricetta eliminata con successo', 'success');
-    } catch (err) {
+      // Find materials that need to be updated
+      const materialsToUpdate: Array<{
+        id: string;
+        oldTipologia: string;
+        newTipologia: string;
+      }> = [];
+
+      // Check for renamed tipologie
+      const renamed: Map<string, string> = new Map();
+      tipologie.forEach(old => {
+        const found = newTipologie.find(newT => newT.toLowerCase() === old.toLowerCase());
+        if (!found && newTipologie.length >= tipologie.length) {
+          // Try to find a similar one (case-insensitive match)
+          const similar = newTipologie.find(newT => 
+            newT.toLowerCase().includes(old.toLowerCase()) || 
+            old.toLowerCase().includes(newT.toLowerCase())
+          );
+          if (similar) {
+            renamed.set(old, similar);
+          }
+        }
+      });
+
+      // Update materials with renamed tipologie
+      rawMaterials.forEach(material => {
+        const newTipologia = renamed.get(material.tipologia);
+        if (newTipologia && newTipologia !== material.tipologia) {
+          materialsToUpdate.push({
+            id: material.id,
+            oldTipologia: material.tipologia,
+            newTipologia: newTipologia,
+          });
+        } else if (!newTipologie.includes(material.tipologia)) {
+          // Tipologia was deleted, set to first available or empty
+          materialsToUpdate.push({
+            id: material.id,
+            oldTipologia: material.tipologia,
+            newTipologia: newTipologie[0] || '',
+          });
+        }
+      });
+
+      // Update all affected materials
+      for (const update of materialsToUpdate) {
+        const material = rawMaterials.find(m => m.id === update.id);
+        if (material) {
+          await handleUpdateRawMaterial(update.id, {
+            tipologia: update.newTipologia,
+            categoria: material.categoria,
+            codice: material.codice,
+            materiaPrima: material.materiaPrima,
+            unitaMisura: material.unitaMisura,
+            fornitore: material.fornitore,
+            prezzoAcquisto: material.prezzoAcquisto,
+            dataUltimoAcquisto: material.dataUltimoAcquisto,
+          });
+        }
+      }
+
+      // Reload data
+      await loadData();
+      showNotification('Tipologie aggiornate con successo', 'success');
+    } catch (error) {
+      console.error('Failed to update tipologie:', error);
       showNotification(
-        err instanceof Error
-          ? err.message
-          : "Errore nell'eliminazione della ricetta",
+        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle tipologie',
         'error'
       );
+      throw error;
+    }
+  };
+
+  // Handle categoria management
+  const handleManageCategoria = async (newCategorie: string[]) => {
+    if (!currentLocation?.id) {
+      showNotification('Location ID richiesto', 'error');
+      return;
+    }
+
+    try {
+      // Find materials that need to be updated
+      const materialsToUpdate: Array<{
+        id: string;
+        oldCategoria: string;
+        newCategoria: string;
+      }> = [];
+
+      // Check for renamed categorie
+      const renamed: Map<string, string> = new Map();
+      categorie.forEach(old => {
+        const found = newCategorie.find(newC => newC.toLowerCase() === old.toLowerCase());
+        if (!found && newCategorie.length >= categorie.length) {
+          const similar = newCategorie.find(newC => 
+            newC.toLowerCase().includes(old.toLowerCase()) || 
+            old.toLowerCase().includes(newC.toLowerCase())
+          );
+          if (similar) {
+            renamed.set(old, similar);
+          }
+        }
+      });
+
+      // Update materials with renamed categorie
+      rawMaterials.forEach(material => {
+        const newCategoria = renamed.get(material.categoria);
+        if (newCategoria && newCategoria !== material.categoria) {
+          materialsToUpdate.push({
+            id: material.id,
+            oldCategoria: material.categoria,
+            newCategoria: newCategoria,
+          });
+        } else if (!newCategorie.includes(material.categoria)) {
+          // Categoria was deleted, set to first available or empty
+          materialsToUpdate.push({
+            id: material.id,
+            oldCategoria: material.categoria,
+            newCategoria: newCategorie[0] || '',
+          });
+        }
+      });
+
+      // Update all affected materials
+      for (const update of materialsToUpdate) {
+        const material = rawMaterials.find(m => m.id === update.id);
+        if (material) {
+          await handleUpdateRawMaterial(update.id, {
+            tipologia: material.tipologia,
+            categoria: update.newCategoria,
+            codice: material.codice,
+            materiaPrima: material.materiaPrima,
+            unitaMisura: material.unitaMisura,
+            fornitore: material.fornitore,
+            prezzoAcquisto: material.prezzoAcquisto,
+            dataUltimoAcquisto: material.dataUltimoAcquisto,
+          });
+        }
+      }
+
+      // Reload data
+      await loadData();
+      showNotification('Categorie aggiornate con successo', 'success');
+    } catch (error) {
+      console.error('Failed to update categorie:', error);
+      showNotification(
+        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle categorie',
+        'error'
+      );
+      throw error;
+    }
+  };
+
+  // Handle materia prima management
+  const handleManageMateriaPrima = async (newMateriePrime: string[]) => {
+    if (!currentLocation?.id) {
+      showNotification('Location ID richiesto', 'error');
+      return;
+    }
+
+    try {
+      // Find materials that need to be updated
+      const materialsToUpdate: Array<{
+        id: string;
+        oldMateriaPrima: string;
+        newMateriaPrima: string;
+      }> = [];
+
+      // Check for renamed materie prime
+      const renamed: Map<string, string> = new Map();
+      materiePrime.forEach(old => {
+        const found = newMateriePrime.find(newM => newM.toLowerCase() === old.toLowerCase());
+        if (!found && newMateriePrime.length >= materiePrime.length) {
+          const similar = newMateriePrime.find(newM => 
+            newM.toLowerCase().includes(old.toLowerCase()) || 
+            old.toLowerCase().includes(newM.toLowerCase())
+          );
+          if (similar) {
+            renamed.set(old, similar);
+          }
+        }
+      });
+
+      // Update materials with renamed materie prime
+      rawMaterials.forEach(material => {
+        const newMateriaPrima = renamed.get(material.materiaPrima);
+        if (newMateriaPrima && newMateriaPrima !== material.materiaPrima) {
+          materialsToUpdate.push({
+            id: material.id,
+            oldMateriaPrima: material.materiaPrima,
+            newMateriaPrima: newMateriaPrima,
+          });
+        } else if (!newMateriePrime.includes(material.materiaPrima)) {
+          // Materia prima was deleted, set to first available or empty
+          materialsToUpdate.push({
+            id: material.id,
+            oldMateriaPrima: material.materiaPrima,
+            newMateriaPrima: newMateriePrime[0] || '',
+          });
+        }
+      });
+
+      // Update all affected materials
+      for (const update of materialsToUpdate) {
+        const material = rawMaterials.find(m => m.id === update.id);
+        if (material) {
+          await handleUpdateRawMaterial(update.id, {
+            tipologia: material.tipologia,
+            categoria: material.categoria,
+            codice: material.codice,
+            materiaPrima: update.newMateriaPrima,
+            unitaMisura: material.unitaMisura,
+            fornitore: material.fornitore,
+            prezzoAcquisto: material.prezzoAcquisto,
+            dataUltimoAcquisto: material.dataUltimoAcquisto,
+          });
+        }
+      }
+
+      // Reload data
+      await loadData();
+      showNotification('Materie prime aggiornate con successo', 'success');
+    } catch (error) {
+      console.error('Failed to update materie prime:', error);
+      showNotification(
+        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle materie prime',
+        'error'
+      );
+      throw error;
+    }
+  };
+
+  // Handle fornitore management
+  const handleManageFornitore = async (newFornitori: string[]) => {
+    if (!currentLocation?.id) {
+      showNotification('Location ID richiesto', 'error');
+      return;
+    }
+
+    try {
+      // Find materials that need to be updated
+      const materialsToUpdate: Array<{
+        id: string;
+        oldFornitore: string;
+        newFornitore: string;
+      }> = [];
+
+      // Check for renamed fornitori
+      const renamed: Map<string, string> = new Map();
+      fornitori.forEach(old => {
+        const found = newFornitori.find(newF => newF.toLowerCase() === old.toLowerCase());
+        if (!found && newFornitori.length >= fornitori.length) {
+          const similar = newFornitori.find(newF => 
+            newF.toLowerCase().includes(old.toLowerCase()) || 
+            old.toLowerCase().includes(newF.toLowerCase())
+          );
+          if (similar) {
+            renamed.set(old, similar);
+          }
+        }
+      });
+
+      // Update materials with renamed fornitori
+      rawMaterials.forEach(material => {
+        const newFornitore = renamed.get(material.fornitore);
+        if (newFornitore && newFornitore !== material.fornitore) {
+          materialsToUpdate.push({
+            id: material.id,
+            oldFornitore: material.fornitore,
+            newFornitore: newFornitore,
+          });
+        } else if (!newFornitori.includes(material.fornitore)) {
+          // Fornitore was deleted, set to first available or empty
+          materialsToUpdate.push({
+            id: material.id,
+            oldFornitore: material.fornitore,
+            newFornitore: newFornitori[0] || '',
+          });
+        }
+      });
+
+      // Update all affected materials
+      for (const update of materialsToUpdate) {
+        const material = rawMaterials.find(m => m.id === update.id);
+        if (material) {
+          await handleUpdateRawMaterial(update.id, {
+            tipologia: material.tipologia,
+            categoria: material.categoria,
+            codice: material.codice,
+            materiaPrima: material.materiaPrima,
+            unitaMisura: material.unitaMisura,
+            fornitore: update.newFornitore,
+            prezzoAcquisto: material.prezzoAcquisto,
+            dataUltimoAcquisto: material.dataUltimoAcquisto,
+          });
+        }
+      }
+
+      // Reload data
+      await loadData();
+      showNotification('Fornitori aggiornati con successo', 'success');
+    } catch (error) {
+      console.error('Failed to update fornitori:', error);
+      showNotification(
+        error instanceof Error ? error.message : 'Errore nell\'aggiornamento dei fornitori',
+        'error'
+      );
+      throw error;
     }
   };
 
@@ -189,30 +516,10 @@ const MenuEngineering: React.FC = () => {
           onAdd={handleAddRawMaterialWithNotification}
           onUpdate={handleUpdateRawMaterialWithNotification}
           onDelete={handleDeleteRawMaterialWithNotification}
-          onManageTipologia={() => {
-            showNotification(
-              'Gestione tipologie - Funzionalità da implementare',
-              'info'
-            );
-          }}
-          onManageCategoria={() => {
-            showNotification(
-              'Gestione categorie - Funzionalità da implementare',
-              'info'
-            );
-          }}
-          onManageMateriaPrima={() => {
-            showNotification(
-              'Gestione materie prime - Funzionalità da implementare',
-              'info'
-            );
-          }}
-          onManageFornitore={() => {
-            showNotification(
-              'Gestione fornitori - Funzionalità da implementare',
-              'info'
-            );
-          }}
+          onManageTipologia={() => setShowTipologiaModal(true)}
+          onManageCategoria={() => setShowCategoriaModal(true)}
+          onManageMateriaPrima={() => setShowMateriaPrimaModal(true)}
+          onManageFornitore={() => setShowFornitoreModal(true)}
         />
       )}
 
@@ -235,6 +542,43 @@ const MenuEngineering: React.FC = () => {
             console.log('Recipe clicked:', recipe);
             // Navigate to recipe edit or show details
           }}
+        />
+      )}
+
+      {/* Modals */}
+      {showTipologiaModal && (
+        <ManageListModal
+          title="Gestisci Tipologie"
+          items={tipologie}
+          onClose={() => setShowTipologiaModal(false)}
+          onSave={handleManageTipologia}
+        />
+      )}
+
+      {showCategoriaModal && (
+        <ManageListModal
+          title="Gestisci Categorie"
+          items={categorie}
+          onClose={() => setShowCategoriaModal(false)}
+          onSave={handleManageCategoria}
+        />
+      )}
+
+      {showMateriaPrimaModal && (
+        <ManageListModal
+          title="Gestisci Materie Prime"
+          items={materiePrime}
+          onClose={() => setShowMateriaPrimaModal(false)}
+          onSave={handleManageMateriaPrima}
+        />
+      )}
+
+      {showFornitoreModal && (
+        <ManageListModal
+          title="Gestisci Fornitori"
+          items={fornitori}
+          onClose={() => setShowFornitoreModal(false)}
+          onSave={handleManageFornitore}
         />
       )}
     </div>
