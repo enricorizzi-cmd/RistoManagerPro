@@ -274,11 +274,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       onDragEnd={onDragEnd}
       className={`h-full flex flex-col ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
     >
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-600 text-white p-2 md:p-3 rounded-t-lg">
-        <div className="flex items-start justify-between gap-2">
+      {/* Header with Name and Price */}
+      <div className="bg-white border-b border-gray-200 p-2 md:p-3 rounded-t-lg">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base md:text-lg truncate">
+            <h3 className="font-bold text-base md:text-lg text-gray-900 break-words">
               {recipe.nomePiatto}
             </h3>
           </div>
@@ -288,7 +288,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
                 e.stopPropagation();
                 onEdit();
               }}
-              className="p-1.5 hover:bg-primary-700 rounded transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
               title="Modifica"
             >
               <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
@@ -298,20 +298,21 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-1.5 hover:bg-primary-700 rounded transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
               title="Elimina"
             >
               <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Price */}
-      <div className="px-2 md:px-3 pt-2 pb-1">
-        <p className="text-sm text-gray-700 font-medium">
-          Prezzo: €{recipe.prezzoVendita.toFixed(2)}
-        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 font-medium">
+            Prezzo di Vendita:
+          </span>
+          <span className="text-sm md:text-base font-bold text-gray-900">
+            €{recipe.prezzoVendita.toFixed(2)}
+          </span>
+        </div>
       </div>
 
       {/* Ingredients Table */}
