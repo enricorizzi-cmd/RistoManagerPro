@@ -144,16 +144,16 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
   return (
     <div className="space-y-6">
       {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Materie Prime</h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Materie Prime</h2>
+          <p className="mt-1 text-xs md:text-sm text-gray-600">
             Gestisci le materie prime e i loro costi
           </p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
         >
           <PlusIcon className="h-5 w-5" />
           <span>Aggiungi Materia Prima</span>
@@ -391,8 +391,8 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-2xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">
                 {editingId ? 'Modifica Materia Prima' : 'Nuova Materia Prima'}
@@ -589,16 +589,16 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={handleCloseModal}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm md:text-base"
               >
                 Annulla
               </button>
               <button
                 onClick={handleSubmit}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors"
+                className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors text-sm md:text-base font-medium"
               >
                 {editingId ? 'Salva' : 'Aggiungi'}
               </button>

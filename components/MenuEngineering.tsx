@@ -591,24 +591,24 @@ const MenuEngineering: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Menu Engineering</h1>
-        <p className="mt-2 text-gray-600">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Menu Engineering</h1>
+        <p className="mt-2 text-sm md:text-base text-gray-600">
           Gestisci materie prime, ricette e analizza il tuo menu con la matrice
           BCG
         </p>
       </div>
 
       {/* Main Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 overflow-x-auto pb-2">
         {tabs.map(tab => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-t-xl text-sm font-medium transition ${
+            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-t-xl text-xs md:text-sm font-medium transition whitespace-nowrap ${
               activeTab === tab.key
                 ? 'bg-primary text-white shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'

@@ -96,10 +96,10 @@ const Ricette: React.FC<RicetteProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Ricette</h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Ricette</h2>
+          <p className="mt-1 text-xs md:text-sm text-gray-600">
             Crea e gestisci le ricette del tuo menu
           </p>
         </div>
@@ -108,7 +108,7 @@ const Ricette: React.FC<RicetteProps> = ({
             setEditingRecipeId(null);
             setShowRecipeModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
         >
           <PlusIcon className="h-5 w-5" />
           <span>Nuova Ricetta</span>
@@ -116,12 +116,12 @@ const Ricette: React.FC<RicetteProps> = ({
       </div>
 
       {/* Category Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 overflow-x-auto pb-2">
         {categories.map(cat => (
           <button
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
-            className={`px-4 py-2 rounded-t-xl text-sm font-medium transition ${
+            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-t-xl text-xs md:text-sm font-medium transition whitespace-nowrap ${
               activeCategory === cat.key
                 ? 'bg-primary text-white shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -133,13 +133,13 @@ const Ricette: React.FC<RicetteProps> = ({
       </div>
 
       {/* Grid Controls */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow border border-gray-200">
-        <span className="text-sm text-gray-600">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 md:p-4 rounded-lg shadow border border-gray-200 gap-2">
+        <span className="text-xs md:text-sm text-gray-600">
           {filteredRecipes.length} ricette visualizzate
         </span>
         <button
           onClick={() => setGridRows(gridRows + 1)}
-          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700"
+          className="px-3 py-1.5 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 w-full sm:w-auto"
         >
           + Aggiungi Riga
         </button>
@@ -147,9 +147,8 @@ const Ricette: React.FC<RicetteProps> = ({
 
       {/* Recipe Grid */}
       <div
-        className="grid gap-4"
+        className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
         style={{
-          gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
           gridTemplateRows: `repeat(${gridRows}, auto)`,
         }}
       >
@@ -160,7 +159,7 @@ const Ricette: React.FC<RicetteProps> = ({
           return (
             <div
               key={index}
-              className={`min-h-[400px] rounded-lg border-2 transition-all ${
+              className={`min-h-[300px] md:min-h-[400px] rounded-lg border-2 transition-all ${
                 isEmpty
                   ? 'border-dashed border-gray-300 bg-gray-50'
                   : draggedRecipeId === recipe.id
@@ -223,18 +222,23 @@ const Ricette: React.FC<RicetteProps> = ({
             setShowRecipeModal(false);
             setEditingRecipeId(null);
           }}
-          onSave={recipeData => {
-            if (editingRecipeId) {
-              onUpdate(editingRecipeId, recipeData);
-            } else {
-              const maxOrder =
-                filteredRecipes.length > 0
-                  ? Math.max(...filteredRecipes.map(r => r.order))
-                  : -1;
-              onAdd({ ...recipeData, order: maxOrder + 1 });
+          onSave={async recipeData => {
+            try {
+              if (editingRecipeId) {
+                await onUpdate(editingRecipeId, recipeData);
+              } else {
+                const maxOrder =
+                  filteredRecipes.length > 0
+                    ? Math.max(...filteredRecipes.map(r => r.order))
+                    : -1;
+                await onAdd({ ...recipeData, order: maxOrder + 1 });
+              }
+              setShowRecipeModal(false);
+              setEditingRecipeId(null);
+            } catch (error) {
+              console.error('Error saving recipe:', error);
+              alert('Errore nel salvataggio della ricetta. Riprova.');
             }
-            setShowRecipeModal(false);
-            setEditingRecipeId(null);
           }}
         />
       )}
@@ -269,42 +273,42 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       className={`h-full flex flex-col ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-600 text-white p-3 rounded-t-lg">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="font-bold text-lg">{recipe.nomePiatto}</h3>
-            <p className="text-sm text-primary-100 mt-1">
+      <div className="bg-gradient-to-r from-primary to-primary-600 text-white p-2 md:p-3 rounded-t-lg">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base md:text-lg truncate">{recipe.nomePiatto}</h3>
+            <p className="text-xs md:text-sm text-primary-100 mt-1">
               Prezzo: €{recipe.prezzoVendita.toFixed(2)}
             </p>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             <button
               onClick={e => {
                 e.stopPropagation();
                 onEdit();
               }}
-              className="p-1 hover:bg-primary-700 rounded"
+              className="p-1.5 hover:bg-primary-700 rounded transition-colors"
               title="Modifica"
             >
-              <PencilIcon className="h-4 w-4" />
+              <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
             <button
               onClick={e => {
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-1 hover:bg-primary-700 rounded"
+              className="p-1.5 hover:bg-primary-700 rounded transition-colors"
               title="Elimina"
             >
-              <TrashIcon className="h-4 w-4" />
+              <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Ingredients Table */}
-      <div className="flex-1 p-3 overflow-auto">
-        <table className="w-full text-xs">
+      <div className="flex-1 p-2 md:p-3 overflow-x-auto">
+        <table className="w-full text-xs min-w-[400px]">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-1 px-1 text-gray-600 font-medium">
@@ -328,7 +332,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             {recipe.ingredienti.map((ing, idx) => (
               <tr key={idx} className="border-b border-gray-100">
                 <td className="py-1 px-1 text-gray-700">{ing.codMateria}</td>
-                <td className="py-1 px-1 text-gray-700">{ing.materiaPrima}</td>
+                <td className="py-1 px-1 text-gray-700 truncate max-w-[100px]" title={ing.materiaPrima}>{ing.materiaPrima}</td>
                 <td className="py-1 px-1 text-right text-gray-600">
                   {ing.unitaMisura}
                 </td>
@@ -343,7 +347,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           </tbody>
           <tfoot>
             <tr className="bg-gray-50 font-bold">
-              <td colSpan={4} className="py-2 px-1 text-gray-700">
+              <td colSpan={4} className="py-2 px-1 text-gray-700 text-xs">
                 FOOD COST DEL PIATTO
               </td>
               <td className="py-2 px-1 text-right text-primary-600">
@@ -355,7 +359,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       </div>
 
       {/* Footer with Profit Info */}
-      <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-t border-gray-200 rounded-b-lg">
+      <div className="p-2 md:p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-t border-gray-200 rounded-b-lg">
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <span className="text-gray-600">Utile:</span>
@@ -529,8 +533,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
+    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">
             {recipe ? 'Modifica Ricetta' : 'Nuova Ricetta'}
@@ -544,7 +548,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nome Piatto *
@@ -576,7 +580,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
           {/* Ingredients List */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
               <label className="block text-sm font-medium text-gray-700">
                 Ingredienti *
               </label>
@@ -591,10 +595,10 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   });
                   setShowIngredientModal(true);
                 }}
-                className="flex items-center gap-1 px-3 py-1 text-sm bg-primary text-white rounded-lg hover:bg-primary-600"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-600 w-full sm:w-auto justify-center"
               >
                 <PlusIcon className="h-4 w-4" />
-                Aggiungi Ingrediente
+                <span className="whitespace-nowrap">Aggiungi Ingrediente</span>
               </button>
             </div>
 
@@ -603,26 +607,26 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 Nessun ingrediente aggiunto
               </div>
             ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border border-gray-200 rounded-lg overflow-x-auto">
+                <table className="w-full text-sm min-w-[600px]">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-left text-xs font-medium text-gray-500">
                         Cod.
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-left text-xs font-medium text-gray-500">
                         Materia Prima
                       </th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-right text-xs font-medium text-gray-500">
                         UM
                       </th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-right text-xs font-medium text-gray-500">
                         Peso
                       </th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-right text-xs font-medium text-gray-500">
                         Costo
                       </th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">
+                      <th className="px-2 md:px-3 py-2 text-right text-xs font-medium text-gray-500">
                         Azioni
                       </th>
                     </tr>
@@ -630,22 +634,22 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   <tbody className="divide-y divide-gray-200">
                     {formData.ingredienti.map((ing, idx) => (
                       <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-sm text-gray-900">
+                        <td className="px-2 md:px-3 py-2 text-xs md:text-sm text-gray-900">
                           {ing.codMateria}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-700">
+                        <td className="px-2 md:px-3 py-2 text-xs md:text-sm text-gray-700">
                           {ing.materiaPrima}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-600">
+                        <td className="px-2 md:px-3 py-2 text-xs md:text-sm text-right text-gray-600">
                           {ing.unitaMisura}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-700">
+                        <td className="px-2 md:px-3 py-2 text-xs md:text-sm text-right text-gray-700">
                           {ing.peso.toFixed(2)}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right font-medium text-gray-900">
+                        <td className="px-2 md:px-3 py-2 text-xs md:text-sm text-right font-medium text-gray-900">
                           €{ing.costo.toFixed(2)}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-2 md:px-3 py-2 text-right">
                           <div className="flex justify-end gap-1">
                             <button
                               onClick={() => {
@@ -658,13 +662,15 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                 setEditingIngredientIndex(idx);
                                 setShowIngredientModal(true);
                               }}
-                              className="text-primary hover:text-primary-600"
+                              className="text-primary hover:text-primary-600 p-1"
+                              title="Modifica"
                             >
                               <PencilIcon className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteIngredient(idx)}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:text-red-800 p-1"
+                              title="Elimina"
                             >
                               <TrashIcon className="h-4 w-4" />
                             </button>
@@ -677,11 +683,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     <tr>
                       <td
                         colSpan={4}
-                        className="px-3 py-2 text-sm font-bold text-gray-700"
+                        className="px-2 md:px-3 py-2 text-xs md:text-sm font-bold text-gray-700"
                       >
                         FOOD COST DEL PIATTO
                       </td>
-                      <td className="px-3 py-2 text-sm font-bold text-right text-primary-600">
+                      <td className="px-2 md:px-3 py-2 text-xs md:text-sm font-bold text-right text-primary-600">
                         €{foodCost.toFixed(2)}
                       </td>
                       <td></td>
@@ -694,7 +700,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
           {/* Summary */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
-            <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Food Cost:</span>
                 <span className="ml-2 font-bold text-gray-900">
@@ -717,16 +723,16 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm md:text-base"
           >
             Annulla
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors text-sm md:text-base font-medium"
           >
             Salva
           </button>
@@ -735,8 +741,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
       {/* Ingredient Modal */}
       {showIngredientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-[60] p-2 md:p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <h4 className="text-lg font-bold mb-4">Aggiungi Ingrediente</h4>
             <div className="space-y-4">
               <div>
