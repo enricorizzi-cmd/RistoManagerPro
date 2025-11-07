@@ -2739,22 +2739,47 @@ app.get(
         res.json(values.map(v => v.value));
       } catch (error) {
         // If table doesn't exist yet, return empty array
+        const errorMessage = error?.message || String(error) || '';
+        const errorString = errorMessage.toLowerCase();
+
         if (
-          error.message &&
-          (error.message.includes('does not exist') ||
-            error.message.includes('Could not find') ||
-            error.message.includes('relation') ||
-            error.message.includes('table'))
+          errorString.includes('does not exist') ||
+          errorString.includes('could not find') ||
+          errorString.includes('relation') ||
+          errorString.includes('table') ||
+          errorString.includes('no such table') ||
+          errorString.includes('undefined table')
         ) {
           console.log(
             `Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
           );
-          res.json([]);
+          return res.json([]);
         } else {
           throw error;
         }
       }
     } catch (error) {
+      // Check again in outer catch for table not found errors
+      const errorMessage = error?.message || String(error) || '';
+      const errorString = errorMessage.toLowerCase();
+
+      // Check if error is from Supabase wrapper indicating table doesn't exist
+      if (
+        error?.table === 'menu_dropdown_values' ||
+        errorString.includes('does not exist') ||
+        errorString.includes('could not find') ||
+        errorString.includes('relation') ||
+        errorString.includes('table') ||
+        errorString.includes('no such table') ||
+        errorString.includes('undefined table') ||
+        errorString.includes('menu_dropdown_values')
+      ) {
+        console.log(
+          `Table menu_dropdown_values doesn't exist yet, returning empty array`
+        );
+        return res.json([]);
+      }
+
       console.error('Failed to get dropdown values:', error);
       res.status(500).json({ error: 'Failed to get dropdown values' });
     }

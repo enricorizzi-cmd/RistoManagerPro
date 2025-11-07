@@ -141,6 +141,26 @@ async function supabaseCall(method, table, options = {}) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[SUPABASE] Error ${response.status}:`, errorText);
+
+      // Check if error is due to table not existing
+      const errorTextLower = errorText.toLowerCase();
+      if (
+        response.status === 404 ||
+        response.status === 500 ||
+        errorTextLower.includes('relation') ||
+        errorTextLower.includes('does not exist') ||
+        errorTextLower.includes('could not find') ||
+        errorTextLower.includes('no such table') ||
+        errorTextLower.includes('undefined table')
+      ) {
+        const tableNotFoundError = new Error(
+          `Table ${table} does not exist in Supabase`
+        );
+        tableNotFoundError.statusCode = response.status;
+        tableNotFoundError.table = table;
+        throw tableNotFoundError;
+      }
+
       throw new Error(
         `Supabase API error (${method} ${table}): ${response.status} - ${errorText}`
       );
