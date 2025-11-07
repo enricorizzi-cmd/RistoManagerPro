@@ -3020,17 +3020,30 @@ app.post('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
 
     // Insert ingredients
     for (const ing of ingredienti) {
+      // Validate ingredient data
+      if (
+        !ing.codMateria ||
+        !ing.materiaPrima ||
+        !ing.unitaMisura ||
+        ing.peso === undefined ||
+        ing.costo === undefined
+      ) {
+        throw new Error(
+          `Invalid ingredient data: ${JSON.stringify(ing)}. All fields are required.`
+        );
+      }
+
       const ingId = crypto.randomUUID();
       await db.run(
         'INSERT INTO recipe_ingredients (id, recipe_id, cod_materia, materia_prima, unita_misura, peso, costo) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
           ingId,
           id,
-          ing.codMateria,
-          ing.materiaPrima,
-          ing.unitaMisura,
-          ing.peso,
-          ing.costo,
+          ing.codMateria || '',
+          ing.materiaPrima || '',
+          ing.unitaMisura || 'KG',
+          parseFloat(ing.peso) || 0,
+          parseFloat(ing.costo) || 0,
         ]
       );
     }
