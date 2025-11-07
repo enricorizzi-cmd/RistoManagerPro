@@ -2999,7 +2999,9 @@ app.post('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
       0
     );
     const utile = parseFloat(prezzoVendita) - foodCost;
-    const marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+    // Limit marginalita to -999.99 to 999.99 to prevent numeric overflow
+    let marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+    marginalita = Math.max(-999.99, Math.min(999.99, marginalita));
 
     const id = crypto.randomUUID();
     const db = getDatabase(locationId);
@@ -3103,7 +3105,9 @@ app.put('/api/menu-engineering/recipes/:id', requireAuth, async (req, res) => {
         0
       );
       const utile = parseFloat(prezzoVendita || 0) - foodCost;
-      const marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+      // Limit marginalita to -999.99 to 999.99 to prevent numeric overflow
+      let marginalita = prezzoVendita > 0 ? (utile / prezzoVendita) * 100 : 0;
+      marginalita = Math.max(-999.99, Math.min(999.99, marginalita));
 
       // Update recipe
       await db.run(
@@ -3127,17 +3131,30 @@ app.put('/api/menu-engineering/recipes/:id', requireAuth, async (req, res) => {
 
       // Insert new ingredients
       for (const ing of ingredienti) {
+        // Validate ingredient data
+        if (
+          !ing.codMateria ||
+          !ing.materiaPrima ||
+          !ing.unitaMisura ||
+          ing.peso === undefined ||
+          ing.costo === undefined
+        ) {
+          throw new Error(
+            `Invalid ingredient data: ${JSON.stringify(ing)}. All fields are required.`
+          );
+        }
+
         const ingId = crypto.randomUUID();
         await db.run(
           'INSERT INTO recipe_ingredients (id, recipe_id, cod_materia, materia_prima, unita_misura, peso, costo) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [
             ingId,
             id,
-            ing.codMateria,
-            ing.materiaPrima,
-            ing.unitaMisura,
-            ing.peso,
-            ing.costo,
+            ing.codMateria || '',
+            ing.materiaPrima || '',
+            ing.unitaMisura || 'KG',
+            parseFloat(ing.peso) || 0,
+            parseFloat(ing.costo) || 0,
           ]
         );
       }
@@ -3167,7 +3184,16 @@ app.put('/api/menu-engineering/recipes/:id', requireAuth, async (req, res) => {
     res.json(recipe);
   } catch (error) {
     console.error('Failed to update recipe', error);
-    res.status(500).json({ error: 'Failed to update recipe' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+      params: req.params,
+    });
+    res.status(500).json({
+      error: 'Failed to update recipe',
+      details: error.message,
+    });
   }
 });
 
