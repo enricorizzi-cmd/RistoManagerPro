@@ -409,6 +409,32 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Action Buttons */}
+      <div className="px-2 md:px-3 pb-2 md:pb-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <PencilIcon className="h-4 w-4" />
+            <span>Modifica</span>
+          </button>
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+          >
+            <TrashIcon className="h-4 w-4" />
+            <span>Elimina</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
