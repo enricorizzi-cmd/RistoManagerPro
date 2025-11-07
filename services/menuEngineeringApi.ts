@@ -284,3 +284,35 @@ export const createRecipeSale = (
     }),
   });
 };
+
+// Dropdown Values API (for tipologie, categorie, materie prime, fornitori)
+export type DropdownType =
+  | 'tipologia'
+  | 'categoria'
+  | 'materia_prima'
+  | 'fornitore';
+
+export const getDropdownValues = (
+  locationId: string,
+  type: DropdownType
+): Promise<string[]> => {
+  return apiCall<string[]>(
+    `/api/menu-engineering/dropdown-values?type=${type}`,
+    locationId
+  );
+};
+
+export const saveDropdownValues = (
+  locationId: string,
+  type: DropdownType,
+  values: string[]
+): Promise<{ success: boolean }> => {
+  return apiCall<{ success: boolean }>(
+    '/api/menu-engineering/dropdown-values',
+    locationId,
+    {
+      method: 'POST',
+      body: JSON.stringify({ type, values }),
+    }
+  );
+};

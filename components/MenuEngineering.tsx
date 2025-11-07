@@ -1,10 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MateriePrime from './menu-engineering/MateriePrime';
 import Ricette from './menu-engineering/Ricette';
 import MenuMix from './menu-engineering/MenuMix';
 import ManageListModal from './menu-engineering/ManageListModal';
 import { useMenuEngineering } from '../hooks/useMenuEngineering';
 import { useAppContext } from '../contexts/AppContext';
+import {
+  getDropdownValues,
+  saveDropdownValues,
+} from '../services/menuEngineeringApi';
 import type { MainTab } from './menu-engineering/types';
 
 const MenuEngineering: React.FC = () => {
@@ -31,23 +35,94 @@ const MenuEngineering: React.FC = () => {
     loadData,
   } = useMenuEngineering();
 
-  // Extract unique tipologie and categorie
-  const tipologie = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.tipologia))).sort(),
-    [rawMaterials]
-  );
-  const categorie = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.categoria))).sort(),
-    [rawMaterials]
-  );
-  const materiePrime = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.materiaPrima))).sort(),
-    [rawMaterials]
-  );
-  const fornitori = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.fornitore))).sort(),
-    [rawMaterials]
-  );
+  // State for dropdown values from database
+  const [dropdownValues, setDropdownValues] = useState<{
+    tipologie: string[];
+    categorie: string[];
+    materiePrime: string[];
+    fornitori: string[];
+  }>({
+    tipologie: [],
+    categorie: [],
+    materiePrime: [],
+    fornitori: [],
+  });
+
+  // Load dropdown values from database
+  useEffect(() => {
+    const loadDropdownValues = async () => {
+      if (currentLocation?.id) {
+        try {
+          const [tipologie, categorie, materiePrime, fornitori] =
+            await Promise.all([
+              getDropdownValues(currentLocation.id, 'tipologia'),
+              getDropdownValues(currentLocation.id, 'categoria'),
+              getDropdownValues(currentLocation.id, 'materia_prima'),
+              getDropdownValues(currentLocation.id, 'fornitore'),
+            ]);
+
+          setDropdownValues({
+            tipologie,
+            categorie,
+            materiePrime,
+            fornitori,
+          });
+        } catch (error) {
+          console.error('Failed to load dropdown values:', error);
+          // If table doesn't exist yet, start with empty arrays
+          setDropdownValues({
+            tipologie: [],
+            categorie: [],
+            materiePrime: [],
+            fornitori: [],
+          });
+        }
+      }
+    };
+
+    loadDropdownValues();
+  }, [currentLocation?.id]);
+
+  // Merge dropdown values from database with values from existing materials
+  const tipologie = useMemo(() => {
+    const fromMaterials = Array.from(
+      new Set(rawMaterials.map(m => m.tipologia))
+    );
+    const fromDb = dropdownValues.tipologie;
+    return Array.from(new Set([...fromDb, ...fromMaterials]))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, dropdownValues.tipologie]);
+
+  const categorie = useMemo(() => {
+    const fromMaterials = Array.from(
+      new Set(rawMaterials.map(m => m.categoria))
+    );
+    const fromDb = dropdownValues.categorie;
+    return Array.from(new Set([...fromDb, ...fromMaterials]))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, dropdownValues.categorie]);
+
+  const materiePrime = useMemo(() => {
+    const fromMaterials = Array.from(
+      new Set(rawMaterials.map(m => m.materiaPrima))
+    );
+    const fromDb = dropdownValues.materiePrime;
+    return Array.from(new Set([...fromDb, ...fromMaterials]))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, dropdownValues.materiePrime]);
+
+  const fornitori = useMemo(() => {
+    const fromMaterials = Array.from(
+      new Set(rawMaterials.map(m => m.fornitore))
+    );
+    const fromDb = dropdownValues.fornitori;
+    return Array.from(new Set([...fromDb, ...fromMaterials]))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, dropdownValues.fornitori]);
 
   // Wrap handlers with notifications
   const handleAddRawMaterialWithNotification = async (
@@ -214,9 +289,14 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Save dropdown values to database (no template materials created)
-      // The values will be available in dropdowns without creating rows in raw_materials table
-      // Note: Values are extracted from existing materials, new values are just saved for dropdown use
+      // Save dropdown values to database
+      await saveDropdownValues(currentLocation.id, 'tipologia', newTipologie);
+
+      // Update local state
+      setDropdownValues(prev => ({
+        ...prev,
+        tipologie: newTipologie,
+      }));
 
       // Reload data
       await loadData();
@@ -302,8 +382,14 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Save dropdown values to database (no template materials created)
-      // The values will be available in dropdowns without creating rows in raw_materials table
+      // Save dropdown values to database
+      await saveDropdownValues(currentLocation.id, 'categoria', newCategorie);
+
+      // Update local state
+      setDropdownValues(prev => ({
+        ...prev,
+        categorie: newCategorie,
+      }));
 
       // Reload data
       await loadData();
@@ -389,8 +475,18 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Save dropdown values to database (no template materials created)
-      // The values will be available in dropdowns without creating rows in raw_materials table
+      // Save dropdown values to database
+      await saveDropdownValues(
+        currentLocation.id,
+        'materia_prima',
+        newMateriePrime
+      );
+
+      // Update local state
+      setDropdownValues(prev => ({
+        ...prev,
+        materiePrime: newMateriePrime,
+      }));
 
       // Reload data
       await loadData();
@@ -476,8 +572,14 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Save dropdown values to database (no template materials created)
-      // The values will be available in dropdowns without creating rows in raw_materials table
+      // Save dropdown values to database
+      await saveDropdownValues(currentLocation.id, 'fornitore', newFornitori);
+
+      // Update local state
+      setDropdownValues(prev => ({
+        ...prev,
+        fornitori: newFornitori,
+      }));
 
       // Reload data
       await loadData();
@@ -569,6 +671,10 @@ const MenuEngineering: React.FC = () => {
           onManageCategoria={() => setShowCategoriaModal(true)}
           onManageMateriaPrima={() => setShowMateriaPrimaModal(true)}
           onManageFornitore={() => setShowFornitoreModal(true)}
+          tipologie={tipologie}
+          categorie={categorie}
+          materiePrime={materiePrime}
+          fornitori={fornitori}
         />
       )}
 

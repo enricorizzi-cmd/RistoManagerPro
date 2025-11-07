@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, XIcon } from '../icons/Icons';
+import SearchableSelect from '../ui/SearchableSelect';
 import type { RawMaterial } from './types';
 
 interface MateriePrimeProps {
@@ -11,6 +12,10 @@ interface MateriePrimeProps {
   onManageCategoria: () => void;
   onManageMateriaPrima: () => void;
   onManageFornitore: () => void;
+  tipologie?: string[];
+  categorie?: string[];
+  materiePrime?: string[];
+  fornitori?: string[];
 }
 
 const MateriePrime: React.FC<MateriePrimeProps> = ({
@@ -22,6 +27,10 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
   onManageCategoria,
   onManageMateriaPrima,
   onManageFornitore,
+  tipologie: tipologieProp,
+  categorie: categorieProp,
+  materiePrime: materiePrimeProp,
+  fornitori: fornitoriProp,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,33 +53,58 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
     fornitore: '',
   });
 
-  // Extract unique values for dropdowns
-  const tipologie = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.tipologia))).sort(),
-    [rawMaterials]
-  );
-  const categorie = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.categoria))).sort(),
-    [rawMaterials]
-  );
-  const materiePrime = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.materiaPrima))).sort(),
-    [rawMaterials]
-  );
-  const fornitori = useMemo(
-    () => Array.from(new Set(rawMaterials.map(m => m.fornitore))).sort(),
-    [rawMaterials]
-  );
+  // Use provided values or extract from materials
+  const tipologie = useMemo(() => {
+    if (tipologieProp) {
+      return tipologieProp;
+    }
+    return Array.from(new Set(rawMaterials.map(m => m.tipologia)))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, tipologieProp]);
 
-  // Filtered materials
+  const categorie = useMemo(() => {
+    if (categorieProp) {
+      return categorieProp;
+    }
+    return Array.from(new Set(rawMaterials.map(m => m.categoria)))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, categorieProp]);
+
+  const materiePrime = useMemo(() => {
+    if (materiePrimeProp) {
+      return materiePrimeProp;
+    }
+    return Array.from(new Set(rawMaterials.map(m => m.materiaPrima)))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, materiePrimeProp]);
+
+  const fornitori = useMemo(() => {
+    if (fornitoriProp) {
+      return fornitoriProp;
+    }
+    return Array.from(new Set(rawMaterials.map(m => m.fornitore)))
+      .filter(v => v && v.trim())
+      .sort();
+  }, [rawMaterials, fornitoriProp]);
+
+  // Filtered and sorted materials (by data ultimo acquisto, most recent first)
   const filteredMaterials = useMemo(() => {
-    return rawMaterials.filter(m => {
+    const filtered = rawMaterials.filter(m => {
       if (filters.tipologia && m.tipologia !== filters.tipologia) return false;
       if (filters.categoria && m.categoria !== filters.categoria) return false;
       if (filters.materiaPrima && m.materiaPrima !== filters.materiaPrima)
         return false;
       if (filters.fornitore && m.fornitore !== filters.fornitore) return false;
       return true;
+    });
+    // Sort by data ultimo acquisto (most recent first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.dataUltimoAcquisto).getTime();
+      const dateB = new Date(b.dataUltimoAcquisto).getTime();
+      return dateB - dateA; // Descending order (most recent first)
     });
   }, [rawMaterials, filters]);
 
@@ -170,20 +204,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
               Tipologia
             </label>
             <div className="flex gap-1">
-              <select
-                value={filters.tipologia}
-                onChange={e =>
-                  setFilters({ ...filters, tipologia: e.target.value })
-                }
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Tutte</option>
-                {tipologie.map(t => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  value={filters.tipologia}
+                  onChange={value =>
+                    setFilters({ ...filters, tipologia: value })
+                  }
+                  options={tipologie}
+                  placeholder="Cerca tipologia..."
+                  emptyOption="Tutte"
+                  className="text-sm"
+                />
+              </div>
               <button
                 onClick={onManageTipologia}
                 className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
@@ -199,20 +231,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
               Categoria
             </label>
             <div className="flex gap-1">
-              <select
-                value={filters.categoria}
-                onChange={e =>
-                  setFilters({ ...filters, categoria: e.target.value })
-                }
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Tutte</option>
-                {categorie.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  value={filters.categoria}
+                  onChange={value =>
+                    setFilters({ ...filters, categoria: value })
+                  }
+                  options={categorie}
+                  placeholder="Cerca categoria..."
+                  emptyOption="Tutte"
+                  className="text-sm"
+                />
+              </div>
               <button
                 onClick={onManageCategoria}
                 className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
@@ -228,20 +258,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
               Materia Prima
             </label>
             <div className="flex gap-1">
-              <select
-                value={filters.materiaPrima}
-                onChange={e =>
-                  setFilters({ ...filters, materiaPrima: e.target.value })
-                }
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Tutte</option>
-                {materiePrime.map(m => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  value={filters.materiaPrima}
+                  onChange={value =>
+                    setFilters({ ...filters, materiaPrima: value })
+                  }
+                  options={materiePrime}
+                  placeholder="Cerca materia prima..."
+                  emptyOption="Tutte"
+                  className="text-sm"
+                />
+              </div>
               <button
                 onClick={onManageMateriaPrima}
                 className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
@@ -257,20 +285,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
               Fornitore
             </label>
             <div className="flex gap-1">
-              <select
-                value={filters.fornitore}
-                onChange={e =>
-                  setFilters({ ...filters, fornitore: e.target.value })
-                }
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Tutti</option>
-                {fornitori.map(f => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  value={filters.fornitore}
+                  onChange={value =>
+                    setFilters({ ...filters, fornitore: value })
+                  }
+                  options={fornitori}
+                  placeholder="Cerca fornitore..."
+                  emptyOption="Tutti"
+                  className="text-sm"
+                />
+              </div>
               <button
                 onClick={onManageFornitore}
                 className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
@@ -413,20 +439,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   Tipologia *
                 </label>
                 <div className="flex gap-1">
-                  <select
-                    value={formData.tipologia}
-                    onChange={e =>
-                      setFormData({ ...formData, tipologia: e.target.value })
-                    }
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Seleziona...</option>
-                    {tipologie.map(t => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={formData.tipologia}
+                      onChange={value =>
+                        setFormData({ ...formData, tipologia: value })
+                      }
+                      options={tipologie}
+                      placeholder="Cerca tipologia..."
+                      emptyOption="Seleziona..."
+                      className="text-sm"
+                    />
+                  </div>
                   <button
                     onClick={onManageTipologia}
                     className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
@@ -442,20 +466,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   Categoria *
                 </label>
                 <div className="flex gap-1">
-                  <select
-                    value={formData.categoria}
-                    onChange={e =>
-                      setFormData({ ...formData, categoria: e.target.value })
-                    }
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Seleziona...</option>
-                    {categorie.map(c => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={formData.categoria}
+                      onChange={value =>
+                        setFormData({ ...formData, categoria: value })
+                      }
+                      options={categorie}
+                      placeholder="Cerca categoria..."
+                      emptyOption="Seleziona..."
+                      className="text-sm"
+                    />
+                  </div>
                   <button
                     onClick={onManageCategoria}
                     className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
@@ -485,20 +507,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   Materia Prima *
                 </label>
                 <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={formData.materiaPrima}
-                    onChange={e =>
-                      setFormData({ ...formData, materiaPrima: e.target.value })
-                    }
-                    list="materie-prime-list"
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <datalist id="materie-prime-list">
-                    {materiePrime.map(m => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={formData.materiaPrima}
+                      onChange={value =>
+                        setFormData({ ...formData, materiaPrima: value })
+                      }
+                      options={materiePrime}
+                      placeholder="Cerca materia prima..."
+                      emptyOption="Seleziona..."
+                      className="text-sm"
+                    />
+                  </div>
                   <button
                     onClick={onManageMateriaPrima}
                     className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
@@ -534,20 +554,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   Fornitore *
                 </label>
                 <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={formData.fornitore}
-                    onChange={e =>
-                      setFormData({ ...formData, fornitore: e.target.value })
-                    }
-                    list="fornitori-list"
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <datalist id="fornitori-list">
-                    {fornitori.map(f => (
-                      <option key={f} value={f} />
-                    ))}
-                  </datalist>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={formData.fornitore}
+                      onChange={value =>
+                        setFormData({ ...formData, fornitore: value })
+                      }
+                      options={fornitori}
+                      placeholder="Cerca fornitore..."
+                      emptyOption="Seleziona..."
+                      className="text-sm"
+                    />
+                  </div>
                   <button
                     onClick={onManageFornitore}
                     className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"

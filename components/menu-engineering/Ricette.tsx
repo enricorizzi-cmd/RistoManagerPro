@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { PlusIcon, TrashIcon, PencilIcon, XIcon } from '../icons/Icons';
+import SearchableSelect from '../ui/SearchableSelect';
 import type {
   Recipe,
   RecipeCategory,
@@ -51,10 +52,6 @@ const Ricette: React.FC<RicetteProps> = ({
       .sort((a, b) => a.order - b.order);
   }, [recipes, activeCategory]);
 
-  // Calculate grid dimensions (3x3 default, expandable)
-  const [gridRows, setGridRows] = useState(3);
-  const gridCols = 3;
-  const totalSlots = gridRows * gridCols;
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, recipeId: string) => {
@@ -134,80 +131,50 @@ const Ricette: React.FC<RicetteProps> = ({
         ))}
       </div>
 
-      {/* Grid Controls */}
+      {/* Grid Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 md:p-4 rounded-lg shadow border border-gray-200 gap-2">
         <span className="text-xs md:text-sm text-gray-600">
-          {filteredRecipes.length} ricette visualizzate
+          {filteredRecipes.length} ricetta
+          {filteredRecipes.length !== 1 ? 'e' : ''} visualizzata
+          {filteredRecipes.length !== 1 ? 'e' : ''}
         </span>
-        <button
-          onClick={() => setGridRows(gridRows + 1)}
-          className="px-3 py-1.5 text-xs md:text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 w-full sm:w-auto"
-        >
-          + Aggiungi Riga
-        </button>
       </div>
 
       {/* Recipe Grid */}
-      <div
-        className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-        style={{
-          gridTemplateRows: `repeat(${gridRows}, auto)`,
-        }}
-      >
-        {Array.from({ length: totalSlots }).map((_, index) => {
-          const recipe = filteredRecipes[index];
-          const isEmpty = !recipe;
-
-          return (
-            <div
-              key={index}
-              className={`min-h-[300px] md:min-h-[400px] rounded-lg border-2 transition-all ${
-                isEmpty
-                  ? 'border-dashed border-gray-300 bg-gray-50'
-                  : draggedRecipeId === recipe.id
-                    ? 'border-primary bg-primary-50 opacity-50'
-                    : 'border-gray-200 bg-white shadow-sm hover:shadow-md'
-              }`}
-              onDragOver={handleDragOver}
-              onDrop={e => recipe && handleDrop(e, recipe.id)}
-            >
-              {recipe ? (
-                <RecipeCard
-                  recipe={recipe}
-                  rawMaterials={rawMaterials}
-                  onEdit={() => {
-                    setEditingRecipeId(recipe.id);
-                    setShowRecipeModal(true);
-                  }}
-                  onDelete={() => {
-                    if (
-                      window.confirm(
-                        `Sei sicuro di voler eliminare "${recipe.nomePiatto}"?`
-                      )
-                    ) {
-                      onDelete(recipe.id);
-                    }
-                  }}
-                  onDragStart={e => handleDragStart(e, recipe.id)}
-                  onDragEnd={handleDragEnd}
-                  isDragging={draggedRecipeId === recipe.id}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center p-4">
-                  <button
-                    onClick={() => {
-                      setEditingRecipeId(null);
-                      setShowRecipeModal(true);
-                    }}
-                    className="text-gray-400 hover:text-primary transition-colors"
-                  >
-                    <PlusIcon className="h-12 w-12" />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredRecipes.map(recipe => (
+          <div
+            key={recipe.id}
+            className={`min-h-[300px] md:min-h-[400px] rounded-lg border-2 transition-all ${
+              draggedRecipeId === recipe.id
+                ? 'border-primary bg-primary-50 opacity-50'
+                : 'border-gray-200 bg-white shadow-sm hover:shadow-md'
+            }`}
+            onDragOver={handleDragOver}
+            onDrop={e => handleDrop(e, recipe.id)}
+          >
+            <RecipeCard
+              recipe={recipe}
+              rawMaterials={rawMaterials}
+              onEdit={() => {
+                setEditingRecipeId(recipe.id);
+                setShowRecipeModal(true);
+              }}
+              onDelete={() => {
+                if (
+                  window.confirm(
+                    `Sei sicuro di voler eliminare "${recipe.nomePiatto}"?`
+                  )
+                ) {
+                  onDelete(recipe.id);
+                }
+              }}
+              onDragStart={e => handleDragStart(e, recipe.id)}
+              onDragEnd={handleDragEnd}
+              isDragging={draggedRecipeId === recipe.id}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Recipe Modal */}
@@ -408,32 +375,6 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </span>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="px-2 md:px-3 pb-2 md:pb-3">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              onEdit();
-            }}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            <PencilIcon className="h-4 w-4" />
-            <span>Modifica</span>
-          </button>
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span>Elimina</span>
-          </button>
         </div>
       </div>
     </div>
@@ -808,33 +749,41 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Codice Materia *
+                  Materia Prima *
                 </label>
-                <select
-                  value={ingredientForm.codMateria}
-                  onChange={e => {
+                <SearchableSelect
+                  value={
+                    ingredientForm.codMateria
+                      ? rawMaterials.find(
+                          rm => rm.codice === ingredientForm.codMateria
+                        )?.materiaPrima || ''
+                      : ''
+                  }
+                  onChange={value => {
+                    // Find raw material by materiaPrima (first match)
                     const selectedRawMaterial = rawMaterials.find(
-                      rm => rm.codice === e.target.value
+                      rm => rm.materiaPrima === value
                     );
-                    const availableUnits = selectedRawMaterial
-                      ? getAvailableUnits(selectedRawMaterial)
-                      : ['KG'];
-                    setIngredientForm({
-                      codMateria: e.target.value,
-                      materiaPrima: selectedRawMaterial?.materiaPrima || '',
-                      unitaMisura: availableUnits[0] as any,
-                      peso: ingredientForm.peso,
-                    });
+                    if (selectedRawMaterial) {
+                      const availableUnits =
+                        getAvailableUnits(selectedRawMaterial);
+                      setIngredientForm({
+                        codMateria: selectedRawMaterial.codice,
+                        materiaPrima: selectedRawMaterial.materiaPrima,
+                        unitaMisura: availableUnits[0] as any,
+                        peso: ingredientForm.peso,
+                      });
+                    }
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Seleziona...</option>
-                  {rawMaterials.map(rm => (
-                    <option key={rm.id} value={rm.codice}>
-                      {rm.codice} - {rm.materiaPrima}
-                    </option>
-                  ))}
-                </select>
+                  options={Array.from(
+                    new Set(rawMaterials.map(rm => rm.materiaPrima))
+                  ).sort((a, b) =>
+                    a.localeCompare(b, 'it', { sensitivity: 'base' })
+                  )}
+                  placeholder="Cerca materia prima..."
+                  emptyOption="Seleziona..."
+                  className="text-sm"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

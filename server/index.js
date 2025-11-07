@@ -2699,6 +2699,154 @@ ${menuEngineeringContext}`;
 // MENU ENGINEERING API ENDPOINTS
 // ============================================
 
+// Dropdown Values API (for tipologie, categorie, materie prime, fornitori)
+app.get(
+  '/api/menu-engineering/dropdown-values',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.query.locationId;
+      const type = req.query.type; // tipologia, categoria, materia_prima, fornitore
+
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      if (!type) {
+        return res.status(400).json({ error: 'Type is required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const db = getDatabase(locationId);
+      try {
+        const values = await db.query(
+          'SELECT value FROM menu_dropdown_values WHERE location_id = ? AND type = ? ORDER BY value',
+          [locationId, type]
+        );
+
+        res.json(values.map(v => v.value));
+      } catch (error) {
+        // If table doesn't exist yet, return empty array
+        if (
+          error.message &&
+          (error.message.includes('does not exist') ||
+            error.message.includes('Could not find') ||
+            error.message.includes('relation') ||
+            error.message.includes('table'))
+        ) {
+          console.log(
+            `Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
+          );
+          res.json([]);
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get dropdown values:', error);
+      res.status(500).json({ error: 'Failed to get dropdown values' });
+    }
+  }
+);
+
+app.post(
+  '/api/menu-engineering/dropdown-values',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      const { type, values } = req.body; // type: tipologia, categoria, materia_prima, fornitore
+
+      if (!locationId) {
+        return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      if (!type || !Array.isArray(values)) {
+        return res
+          .status(400)
+          .json({ error: 'Type and values array are required' });
+      }
+
+      // Check permissions
+      if (req.user.role !== 'admin') {
+        const hasPermission = await masterDb.get(
+          'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+          [req.user.id, locationId]
+        );
+        if (!hasPermission) {
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
+        }
+      }
+
+      const db = getDatabase(locationId);
+
+      try {
+        // Delete existing values for this type
+        await db.run(
+          'DELETE FROM menu_dropdown_values WHERE location_id = ? AND type = ?',
+          [locationId, type]
+        );
+
+        // Insert new values
+        for (const value of values) {
+          if (value && value.trim()) {
+            const id = crypto.randomUUID();
+            await db.run(
+              'INSERT INTO menu_dropdown_values (id, location_id, type, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+              [
+                id,
+                locationId,
+                type,
+                value.trim(),
+                new Date().toISOString(),
+                new Date().toISOString(),
+              ]
+            );
+          }
+        }
+
+        res.json({ success: true });
+      } catch (error) {
+        // If table doesn't exist, inform user they need to create it
+        if (
+          error.message &&
+          (error.message.includes('does not exist') ||
+            error.message.includes('Could not find') ||
+            error.message.includes('relation') ||
+            error.message.includes('table'))
+        ) {
+          console.error(
+            `Table menu_dropdown_values doesn't exist. Please create it in Supabase with columns: id (uuid, primary key), location_id (text), type (text), value (text), created_at (timestamp), updated_at (timestamp)`
+          );
+          res.status(400).json({
+            error:
+              'Table menu_dropdown_values does not exist. Please create it in Supabase.',
+          });
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save dropdown values:', error);
+      res.status(500).json({ error: 'Failed to save dropdown values' });
+    }
+  }
+);
+
 // Raw Materials API
 app.get(
   '/api/menu-engineering/raw-materials',
