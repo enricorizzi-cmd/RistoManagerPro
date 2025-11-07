@@ -72,7 +72,10 @@ export interface RawMaterial {
 }
 
 export const getRawMaterials = (locationId: string): Promise<RawMaterial[]> => {
-  return apiCall<RawMaterial[]>('/api/menu-engineering/raw-materials', locationId);
+  return apiCall<RawMaterial[]>(
+    '/api/menu-engineering/raw-materials',
+    locationId
+  );
 };
 
 export const createRawMaterial = (
@@ -82,19 +85,23 @@ export const createRawMaterial = (
     'id' | 'location_id' | 'created_at' | 'updated_at'
   >
 ): Promise<RawMaterial> => {
-  return apiCall<RawMaterial>('/api/menu-engineering/raw-materials', locationId, {
-    method: 'POST',
-    body: JSON.stringify({
-      tipologia: material.tipologia,
-      categoria: material.categoria,
-      codice: material.codice,
-      materiaPrima: material.materia_prima,
-      unitaMisura: material.unita_misura,
-      fornitore: material.fornitore,
-      prezzoAcquisto: material.prezzo_acquisto,
-      dataUltimoAcquisto: material.data_ultimo_acquisto,
-    }),
-  });
+  return apiCall<RawMaterial>(
+    '/api/menu-engineering/raw-materials',
+    locationId,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        tipologia: material.tipologia,
+        categoria: material.categoria,
+        codice: material.codice,
+        materiaPrima: material.materia_prima,
+        unitaMisura: material.unita_misura,
+        fornitore: material.fornitore,
+        prezzoAcquisto: material.prezzo_acquisto,
+        dataUltimoAcquisto: material.data_ultimo_acquisto,
+      }),
+    }
+  );
 };
 
 export const updateRawMaterial = (
@@ -104,19 +111,23 @@ export const updateRawMaterial = (
     Omit<RawMaterial, 'id' | 'location_id' | 'created_at' | 'updated_at'>
   >
 ): Promise<RawMaterial> => {
-  return apiCall<RawMaterial>(`/api/menu-engineering/raw-materials/${id}`, locationId, {
-    method: 'PUT',
-    body: JSON.stringify({
-      tipologia: material.tipologia,
-      categoria: material.categoria,
-      codice: material.codice,
-      materiaPrima: material.materia_prima,
-      unitaMisura: material.unita_misura,
-      fornitore: material.fornitore,
-      prezzoAcquisto: material.prezzo_acquisto,
-      dataUltimoAcquisto: material.data_ultimo_acquisto,
-    }),
-  });
+  return apiCall<RawMaterial>(
+    `/api/menu-engineering/raw-materials/${id}`,
+    locationId,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        tipologia: material.tipologia,
+        categoria: material.categoria,
+        codice: material.codice,
+        materiaPrima: material.materia_prima,
+        unitaMisura: material.unita_misura,
+        fornitore: material.fornitore,
+        prezzoAcquisto: material.prezzo_acquisto,
+        dataUltimoAcquisto: material.data_ultimo_acquisto,
+      }),
+    }
+  );
 };
 
 export const deleteRawMaterial = (
@@ -229,10 +240,17 @@ export const updateRecipe = (
   });
 };
 
-export const deleteRecipe = (locationId: string, id: string): Promise<{ success: boolean }> => {
-  return apiCall<{ success: boolean }>(`/api/menu-engineering/recipes/${id}`, locationId, {
-    method: 'DELETE',
-  });
+export const deleteRecipe = (
+  locationId: string,
+  id: string
+): Promise<{ success: boolean }> => {
+  return apiCall<{ success: boolean }>(
+    `/api/menu-engineering/recipes/${id}`,
+    locationId,
+    {
+      method: 'DELETE',
+    }
+  );
 };
 
 // Recipe Sales API
@@ -247,7 +265,10 @@ export interface RecipeSale {
 }
 
 export const getRecipeSales = (locationId: string): Promise<RecipeSale[]> => {
-  return apiCall<RecipeSale[]>('/api/menu-engineering/recipe-sales', locationId);
+  return apiCall<RecipeSale[]>(
+    '/api/menu-engineering/recipe-sales',
+    locationId
+  );
 };
 
 export const createRecipeSale = (

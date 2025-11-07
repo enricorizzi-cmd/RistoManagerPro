@@ -146,7 +146,9 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Materie Prime</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+            Materie Prime
+          </h2>
           <p className="mt-1 text-xs md:text-sm text-gray-600">
             Gestisci le materie prime e i loro costi
           </p>

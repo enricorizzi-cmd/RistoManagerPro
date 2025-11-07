@@ -98,7 +98,9 @@ const Ricette: React.FC<RicetteProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Ricette</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+            Ricette
+          </h2>
           <p className="mt-1 text-xs md:text-sm text-gray-600">
             Crea e gestisci le ricette del tuo menu
           </p>
@@ -276,7 +278,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       <div className="bg-gradient-to-r from-primary to-primary-600 text-white p-2 md:p-3 rounded-t-lg">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base md:text-lg truncate">{recipe.nomePiatto}</h3>
+            <h3 className="font-bold text-base md:text-lg truncate">
+              {recipe.nomePiatto}
+            </h3>
             <p className="text-xs md:text-sm text-primary-100 mt-1">
               Prezzo: €{recipe.prezzoVendita.toFixed(2)}
             </p>
@@ -332,7 +336,12 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             {recipe.ingredienti.map((ing, idx) => (
               <tr key={idx} className="border-b border-gray-100">
                 <td className="py-1 px-1 text-gray-700">{ing.codMateria}</td>
-                <td className="py-1 px-1 text-gray-700 truncate max-w-[100px]" title={ing.materiaPrima}>{ing.materiaPrima}</td>
+                <td
+                  className="py-1 px-1 text-gray-700 truncate max-w-[100px]"
+                  title={ing.materiaPrima}
+                >
+                  {ing.materiaPrima}
+                </td>
                 <td className="py-1 px-1 text-right text-gray-600">
                   {ing.unitaMisura}
                 </td>

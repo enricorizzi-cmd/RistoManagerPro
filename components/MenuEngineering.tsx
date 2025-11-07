@@ -162,12 +162,15 @@ const MenuEngineering: React.FC = () => {
       // Check for renamed tipologie
       const renamed: Map<string, string> = new Map();
       tipologie.forEach(old => {
-        const found = newTipologie.find(newT => newT.toLowerCase() === old.toLowerCase());
+        const found = newTipologie.find(
+          newT => newT.toLowerCase() === old.toLowerCase()
+        );
         if (!found && newTipologie.length >= tipologie.length) {
           // Try to find a similar one (case-insensitive match)
-          const similar = newTipologie.find(newT => 
-            newT.toLowerCase().includes(old.toLowerCase()) || 
-            old.toLowerCase().includes(newT.toLowerCase())
+          const similar = newTipologie.find(
+            newT =>
+              newT.toLowerCase().includes(old.toLowerCase()) ||
+              old.toLowerCase().includes(newT.toLowerCase())
           );
           if (similar) {
             renamed.set(old, similar);
@@ -211,29 +214,9 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Create template materials for new tipologie that don't exist yet
-      const existingTipologie = new Set(rawMaterials.map(m => m.tipologia));
-      const newTipologieToCreate = newTipologie.filter(
-        t => !existingTipologie.has(t) && t.trim() !== ''
-      );
-
-      for (const newTipologia of newTipologieToCreate) {
-        // Use first available values or defaults
-        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
-        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
-        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
-        
-        await handleAddRawMaterial({
-          tipologia: newTipologia,
-          categoria: firstCategoria,
-          codice: `TMP-${newTipologia.toUpperCase().substring(0, 3)}-${Date.now()}`,
-          materiaPrima: firstMateriaPrima,
-          unitaMisura: 'KG',
-          fornitore: firstFornitore,
-          prezzoAcquisto: 0,
-          dataUltimoAcquisto: new Date().toISOString(),
-        });
-      }
+      // Save dropdown values to database (no template materials created)
+      // The values will be available in dropdowns without creating rows in raw_materials table
+      // Note: Values are extracted from existing materials, new values are just saved for dropdown use
 
       // Reload data
       await loadData();
@@ -241,7 +224,9 @@ const MenuEngineering: React.FC = () => {
     } catch (error) {
       console.error('Failed to update tipologie:', error);
       showNotification(
-        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle tipologie',
+        error instanceof Error
+          ? error.message
+          : "Errore nell'aggiornamento delle tipologie",
         'error'
       );
       throw error;
@@ -266,11 +251,14 @@ const MenuEngineering: React.FC = () => {
       // Check for renamed categorie
       const renamed: Map<string, string> = new Map();
       categorie.forEach(old => {
-        const found = newCategorie.find(newC => newC.toLowerCase() === old.toLowerCase());
+        const found = newCategorie.find(
+          newC => newC.toLowerCase() === old.toLowerCase()
+        );
         if (!found && newCategorie.length >= categorie.length) {
-          const similar = newCategorie.find(newC => 
-            newC.toLowerCase().includes(old.toLowerCase()) || 
-            old.toLowerCase().includes(newC.toLowerCase())
+          const similar = newCategorie.find(
+            newC =>
+              newC.toLowerCase().includes(old.toLowerCase()) ||
+              old.toLowerCase().includes(newC.toLowerCase())
           );
           if (similar) {
             renamed.set(old, similar);
@@ -314,29 +302,8 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Create template materials for new categorie that don't exist yet
-      const existingCategorie = new Set(rawMaterials.map(m => m.categoria));
-      const newCategorieToCreate = newCategorie.filter(
-        c => !existingCategorie.has(c) && c.trim() !== ''
-      );
-
-      for (const newCategoria of newCategorieToCreate) {
-        // Use first available values or defaults
-        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
-        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
-        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
-        
-        await handleAddRawMaterial({
-          tipologia: firstTipologia,
-          categoria: newCategoria,
-          codice: `TMP-${newCategoria.toUpperCase().substring(0, 3)}-${Date.now()}`,
-          materiaPrima: firstMateriaPrima,
-          unitaMisura: 'KG',
-          fornitore: firstFornitore,
-          prezzoAcquisto: 0,
-          dataUltimoAcquisto: new Date().toISOString(),
-        });
-      }
+      // Save dropdown values to database (no template materials created)
+      // The values will be available in dropdowns without creating rows in raw_materials table
 
       // Reload data
       await loadData();
@@ -344,7 +311,9 @@ const MenuEngineering: React.FC = () => {
     } catch (error) {
       console.error('Failed to update categorie:', error);
       showNotification(
-        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle categorie',
+        error instanceof Error
+          ? error.message
+          : "Errore nell'aggiornamento delle categorie",
         'error'
       );
       throw error;
@@ -369,11 +338,14 @@ const MenuEngineering: React.FC = () => {
       // Check for renamed materie prime
       const renamed: Map<string, string> = new Map();
       materiePrime.forEach(old => {
-        const found = newMateriePrime.find(newM => newM.toLowerCase() === old.toLowerCase());
+        const found = newMateriePrime.find(
+          newM => newM.toLowerCase() === old.toLowerCase()
+        );
         if (!found && newMateriePrime.length >= materiePrime.length) {
-          const similar = newMateriePrime.find(newM => 
-            newM.toLowerCase().includes(old.toLowerCase()) || 
-            old.toLowerCase().includes(newM.toLowerCase())
+          const similar = newMateriePrime.find(
+            newM =>
+              newM.toLowerCase().includes(old.toLowerCase()) ||
+              old.toLowerCase().includes(newM.toLowerCase())
           );
           if (similar) {
             renamed.set(old, similar);
@@ -417,29 +389,8 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Create template materials for new materie prime that don't exist yet
-      const existingMateriePrime = new Set(rawMaterials.map(m => m.materiaPrima));
-      const newMateriePrimeToCreate = newMateriePrime.filter(
-        m => !existingMateriePrime.has(m) && m.trim() !== ''
-      );
-
-      for (const newMateriaPrima of newMateriePrimeToCreate) {
-        // Use first available values or defaults
-        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
-        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
-        const firstFornitore = fornitori.length > 0 ? fornitori[0] : 'Da definire';
-        
-        await handleAddRawMaterial({
-          tipologia: firstTipologia,
-          categoria: firstCategoria,
-          codice: `TMP-${newMateriaPrima.toUpperCase().substring(0, 3)}-${Date.now()}`,
-          materiaPrima: newMateriaPrima,
-          unitaMisura: 'KG',
-          fornitore: firstFornitore,
-          prezzoAcquisto: 0,
-          dataUltimoAcquisto: new Date().toISOString(),
-        });
-      }
+      // Save dropdown values to database (no template materials created)
+      // The values will be available in dropdowns without creating rows in raw_materials table
 
       // Reload data
       await loadData();
@@ -447,7 +398,9 @@ const MenuEngineering: React.FC = () => {
     } catch (error) {
       console.error('Failed to update materie prime:', error);
       showNotification(
-        error instanceof Error ? error.message : 'Errore nell\'aggiornamento delle materie prime',
+        error instanceof Error
+          ? error.message
+          : "Errore nell'aggiornamento delle materie prime",
         'error'
       );
       throw error;
@@ -472,11 +425,14 @@ const MenuEngineering: React.FC = () => {
       // Check for renamed fornitori
       const renamed: Map<string, string> = new Map();
       fornitori.forEach(old => {
-        const found = newFornitori.find(newF => newF.toLowerCase() === old.toLowerCase());
+        const found = newFornitori.find(
+          newF => newF.toLowerCase() === old.toLowerCase()
+        );
         if (!found && newFornitori.length >= fornitori.length) {
-          const similar = newFornitori.find(newF => 
-            newF.toLowerCase().includes(old.toLowerCase()) || 
-            old.toLowerCase().includes(newF.toLowerCase())
+          const similar = newFornitori.find(
+            newF =>
+              newF.toLowerCase().includes(old.toLowerCase()) ||
+              old.toLowerCase().includes(newF.toLowerCase())
           );
           if (similar) {
             renamed.set(old, similar);
@@ -520,29 +476,8 @@ const MenuEngineering: React.FC = () => {
         }
       }
 
-      // Create template materials for new fornitori that don't exist yet
-      const existingFornitori = new Set(rawMaterials.map(m => m.fornitore));
-      const newFornitoriToCreate = newFornitori.filter(
-        f => !existingFornitori.has(f) && f.trim() !== ''
-      );
-
-      for (const newFornitore of newFornitoriToCreate) {
-        // Use first available values or defaults
-        const firstTipologia = tipologie.length > 0 ? tipologie[0] : 'Generale';
-        const firstCategoria = categorie.length > 0 ? categorie[0] : 'Generale';
-        const firstMateriaPrima = materiePrime.length > 0 ? materiePrime[0] : 'Template';
-        
-        await handleAddRawMaterial({
-          tipologia: firstTipologia,
-          categoria: firstCategoria,
-          codice: `TMP-${newFornitore.toUpperCase().substring(0, 3)}-${Date.now()}`,
-          materiaPrima: firstMateriaPrima,
-          unitaMisura: 'KG',
-          fornitore: newFornitore,
-          prezzoAcquisto: 0,
-          dataUltimoAcquisto: new Date().toISOString(),
-        });
-      }
+      // Save dropdown values to database (no template materials created)
+      // The values will be available in dropdowns without creating rows in raw_materials table
 
       // Reload data
       await loadData();
@@ -550,7 +485,9 @@ const MenuEngineering: React.FC = () => {
     } catch (error) {
       console.error('Failed to update fornitori:', error);
       showNotification(
-        error instanceof Error ? error.message : 'Errore nell\'aggiornamento dei fornitori',
+        error instanceof Error
+          ? error.message
+          : "Errore nell'aggiornamento dei fornitori",
         'error'
       );
       throw error;
@@ -594,7 +531,9 @@ const MenuEngineering: React.FC = () => {
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Menu Engineering</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          Menu Engineering
+        </h1>
         <p className="mt-2 text-sm md:text-base text-gray-600">
           Gestisci materie prime, ricette e analizza il tuo menu con la matrice
           BCG

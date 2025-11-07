@@ -166,18 +166,21 @@ export function useMenuEngineering() {
     [currentLocation?.id]
   );
 
-  const handleDeleteRawMaterial = useCallback(async (id: string) => {
-    if (!currentLocation?.id) {
-      throw new Error('Location ID is required');
-    }
-    try {
-      await deleteRawMaterial(currentLocation.id, id);
-      setRawMaterials(prev => prev.filter(m => m.id !== id));
-    } catch (err) {
-      console.error('Failed to delete raw material:', err);
-      throw err;
-    }
-  }, [currentLocation?.id]);
+  const handleDeleteRawMaterial = useCallback(
+    async (id: string) => {
+      if (!currentLocation?.id) {
+        throw new Error('Location ID is required');
+      }
+      try {
+        await deleteRawMaterial(currentLocation.id, id);
+        setRawMaterials(prev => prev.filter(m => m.id !== id));
+      } catch (err) {
+        console.error('Failed to delete raw material:', err);
+        throw err;
+      }
+    },
+    [currentLocation?.id]
+  );
 
   // Recipes handlers
   const handleAddRecipe = useCallback(
@@ -256,38 +259,44 @@ export function useMenuEngineering() {
     [currentLocation?.id]
   );
 
-  const handleDeleteRecipe = useCallback(async (id: string) => {
-    if (!currentLocation?.id) {
-      throw new Error('Location ID is required');
-    }
-    try {
-      await deleteRecipe(currentLocation.id, id);
-      setRecipes(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error('Failed to delete recipe:', err);
-      throw err;
-    }
-  }, [currentLocation?.id]);
+  const handleDeleteRecipe = useCallback(
+    async (id: string) => {
+      if (!currentLocation?.id) {
+        throw new Error('Location ID is required');
+      }
+      try {
+        await deleteRecipe(currentLocation.id, id);
+        setRecipes(prev => prev.filter(r => r.id !== id));
+      } catch (err) {
+        console.error('Failed to delete recipe:', err);
+        throw err;
+      }
+    },
+    [currentLocation?.id]
+  );
 
-  const handleReorderRecipes = useCallback(async (recipeIds: string[]) => {
-    if (!currentLocation?.id) {
-      throw new Error('Location ID is required');
-    }
-    try {
-      // Update order for each recipe
-      const updates = recipeIds.map((id, index) =>
-        updateRecipe(currentLocation.id, id, { order: index })
-      );
-      await Promise.all(updates);
+  const handleReorderRecipes = useCallback(
+    async (recipeIds: string[]) => {
+      if (!currentLocation?.id) {
+        throw new Error('Location ID is required');
+      }
+      try {
+        // Update order for each recipe
+        const updates = recipeIds.map((id, index) =>
+          updateRecipe(currentLocation.id, id, { order: index })
+        );
+        await Promise.all(updates);
 
-      // Reload recipes to get updated order
-      const recipesData = await getRecipes(currentLocation.id);
-      setRecipes(recipesData.map(convertRecipe));
-    } catch (err) {
-      console.error('Failed to reorder recipes:', err);
-      throw err;
-    }
-  }, [currentLocation?.id]);
+        // Reload recipes to get updated order
+        const recipesData = await getRecipes(currentLocation.id);
+        setRecipes(recipesData.map(convertRecipe));
+      } catch (err) {
+        console.error('Failed to reorder recipes:', err);
+        throw err;
+      }
+    },
+    [currentLocation?.id]
+  );
 
   return {
     rawMaterials,

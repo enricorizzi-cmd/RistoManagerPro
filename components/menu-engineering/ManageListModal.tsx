@@ -112,7 +112,8 @@ const ManageListModal: React.FC<ManageListModalProps> = ({
           <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
             {localItems.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
-                Nessun elemento. Aggiungi il primo elemento usando il campo sopra.
+                Nessun elemento. Aggiungi il primo elemento usando il campo
+                sopra.
               </div>
             ) : (
               <ul className="divide-y divide-gray-200">
@@ -201,4 +202,3 @@ const ManageListModal: React.FC<ManageListModalProps> = ({
 };
 
 export default ManageListModal;
-

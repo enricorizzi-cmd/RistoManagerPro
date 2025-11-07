@@ -2387,19 +2387,19 @@ ULTIMI 3 MESI DETTAGLIATI:`;
     let menuEngineeringContext = '';
     try {
       const db = getDatabase(locationId);
-      
+
       // 1. Get raw materials
       const rawMaterials = await db.query(
         'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
         [locationId]
       );
-      
+
       // 2. Get recipes with ingredients
       const recipes = await db.query(
         'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
         [locationId]
       );
-      
+
       // Get ingredients for each recipe
       for (const recipe of recipes) {
         const ingredients = await db.query(
@@ -2408,13 +2408,13 @@ ULTIMI 3 MESI DETTAGLIATI:`;
         );
         recipe.ingredienti = ingredients;
       }
-      
+
       // 3. Get recipe sales
       const recipeSales = await db.query(
         'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
         [locationId]
       );
-      
+
       // Build Menu Engineering context
       menuEngineeringContext = `\n\n===== DATI MENU ENGINEERING DAL DATABASE =====
       
@@ -2428,10 +2428,18 @@ ${rawMaterials.length > 0 ? `- Prezzo medio acquisto: ${(rawMaterials.reduce((su
 RICETTE:
 - Totale ricette: ${recipes.length}
 ${recipes.length > 0 ? `- Ricette per categoria:` : ''}
-${recipes.length > 0 ? Object.entries(recipes.reduce((acc, r) => {
-  acc[r.categoria] = (acc[r.categoria] || 0) + 1;
-  return acc;
-}, {})).map(([cat, count]) => `  - ${cat}: ${count}`).join('\n') : ''}
+${
+  recipes.length > 0
+    ? Object.entries(
+        recipes.reduce((acc, r) => {
+          acc[r.categoria] = (acc[r.categoria] || 0) + 1;
+          return acc;
+        }, {})
+      )
+        .map(([cat, count]) => `  - ${cat}: ${count}`)
+        .join('\n')
+    : ''
+}
 ${recipes.length > 0 ? `- Prezzo medio vendita: ${(recipes.reduce((sum, r) => sum + parseFloat(r.prezzo_vendita || 0), 0) / recipes.length).toFixed(2)}€` : ''}
 ${recipes.length > 0 ? `- Food cost medio: ${(recipes.reduce((sum, r) => sum + parseFloat(r.food_cost || 0), 0) / recipes.length).toFixed(2)}€` : ''}
 ${recipes.length > 0 ? `- Marginalità media: ${(recipes.reduce((sum, r) => sum + parseFloat(r.marginalita || 0), 0) / recipes.length).toFixed(1)}%` : ''}
@@ -2441,14 +2449,15 @@ VENDITE RICETTE:
 - Totale vendite registrate: ${recipeSales.length}
 ${recipeSales.length > 0 ? `- Quantità totale venduta: ${recipeSales.reduce((sum, s) => sum + parseFloat(s.quantity || 0), 0)}` : ''}
 ${recipeSales.length > 0 ? `- Ricette vendute (uniche): ${Array.from(new Set(recipeSales.map(s => s.recipe_id))).length}` : ''}`;
-      
+
       // Add top recipes by sales
       if (recipeSales.length > 0) {
         const salesByRecipe = recipeSales.reduce((acc, sale) => {
-          acc[sale.recipe_id] = (acc[sale.recipe_id] || 0) + parseFloat(sale.quantity || 0);
+          acc[sale.recipe_id] =
+            (acc[sale.recipe_id] || 0) + parseFloat(sale.quantity || 0);
           return acc;
         }, {});
-        
+
         const topRecipes = Object.entries(salesByRecipe)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
@@ -2457,46 +2466,76 @@ ${recipeSales.length > 0 ? `- Ricette vendute (uniche): ${Array.from(new Set(rec
             return recipe ? `${recipe.nome_piatto}: ${quantity} vendite` : null;
           })
           .filter(Boolean);
-        
+
         if (topRecipes.length > 0) {
           menuEngineeringContext += `\n\nTOP 5 RICETTE PER VENDITE:\n${topRecipes.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
         }
       }
-      
+
       // Add BCG Matrix analysis
       if (recipes.length > 0 && recipeSales.length > 0) {
-        const avgPopularity = recipes.reduce((sum, r) => {
-          const sales = recipeSales.filter(s => s.recipe_id === r.id);
-          const totalQuantity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
-          return sum + totalQuantity;
-        }, 0) / recipes.length;
-        
-        const avgMargin = recipes.reduce((sum, r) => sum + parseFloat(r.marginalita || 0), 0) / recipes.length;
-        
+        const avgPopularity =
+          recipes.reduce((sum, r) => {
+            const sales = recipeSales.filter(s => s.recipe_id === r.id);
+            const totalQuantity = sales.reduce(
+              (s, sale) => s + parseFloat(sale.quantity || 0),
+              0
+            );
+            return sum + totalQuantity;
+          }, 0) / recipes.length;
+
+        const avgMargin =
+          recipes.reduce((sum, r) => sum + parseFloat(r.marginalita || 0), 0) /
+          recipes.length;
+
         const stars = recipes.filter(r => {
           const sales = recipeSales.filter(s => s.recipe_id === r.id);
-          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
-          return popularity >= avgPopularity && parseFloat(r.marginalita || 0) >= avgMargin;
+          const popularity = sales.reduce(
+            (s, sale) => s + parseFloat(sale.quantity || 0),
+            0
+          );
+          return (
+            popularity >= avgPopularity &&
+            parseFloat(r.marginalita || 0) >= avgMargin
+          );
         });
-        
+
         const cashCows = recipes.filter(r => {
           const sales = recipeSales.filter(s => s.recipe_id === r.id);
-          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
-          return popularity >= avgPopularity && parseFloat(r.marginalita || 0) < avgMargin;
+          const popularity = sales.reduce(
+            (s, sale) => s + parseFloat(sale.quantity || 0),
+            0
+          );
+          return (
+            popularity >= avgPopularity &&
+            parseFloat(r.marginalita || 0) < avgMargin
+          );
         });
-        
+
         const questionMarks = recipes.filter(r => {
           const sales = recipeSales.filter(s => s.recipe_id === r.id);
-          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
-          return popularity < avgPopularity && parseFloat(r.marginalita || 0) >= avgMargin;
+          const popularity = sales.reduce(
+            (s, sale) => s + parseFloat(sale.quantity || 0),
+            0
+          );
+          return (
+            popularity < avgPopularity &&
+            parseFloat(r.marginalita || 0) >= avgMargin
+          );
         });
-        
+
         const dogs = recipes.filter(r => {
           const sales = recipeSales.filter(s => s.recipe_id === r.id);
-          const popularity = sales.reduce((s, sale) => s + parseFloat(sale.quantity || 0), 0);
-          return popularity < avgPopularity && parseFloat(r.marginalita || 0) < avgMargin;
+          const popularity = sales.reduce(
+            (s, sale) => s + parseFloat(sale.quantity || 0),
+            0
+          );
+          return (
+            popularity < avgPopularity &&
+            parseFloat(r.marginalita || 0) < avgMargin
+          );
         });
-        
+
         menuEngineeringContext += `\n\nANALISI MATRICE BCG:
 - Stelle (alta popolarità, alto margine): ${stars.length} ricette
 - Mucche da Latte (alta popolarità, basso margine): ${cashCows.length} ricette
@@ -2505,7 +2544,8 @@ ${recipeSales.length > 0 ? `- Ricette vendute (uniche): ${Array.from(new Set(rec
       }
     } catch (error) {
       console.error('Error fetching menu engineering data:', error);
-      menuEngineeringContext = '\n\n===== DATI MENU ENGINEERING =====\nErrore nel recupero dei dati di Menu Engineering dal database.';
+      menuEngineeringContext =
+        '\n\n===== DATI MENU ENGINEERING =====\nErrore nel recupero dei dati di Menu Engineering dal database.';
     }
 
     // System prompt - Expert in restaurant financial management AND menu engineering
@@ -3005,7 +3045,15 @@ app.post('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
     res.status(201).json(recipe);
   } catch (error) {
     console.error('Failed to create recipe', error);
-    res.status(500).json({ error: 'Failed to create recipe' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+    res.status(500).json({
+      error: 'Failed to create recipe',
+      details: error.message,
+    });
   }
 });
 
