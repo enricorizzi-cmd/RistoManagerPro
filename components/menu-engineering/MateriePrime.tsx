@@ -16,6 +16,7 @@ interface MateriePrimeProps {
   categorie?: string[];
   materiePrime?: string[];
   fornitori?: string[];
+  isReadOnly?: boolean;
 }
 
 const MateriePrime: React.FC<MateriePrimeProps> = ({
@@ -31,6 +32,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
   categorie: categorieProp,
   materiePrime: materiePrimeProp,
   fornitori: fornitoriProp,
+  isReadOnly = false,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
       return tipologieProp;
     }
     return Array.from(new Set(rawMaterials.map(m => m.tipologia)))
-      .filter(v => v && v.trim())
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
       .sort();
   }, [rawMaterials, tipologieProp]);
 
@@ -68,7 +70,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
       return categorieProp;
     }
     return Array.from(new Set(rawMaterials.map(m => m.categoria)))
-      .filter(v => v && v.trim())
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
       .sort();
   }, [rawMaterials, categorieProp]);
 
@@ -77,7 +79,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
       return materiePrimeProp;
     }
     return Array.from(new Set(rawMaterials.map(m => m.materiaPrima)))
-      .filter(v => v && v.trim())
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
       .sort();
   }, [rawMaterials, materiePrimeProp]);
 
@@ -86,7 +88,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
       return fornitoriProp;
     }
     return Array.from(new Set(rawMaterials.map(m => m.fornitore)))
-      .filter(v => v && v.trim())
+      .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
       .sort();
   }, [rawMaterials, fornitoriProp]);
 
@@ -108,8 +110,35 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
     });
   }, [rawMaterials, filters]);
 
+  // Generate next available codice (progressive, 3 digits with zero padding)
+  const generateNextCodice = useMemo(() => {
+    if (rawMaterials.length === 0) {
+      return '001';
+    }
+
+    // Extract numeric part from existing codici (assumes format like "001", "002", etc.)
+    const codiciNumerici = rawMaterials
+      .map(m => {
+        // Try to extract numeric value from codice
+        const match = m.codice.match(/^(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+
+    if (codiciNumerici.length === 0) {
+      return '001';
+    }
+
+    const maxCodice = Math.max(...codiciNumerici);
+    const nextCodice = maxCodice + 1;
+
+    // Format with zero padding (3 digits: 001, 002, ..., 999)
+    return nextCodice.toString().padStart(3, '0');
+  }, [rawMaterials]);
+
   const handleOpenModal = (material?: RawMaterial) => {
     if (material) {
+      // Editing existing material
       setEditingId(material.id);
       setFormData({
         tipologia: material.tipologia,
@@ -122,11 +151,12 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
         dataUltimoAcquisto: material.dataUltimoAcquisto.split('T')[0],
       });
     } else {
+      // Adding new material - auto-generate codice
       setEditingId(null);
       setFormData({
         tipologia: '',
         categoria: '',
-        codice: '',
+        codice: generateNextCodice,
         materiaPrima: '',
         unitaMisura: 'KG',
         fornitore: '',
@@ -187,13 +217,20 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
             Gestisci le materie prime e i loro costi
           </p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span>Aggiungi Materia Prima</span>
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span>Aggiungi Materia Prima</span>
+          </button>
+        )}
+        {isReadOnly && (
+          <div className="text-xs md:text-sm text-gray-500 italic">
+            Visualizzazione aggregata - Modifiche non disponibili
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -216,13 +253,15 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   className="text-sm"
                 />
               </div>
-              <button
-                onClick={onManageTipologia}
-                className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
-                title="Gestisci tipologie"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={onManageTipologia}
+                  className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
+                  title="Gestisci tipologie"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -243,13 +282,15 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   className="text-sm"
                 />
               </div>
-              <button
-                onClick={onManageCategoria}
-                className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
-                title="Gestisci categorie"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={onManageCategoria}
+                  className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
+                  title="Gestisci categorie"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -270,13 +311,15 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   className="text-sm"
                 />
               </div>
-              <button
-                onClick={onManageMateriaPrima}
-                className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
-                title="Gestisci materie prime"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={onManageMateriaPrima}
+                  className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
+                  title="Gestisci materie prime"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -297,13 +340,15 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   className="text-sm"
                 />
               </div>
-              <button
-                onClick={onManageFornitore}
-                className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
-                title="Gestisci fornitori"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={onManageFornitore}
+                  className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 text-sm"
+                  title="Gestisci fornitori"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -339,16 +384,18 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Data Ultimo Acquisto
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Azioni
-                </th>
+                {!isReadOnly && (
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Azioni
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMaterials.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={isReadOnly ? 8 : 9}
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     Nessuna materia prima trovata
@@ -383,32 +430,34 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                         'it-IT'
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenModal(material)}
-                          className="text-primary hover:text-primary-600"
-                          title="Modifica"
-                        >
-                          <PencilIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                'Sei sicuro di voler eliminare questa materia prima?'
-                              )
-                            ) {
-                              onDelete(material.id);
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-800"
-                          title="Elimina"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </td>
+                    {!isReadOnly && (
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenModal(material)}
+                            className="text-primary hover:text-primary-600"
+                            title="Modifica"
+                          >
+                            <PencilIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  'Sei sicuro di voler eliminare questa materia prima?'
+                                )
+                              ) {
+                                onDelete(material.id);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                            title="Elimina"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -498,7 +547,15 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
                   onChange={e =>
                     setFormData({ ...formData, codice: e.target.value })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  readOnly={!editingId}
+                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${
+                    !editingId ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
+                  title={
+                    !editingId
+                      ? 'Il codice viene generato automaticamente'
+                      : 'Codice materia prima'
+                  }
                 />
               </div>
 

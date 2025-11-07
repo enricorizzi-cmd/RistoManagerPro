@@ -675,6 +675,7 @@ const MenuEngineering: React.FC = () => {
           categorie={categorie}
           materiePrime={materiePrime}
           fornitori={fornitori}
+          isReadOnly={currentLocation?.id === 'all'}
         />
       )}
 
@@ -686,6 +687,7 @@ const MenuEngineering: React.FC = () => {
           onUpdate={handleUpdateRecipeWithNotification}
           onDelete={handleDeleteRecipeWithNotification}
           onReorder={handleReorderRecipes}
+          isReadOnly={currentLocation?.id === 'all'}
         />
       )}
 

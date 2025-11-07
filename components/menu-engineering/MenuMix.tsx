@@ -90,6 +90,12 @@ const MenuMix: React.FC<MenuMixProps> = ({
       }
     });
 
+    // Sort each quadrant by marginalità descending
+    stars.sort((a, b) => b.marginalita - a.marginalita);
+    questionMarks.sort((a, b) => b.marginalita - a.marginalita);
+    cashCows.sort((a, b) => b.marginalita - a.marginalita);
+    dogs.sort((a, b) => b.marginalita - a.marginalita);
+
     return { stars, questionMarks, cashCows, dogs };
   }, [filteredRecipes, getRecipePopularity]);
 
@@ -138,7 +144,7 @@ const MenuMix: React.FC<MenuMixProps> = ({
               <div
                 key={recipe.id}
                 onClick={() => onRecipeClick?.(recipe)}
-                className={`bg-white/80 hover:bg-white cursor-pointer p-2 rounded border border-white/50 transition-all hover:shadow-md ${onRecipeClick ? 'hover:scale-105' : ''}`}
+                className="bg-white/80 hover:bg-white cursor-pointer p-2 rounded border border-white/50 transition-all hover:shadow-md"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">

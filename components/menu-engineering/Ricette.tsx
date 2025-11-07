@@ -17,6 +17,7 @@ interface RicetteProps {
   onUpdate: (id: string, recipe: Partial<Recipe>) => void;
   onDelete: (id: string) => void;
   onReorder: (recipeIds: string[]) => void;
+  isReadOnly?: boolean;
 }
 
 const Ricette: React.FC<RicetteProps> = ({
@@ -26,6 +27,7 @@ const Ricette: React.FC<RicetteProps> = ({
   onUpdate,
   onDelete,
   onReorder,
+  isReadOnly = false,
 }) => {
   const [activeCategory, setActiveCategory] =
     useState<RecipeCategory>('antipasti');
@@ -51,7 +53,6 @@ const Ricette: React.FC<RicetteProps> = ({
       .filter(r => r.categoria === activeCategory)
       .sort((a, b) => a.order - b.order);
   }, [recipes, activeCategory]);
-
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, recipeId: string) => {
@@ -102,16 +103,23 @@ const Ricette: React.FC<RicetteProps> = ({
             Crea e gestisci le ricette del tuo menu
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingRecipeId(null);
-            setShowRecipeModal(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span>Nuova Ricetta</span>
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => {
+              setEditingRecipeId(null);
+              setShowRecipeModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors shadow-sm w-full sm:w-auto justify-center text-sm md:text-base"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span>Nuova Ricetta</span>
+          </button>
+        )}
+        {isReadOnly && (
+          <div className="text-xs md:text-sm text-gray-500 italic">
+            Visualizzazione aggregata - Modifiche non disponibili
+          </div>
+        )}
       </div>
 
       {/* Category Tabs */}
@@ -157,21 +165,26 @@ const Ricette: React.FC<RicetteProps> = ({
               recipe={recipe}
               rawMaterials={rawMaterials}
               onEdit={() => {
-                setEditingRecipeId(recipe.id);
-                setShowRecipeModal(true);
-              }}
-              onDelete={() => {
-                if (
-                  window.confirm(
-                    `Sei sicuro di voler eliminare "${recipe.nomePiatto}"?`
-                  )
-                ) {
-                  onDelete(recipe.id);
+                if (!isReadOnly) {
+                  setEditingRecipeId(recipe.id);
+                  setShowRecipeModal(true);
                 }
               }}
-              onDragStart={e => handleDragStart(e, recipe.id)}
+              onDelete={() => {
+                if (!isReadOnly) {
+                  if (
+                    window.confirm(
+                      `Sei sicuro di voler eliminare "${recipe.nomePiatto}"?`
+                    )
+                  ) {
+                    onDelete(recipe.id);
+                  }
+                }
+              }}
+              onDragStart={e => !isReadOnly && handleDragStart(e, recipe.id)}
               onDragEnd={handleDragEnd}
               isDragging={draggedRecipeId === recipe.id}
+              isReadOnly={isReadOnly}
             />
           </div>
         ))}
@@ -224,6 +237,7 @@ interface RecipeCardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  isReadOnly?: boolean;
 }
 
 const RecipeCard: React.FC<RecipeCardProps> = ({
@@ -233,13 +247,14 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   onDragStart,
   onDragEnd,
   isDragging,
+  isReadOnly = false,
 }) => {
   return (
     <div
-      draggable
+      draggable={!isReadOnly}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`h-full flex flex-col ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`h-full flex flex-col ${isReadOnly ? '' : isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
     >
       {/* Header with Name and Price */}
       <div className="bg-white border-b border-gray-200 p-2 md:p-3 rounded-t-lg">
@@ -249,28 +264,30 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               {recipe.nomePiatto}
             </h3>
           </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
-              title="Modifica"
-            >
-              <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
-              title="Elimina"
-            >
-              <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-          </div>
+          {!isReadOnly && (
+            <div className="flex gap-1 flex-shrink-0">
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
+                title="Modifica"
+              >
+                <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600"
+                title="Elimina"
+              >
+                <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500 font-medium">
@@ -777,9 +794,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   }}
                   options={Array.from(
                     new Set(rawMaterials.map(rm => rm.materiaPrima))
-                  ).sort((a, b) =>
-                    a.localeCompare(b, 'it', { sensitivity: 'base' })
-                  )}
+                  )
+                    .filter((v): v is string => typeof v === 'string')
+                    .sort((a, b) =>
+                      a.localeCompare(b, 'it', { sensitivity: 'base' })
+                    )}
                   placeholder="Cerca materia prima..."
                   emptyOption="Seleziona..."
                   className="text-sm"

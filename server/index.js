@@ -2871,13 +2871,40 @@ app.get(
         }
       }
 
-      const db = getDatabase(locationId);
-      const materials = await db.query(
-        'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
-        [locationId]
-      );
+      // If locationId is "all", aggregate raw materials from all active locations
+      if (locationId === 'all') {
+        const locations = await masterDbQuery(
+          'SELECT id FROM locations WHERE status = ? AND id != ?',
+          ['active', 'all']
+        );
+        const allMaterials = [];
 
-      res.json(materials);
+        for (const location of locations) {
+          try {
+            const db = getDatabase(location.id);
+            const materials = await db.query(
+              'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
+              [location.id]
+            );
+            allMaterials.push(...materials);
+          } catch (error) {
+            console.error(
+              `Failed to get materials for location ${location.id}:`,
+              error
+            );
+          }
+        }
+
+        res.json(allMaterials);
+      } else {
+        const db = getDatabase(locationId);
+        const materials = await db.query(
+          'SELECT * FROM raw_materials WHERE location_id = ? ORDER BY categoria, materia_prima',
+          [locationId]
+        );
+
+        res.json(materials);
+      }
     } catch (error) {
       console.error('Failed to get raw materials', error);
       res.status(500).json({ error: 'Failed to get raw materials' });
@@ -2893,6 +2920,13 @@ app.post(
       const locationId = req.headers['x-location-id'] || req.body.locationId;
       if (!locationId) {
         return res.status(400).json({ error: 'Location ID is required' });
+      }
+
+      // Prevent modifications when "all" is selected
+      if (locationId === 'all') {
+        return res
+          .status(403)
+          .json({ error: 'Cannot modify data when viewing all locations' });
       }
 
       // Check permissions
@@ -2972,6 +3006,13 @@ app.put(
         return res.status(400).json({ error: 'Location ID is required' });
       }
 
+      // Prevent modifications when "all" is selected
+      if (locationId === 'all') {
+        return res
+          .status(403)
+          .json({ error: 'Cannot modify data when viewing all locations' });
+      }
+
       // Check permissions
       if (req.user.role !== 'admin') {
         const hasPermission = await masterDb.get(
@@ -3037,6 +3078,13 @@ app.delete(
         return res.status(400).json({ error: 'Location ID is required' });
       }
 
+      // Prevent modifications when "all" is selected
+      if (locationId === 'all') {
+        return res
+          .status(403)
+          .json({ error: 'Cannot modify data when viewing all locations' });
+      }
+
       // Check permissions
       if (req.user.role !== 'admin') {
         const hasPermission = await masterDb.get(
@@ -3086,22 +3134,59 @@ app.get('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
       }
     }
 
-    const db = getDatabase(locationId);
-    const recipes = await db.query(
-      'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
-      [locationId]
-    );
-
-    // Get ingredients for each recipe
-    for (const recipe of recipes) {
-      const ingredients = await db.query(
-        'SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY created_at',
-        [recipe.id]
+    // If locationId is "all", aggregate recipes from all active locations
+    if (locationId === 'all') {
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = ? AND id != ?',
+        ['active', 'all']
       );
-      recipe.ingredienti = ingredients;
-    }
+      const allRecipes = [];
 
-    res.json(recipes);
+      for (const location of locations) {
+        try {
+          const db = getDatabase(location.id);
+          const recipes = await db.query(
+            'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
+            [location.id]
+          );
+
+          // Get ingredients for each recipe
+          for (const recipe of recipes) {
+            const ingredients = await db.query(
+              'SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY created_at',
+              [recipe.id]
+            );
+            recipe.ingredienti = ingredients;
+          }
+
+          allRecipes.push(...recipes);
+        } catch (error) {
+          console.error(
+            `Failed to get recipes for location ${location.id}:`,
+            error
+          );
+        }
+      }
+
+      res.json(allRecipes);
+    } else {
+      const db = getDatabase(locationId);
+      const recipes = await db.query(
+        'SELECT * FROM recipes WHERE location_id = ? ORDER BY "order", nome_piatto',
+        [locationId]
+      );
+
+      // Get ingredients for each recipe
+      for (const recipe of recipes) {
+        const ingredients = await db.query(
+          'SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY created_at',
+          [recipe.id]
+        );
+        recipe.ingredienti = ingredients;
+      }
+
+      res.json(recipes);
+    }
   } catch (error) {
     console.error('Failed to get recipes', error);
     res.status(500).json({ error: 'Failed to get recipes' });
@@ -3113,6 +3198,13 @@ app.post('/api/menu-engineering/recipes', requireAuth, async (req, res) => {
     const locationId = req.headers['x-location-id'] || req.body.locationId;
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Prevent modifications when "all" is selected
+    if (locationId === 'all') {
+      return res
+        .status(403)
+        .json({ error: 'Cannot modify data when viewing all locations' });
     }
 
     // Check permissions
@@ -3225,6 +3317,13 @@ app.put('/api/menu-engineering/recipes/:id', requireAuth, async (req, res) => {
     const locationId = req.headers['x-location-id'] || req.body.locationId;
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Prevent modifications when "all" is selected
+    if (locationId === 'all') {
+      return res
+        .status(403)
+        .json({ error: 'Cannot modify data when viewing all locations' });
     }
 
     // Check permissions
@@ -3368,6 +3467,13 @@ app.delete(
         }
       }
 
+      // Prevent modifications when "all" is selected
+      if (locationId === 'all') {
+        return res
+          .status(403)
+          .json({ error: 'Cannot modify data when viewing all locations' });
+      }
+
       const { id } = req.params;
       const db = getDatabase(locationId);
       // Ingredients will be deleted automatically due to CASCADE
@@ -3405,13 +3511,40 @@ app.get('/api/menu-engineering/recipe-sales', requireAuth, async (req, res) => {
       }
     }
 
-    const db = getDatabase(locationId);
-    const sales = await db.query(
-      'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
-      [locationId]
-    );
+    // If locationId is "all", aggregate recipe sales from all active locations
+    if (locationId === 'all') {
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = ? AND id != ?',
+        ['active', 'all']
+      );
+      const allSales = [];
 
-    res.json(sales);
+      for (const location of locations) {
+        try {
+          const db = getDatabase(location.id);
+          const sales = await db.query(
+            'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+            [location.id]
+          );
+          allSales.push(...sales);
+        } catch (error) {
+          console.error(
+            `Failed to get recipe sales for location ${location.id}:`,
+            error
+          );
+        }
+      }
+
+      res.json(allSales);
+    } else {
+      const db = getDatabase(locationId);
+      const sales = await db.query(
+        'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+        [locationId]
+      );
+
+      res.json(sales);
+    }
   } catch (error) {
     console.error('Failed to get recipe sales', error);
     res.status(500).json({ error: 'Failed to get recipe sales' });

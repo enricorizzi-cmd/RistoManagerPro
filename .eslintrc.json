@@ -36,7 +36,8 @@
     "no-redeclare": "warn",
     "no-irregular-whitespace": "warn",
     "no-case-declarations": "warn",
-    "react/no-unescaped-entities": "warn"
+    "react/no-unescaped-entities": "warn",
+    "react/prop-types": "off"
   },
   "settings": {
     "react": {
