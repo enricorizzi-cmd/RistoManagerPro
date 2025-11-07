@@ -130,6 +130,20 @@ const MenuEngineering: React.FC = () => {
     }
   };
 
+  const handleDeleteRecipeWithNotification = async (id: string) => {
+    try {
+      await handleDeleteRecipe(id);
+      showNotification('Ricetta eliminata con successo', 'success');
+    } catch (err) {
+      showNotification(
+        err instanceof Error
+          ? err.message
+          : "Errore nell'eliminazione della ricetta",
+        'error'
+      );
+    }
+  };
+
   // Handle tipologia management
   const handleManageTipologia = async (newTipologie: string[]) => {
     if (!currentLocation?.id) {
