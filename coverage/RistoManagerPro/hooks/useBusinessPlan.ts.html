@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/461</span>
+                <span class='fraction'>0/459</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/461</span>
+                <span class='fraction'>0/459</span>
             </div>
         
             
@@ -624,17 +624,14 @@
 <a name='L559'></a><a href='#L559'>559</a>
 <a name='L560'></a><a href='#L560'>560</a>
 <a name='L561'></a><a href='#L561'>561</a>
-<a name='L562'></a><a href='#L562'>562</a>
-<a name='L563'></a><a href='#L563'>563</a>
-<a name='L564'></a><a href='#L564'>564</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L562'></a><a href='#L562'>562</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -642,20 +639,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -677,11 +662,22 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1193,6 +1189,7 @@
 // Manages business plan form state and calculations
 &nbsp;
 <span class="cstat-no" title="statement not covered" >import { useState, useEffect, useMemo, useCallback } from 'react';</span>
+<span class="cstat-no" title="statement not covered" >import { API_BASE_URL } from '../src/config/api';</span>
 import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 <span class="cstat-no" title="statement not covered" >import { parseNumberInput } from '../utils/financialPlanUtils';</span>
 <span class="cstat-no" title="statement not covered" >import {</span>
@@ -1214,7 +1211,7 @@ import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 <span class="cstat-no" title="statement not covered" >    }</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    const response = await fetch(</span>
-<span class="cstat-no" title="statement not covered" >      `http://localhost:4000/api/business-plan-drafts?locationId=${locationId}`,</span>
+<span class="cstat-no" title="statement not covered" >      `${API_BASE_URL}/api/business-plan-drafts?locationId=${locationId}`,</span>
 <span class="cstat-no" title="statement not covered" >      {</span>
 <span class="cstat-no" title="statement not covered" >        headers,</span>
 <span class="cstat-no" title="statement not covered" >      }</span>
@@ -1242,14 +1239,11 @@ import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 <span class="cstat-no" title="statement not covered" >      (headers as Record&lt;string, string&gt;)['Authorization'] = `Bearer ${token}`;</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    const response = await fetch(</span>
-<span class="cstat-no" title="statement not covered" >      'http://localhost:4000/api/business-plan-drafts',</span>
-<span class="cstat-no" title="statement not covered" >      {</span>
-<span class="cstat-no" title="statement not covered" >        method: 'PUT',</span>
-<span class="cstat-no" title="statement not covered" >        headers,</span>
-<span class="cstat-no" title="statement not covered" >        body: JSON.stringify({ targetYear, name, data, locationId }),</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
-<span class="cstat-no" title="statement not covered" >    );</span>
+<span class="cstat-no" title="statement not covered" >    const response = await fetch(`${API_BASE_URL}/api/business-plan-drafts`, {</span>
+<span class="cstat-no" title="statement not covered" >      method: 'PUT',</span>
+<span class="cstat-no" title="statement not covered" >      headers,</span>
+<span class="cstat-no" title="statement not covered" >      body: JSON.stringify({ targetYear, name, data, locationId }),</span>
+<span class="cstat-no" title="statement not covered" >    });</span>
 <span class="cstat-no" title="statement not covered" >    if (!response.ok) throw new Error('Failed to save draft');</span>
 <span class="cstat-no" title="statement not covered" >  } catch (error) {</span>
 <span class="cstat-no" title="statement not covered" >    console.error('Failed to save business plan draft to database:', error);</span>
@@ -1269,7 +1263,7 @@ import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
 <span class="cstat-no" title="statement not covered" >    }</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    const response = await fetch(</span>
-<span class="cstat-no" title="statement not covered" >      `http://localhost:4000/api/business-plan-drafts/${draftId}?locationId=${locationId}`,</span>
+<span class="cstat-no" title="statement not covered" >      `${API_BASE_URL}/api/business-plan-drafts/${draftId}?locationId=${locationId}`,</span>
 <span class="cstat-no" title="statement not covered" >      {</span>
 <span class="cstat-no" title="statement not covered" >        method: 'DELETE',</span>
 <span class="cstat-no" title="statement not covered" >        headers,</span>
@@ -1759,7 +1753,7 @@ import type { BusinessPlanYearMetrics } from '../utils/financialCalculations';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T10:08:52.286Z
+                at 2025-11-07T20:49:02.225Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -68,8 +68,10 @@ jobs:
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
+        continue-on-error: true
         with:
           file: ./coverage/lcov.info
+          fail_ci_if_error: false
 
   performance-check:
     runs-on: ubuntu-latest
