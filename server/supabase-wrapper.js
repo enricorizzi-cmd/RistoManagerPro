@@ -445,7 +445,16 @@ function getLocationDb(locationId) {
           const whereMatch = normalizedSql.match(
             /WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/i
           );
-          const filters = { location_id: locationId };
+          // Tables that don't have location_id column
+          const tablesWithoutLocationId = [
+            'recipe_ingredients',
+            'recipe_sales',
+          ];
+          const filters = {};
+          // Only add location_id if the table requires it
+          if (!tablesWithoutLocationId.includes(table)) {
+            filters.location_id = locationId;
+          }
           Object.assign(
             filters,
             parseWhereClause(whereMatch ? whereMatch[1] : '', params)
@@ -600,7 +609,13 @@ function getLocationDb(locationId) {
         const whereMatch = normalizedSql.match(
           /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
         );
-        const filters = { location_id: locationId };
+        // Tables that don't have location_id column
+        const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
+        const filters = {};
+        // Only add location_id if the table requires it
+        if (!tablesWithoutLocationId.includes(table)) {
+          filters.location_id = locationId;
+        }
         Object.assign(
           filters,
           parseWhereClause(whereMatch ? whereMatch[1] : '', params)
@@ -681,7 +696,13 @@ function getLocationDb(locationId) {
         const select = selectMatch[1].trim().replace(/\s*,\s*/g, ',');
         const table = selectMatch[2].trim();
 
-        const filters = { location_id: locationId };
+        // Tables that don't have location_id column
+        const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
+        const filters = {};
+        // Only add location_id if the table requires it
+        if (!tablesWithoutLocationId.includes(table)) {
+          filters.location_id = locationId;
+        }
         const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
         Object.assign(
           filters,
@@ -751,7 +772,13 @@ function getLocationDb(locationId) {
           }
         });
 
-        const filters = { location_id: locationId };
+        // Tables that don't have location_id column
+        const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
+        const filters = {};
+        // Only add location_id if the table requires it
+        if (!tablesWithoutLocationId.includes(table)) {
+          filters.location_id = locationId;
+        }
         Object.assign(
           filters,
           parseWhereClause(whereClause, params.slice(paramIndex))
@@ -764,7 +791,13 @@ function getLocationDb(locationId) {
       const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)\s+WHERE\s+(.+)/i);
       if (deleteMatch) {
         const table = deleteMatch[1].trim();
-        const filters = { location_id: locationId };
+        // Tables that don't have location_id column
+        const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
+        const filters = {};
+        // Only add location_id if the table requires it
+        if (!tablesWithoutLocationId.includes(table)) {
+          filters.location_id = locationId;
+        }
         Object.assign(filters, parseWhereClause(deleteMatch[2], params));
 
         return await supabaseCall('DELETE', table, { filters });
