@@ -11,8 +11,9 @@ const Settings = lazy(() => import('./components/Settings'));
 const FinancialPlan = lazy(() => import('./components/FinancialPlan'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
 const MenuEngineering = lazy(() => import('./components/MenuEngineering'));
+const SalesAnalysis = lazy(() => import('./components/sales-analysis/SalesAnalysis'));
 
-type Page = 'financial-plan' | 'settings' | 'users' | 'menu-engineering';
+type Page = 'financial-plan' | 'settings' | 'users' | 'menu-engineering' | 'sales-analysis';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('financial-plan');
@@ -22,7 +23,7 @@ const App: React.FC = () => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Page;
       if (
-        ['financial-plan', 'settings', 'users', 'menu-engineering'].includes(
+        ['financial-plan', 'settings', 'users', 'menu-engineering', 'sales-analysis'].includes(
           hash
         )
       ) {
@@ -50,6 +51,8 @@ const App: React.FC = () => {
         return <UserManagement />;
       case 'menu-engineering':
         return <MenuEngineering />;
+      case 'sales-analysis':
+        return <SalesAnalysis />;
       default:
         return <FinancialPlan />;
     }

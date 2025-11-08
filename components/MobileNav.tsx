@@ -1,5 +1,5 @@
 import React from 'react';
-import { UsersIcon, CogIcon, CashIcon, BeakerIcon } from './icons/Icons';
+import { UsersIcon, CogIcon, CashIcon, BeakerIcon, ChartLineIcon } from './icons/Icons';
 import { useAuth } from '../contexts/AuthContext';
 
 interface MobileNavProps {
@@ -42,6 +42,12 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentPage }) => {
         icon={<BeakerIcon className="h-6 w-6" />}
         label="Menu"
         isActive={currentPage === 'menu-engineering'}
+      />
+      <NavLink
+        href="#sales-analysis"
+        icon={<ChartLineIcon className="h-6 w-6" />}
+        label="Vendite"
+        isActive={currentPage === 'sales-analysis'}
       />
       {user?.role === 'admin' && (
         <NavLink

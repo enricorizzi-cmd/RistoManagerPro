@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { CalendarIcon } from '../icons/Icons';
 import type { Recipe, RecipeCategory, RecipeSales, BCGMatrix } from './types';
+
+type TimeGranularity = 'mese' | 'trimestre' | 'quadrimestre' | 'semestre' | 'anno' | 'totale';
 
 interface MenuMixProps {
   recipes: Recipe[];
@@ -14,6 +17,9 @@ const MenuMix: React.FC<MenuMixProps> = ({
 }) => {
   const [activeCategory, setActiveCategory] =
     useState<RecipeCategory>('antipasti');
+  const [granularity, setGranularity] = useState<TimeGranularity>('anno');
+  const [periodYear, setPeriodYear] = useState(new Date().getFullYear());
+  const [periodMonth, setPeriodMonth] = useState(new Date().getMonth() + 1);
 
   const categories: { key: RecipeCategory; label: string }[] = [
     { key: 'antipasti', label: 'Antipasti' },
@@ -24,6 +30,40 @@ const MenuMix: React.FC<MenuMixProps> = ({
     { key: 'tutti', label: 'Tutti' },
   ];
 
+  // Filter recipe sales by time period
+  const filteredRecipeSales = useMemo(() => {
+    if (granularity === 'totale') {
+      return recipeSales;
+    }
+
+    return recipeSales.filter(sale => {
+      const saleDate = new Date(sale.saleDate);
+      const saleYear = saleDate.getFullYear();
+      const saleMonth = saleDate.getMonth() + 1;
+
+      switch (granularity) {
+        case 'mese':
+          return saleYear === periodYear && saleMonth === periodMonth;
+        case 'trimestre':
+          const quarter = Math.ceil(periodMonth / 3);
+          const saleQuarter = Math.ceil(saleMonth / 3);
+          return saleYear === periodYear && saleQuarter === quarter;
+        case 'quadrimestre':
+          const quadrimestre = Math.ceil(periodMonth / 4);
+          const saleQuadrimestre = Math.ceil(saleMonth / 4);
+          return saleYear === periodYear && saleQuadrimestre === quadrimestre;
+        case 'semestre':
+          const semester = periodMonth <= 6 ? 1 : 2;
+          const saleSemester = saleMonth <= 6 ? 1 : 2;
+          return saleYear === periodYear && saleSemester === semester;
+        case 'anno':
+          return saleYear === periodYear;
+        default:
+          return true;
+      }
+    });
+  }, [recipeSales, granularity, periodYear, periodMonth]);
+
   // Filter recipes by category
   const filteredRecipes = useMemo(() => {
     if (activeCategory === 'tutti') {
@@ -32,16 +72,16 @@ const MenuMix: React.FC<MenuMixProps> = ({
     return recipes.filter(r => r.categoria === activeCategory);
   }, [recipes, activeCategory]);
 
-  // Get recipe popularity (based on sales quantity)
+  // Get recipe popularity (based on sales quantity) - now uses filtered sales
   const getRecipePopularity = useCallback(
     (recipeId: string): number => {
-      const sales = recipeSales.filter(s => s.recipeId === recipeId);
+      const sales = filteredRecipeSales.filter(s => s.recipeId === recipeId);
       const totalQuantity = sales.reduce((sum, s) => sum + s.quantity, 0);
 
       // Normalize to 0-100 scale (you can adjust this based on your data)
       const maxSales = Math.max(
         ...filteredRecipes.map(r =>
-          recipeSales
+          filteredRecipeSales
             .filter(s => s.recipeId === r.id)
             .reduce((sum, s) => sum + s.quantity, 0)
         ),
@@ -50,7 +90,7 @@ const MenuMix: React.FC<MenuMixProps> = ({
 
       return maxSales > 0 ? (totalQuantity / maxSales) * 100 : 0;
     },
-    [filteredRecipes, recipeSales]
+    [filteredRecipes, filteredRecipeSales]
   );
 
   // Calculate BCG Matrix
@@ -183,6 +223,73 @@ const MenuMix: React.FC<MenuMixProps> = ({
         <p className="mt-1 text-sm text-gray-600">
           Analisi BCG Matrix per ottimizzare il tuo menu
         </p>
+      </div>
+
+      {/* Time Filter */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarIcon className="w-5 h-5 text-gray-600" />
+          <h3 className="font-semibold text-gray-900">Filtro Temporale</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Granularità
+            </label>
+            <select
+              value={granularity}
+              onChange={e => setGranularity(e.target.value as TimeGranularity)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="mese">Mese</option>
+              <option value="trimestre">Trimestre</option>
+              <option value="quadrimestre">Quadrimestre</option>
+              <option value="semestre">Semestre</option>
+              <option value="anno">Anno</option>
+              <option value="totale">Totale</option>
+            </select>
+          </div>
+          {granularity !== 'totale' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Anno
+                </label>
+                <input
+                  type="number"
+                  value={periodYear}
+                  onChange={e => setPeriodYear(parseInt(e.target.value))}
+                  min={2020}
+                  max={2100}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              {(granularity === 'mese' || granularity === 'trimestre' || granularity === 'quadrimestre' || granularity === 'semestre') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mese
+                  </label>
+                  <select
+                    value={periodMonth}
+                    onChange={e => setPeriodMonth(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                      <option key={month} value={month}>
+                        {new Date(2000, month - 1).toLocaleString('it-IT', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex items-end">
+            <div className="text-sm text-gray-600">
+              Vendite filtrate: {filteredRecipeSales.length}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Category Tabs */}
