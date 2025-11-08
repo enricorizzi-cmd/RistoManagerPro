@@ -633,12 +633,15 @@ function getLocationDb(locationId) {
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
         // Only add location_id if the table requires it
-        if (!tablesWithoutLocationId.includes(table)) {
+        // Check if WHERE clause already contains location_id to avoid duplicates
+        const whereClause = whereMatch ? whereMatch[1] : '';
+        const hasLocationIdInWhere = whereClause.toLowerCase().includes('location_id');
+        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInWhere) {
           filters.location_id = locationId;
         }
         Object.assign(
           filters,
-          parseWhereClause(whereMatch ? whereMatch[1] : '', params)
+          parseWhereClause(whereClause, params)
         );
 
         const orderMatch = normalizedSql.match(
@@ -720,13 +723,16 @@ function getLocationDb(locationId) {
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
         // Only add location_id if the table requires it
-        if (!tablesWithoutLocationId.includes(table)) {
+        // Check if WHERE clause already contains location_id to avoid duplicates
+        const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
+        const whereClause = whereMatch ? whereMatch[1] : '';
+        const hasLocationIdInWhere = whereClause.toLowerCase().includes('location_id');
+        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInWhere) {
           filters.location_id = locationId;
         }
-        const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
         Object.assign(
           filters,
-          parseWhereClause(whereMatch ? whereMatch[1] : '', params)
+          parseWhereClause(whereClause, params)
         );
 
         return await supabaseCall('GET', table, {

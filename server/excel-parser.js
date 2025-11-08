@@ -47,39 +47,59 @@ function parseNumericValue(value) {
 /**
  * Detect header row in sheet
  */
-function detectHeaderRow(sheet, maxRows = 20) {
+function detectHeaderRow(sheet, maxRows = 30) {
+  const sheetRange = sheet['!ref'] ? XLSX.utils.decode_range(sheet['!ref']) : null;
+  const maxSheetRows = sheetRange ? sheetRange.e.r + 1 : maxRows;
+  const actualMaxRows = Math.min(maxRows, maxSheetRows);
+  
   for (
-    let row = 1;
-    row <= Math.min(maxRows, sheet['!rows']?.length || maxRows);
+    let row = 0;
+    row < actualMaxRows;
     row++
   ) {
     const rowData = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
-      range: { s: { r: row - 1, c: 0 }, e: { r: row - 1, c: 10 } },
+      range: { s: { r: row, c: 0 }, e: { r: row, c: 20 } },
+      defval: null,
     });
     if (rowData.length === 0) continue;
 
     const firstRow = rowData[0];
-    const headers = firstRow.filter(h => h && typeof h === 'string');
+    if (!firstRow || firstRow.length === 0) continue;
+    
+    const headers = firstRow
+      .map(h => {
+        if (h === null || h === undefined) return '';
+        return String(h).trim();
+      })
+      .filter(h => h && h.length > 0);
 
     // Check if this looks like a header row
     const headerKeywords = [
       'categoria',
       'nome',
       'piatto',
+      'descrizione',
+      'articolo',
       'quantità',
       'quantita',
+      'qty',
       'valore',
+      'totale',
+      'importo',
       'prezzo',
+      'unitario',
     ];
     const hasHeaderKeywords = headers.some(h =>
-      headerKeywords.some(kw => h.toLowerCase().includes(kw))
+      headerKeywords.some(kw => h.toLowerCase().includes(kw.toLowerCase()))
     );
 
-    if (hasHeaderKeywords && headers.length >= 3) {
-      return row;
+    if (hasHeaderKeywords && headers.length >= 2) {
+      console.log(`[EXCEL PARSER] Found header row at index ${row + 1}, headers:`, headers);
+      return row + 1; // Return 1-based index
     }
   }
+  console.log(`[EXCEL PARSER] No header row found, defaulting to row 1`);
   return 1; // Default to first row
 }
 
@@ -152,30 +172,94 @@ function parseSummaryTable(sheet) {
  */
 function parseDetailTable(sheet) {
   const headerRow = detectHeaderRow(sheet);
+  const sheetRange = sheet['!ref'] ? XLSX.utils.decode_range(sheet['!ref']) : null;
+  const maxRows = sheetRange ? sheetRange.e.r + 1 : 1000;
+  
   const data = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
     range: {
       s: { r: headerRow - 1, c: 0 },
-      e: { r: sheet['!rows']?.length || 1000, c: 10 },
+      e: { r: maxRows - 1, c: 20 },
     },
     defval: null,
+    raw: false, // Convert numbers to strings for easier parsing
   });
 
-  if (data.length === 0) return [];
+  if (data.length === 0) {
+    console.log('[EXCEL PARSER] No data rows found in detail table');
+    return [];
+  }
 
-  const headers = data[0].map(h => (h || '').toString().toLowerCase());
+  const headers = data[0].map(h => {
+    if (h === null || h === undefined) return '';
+    return String(h).trim().toLowerCase();
+  });
+  
+  console.log('[EXCEL PARSER] Detail table headers:', headers);
+  
   const nameCol = findColumnIndex(headers, [
     'nome',
     'piatto',
     'descrizione',
     'articolo',
+    'prodotto',
   ]);
-  const categoryCol = findColumnIndex(headers, ['categoria']);
-  const quantityCol = findColumnIndex(headers, ['quantità', 'quantita', 'qty']);
-  const valueCol = findColumnIndex(headers, ['valore', 'totale', 'importo']);
-  const priceCol = findColumnIndex(headers, ['prezzo', 'unitario']);
+  const categoryCol = findColumnIndex(headers, ['categoria', 'cat']);
+  const quantityCol = findColumnIndex(headers, ['quantità', 'quantita', 'qty', 'qtà', 'q.ta']);
+  const valueCol = findColumnIndex(headers, ['valore', 'totale', 'importo', 'ammontare']);
+  const priceCol = findColumnIndex(headers, ['prezzo', 'unitario', 'p.unit']);
 
-  if (nameCol === -1) return [];
+  console.log(`[EXCEL PARSER] Column indices - name: ${nameCol}, category: ${categoryCol}, quantity: ${quantityCol}, value: ${valueCol}, price: ${priceCol}`);
+
+  if (nameCol === -1) {
+    console.log('[EXCEL PARSER] No name column found, trying to use first non-empty column');
+    // Try to use first column as name if no name column found
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i] && headers[i].length > 0 && !headers[i].match(/^(totale|total|sum|somma)$/i)) {
+        console.log(`[EXCEL PARSER] Using column ${i} (${headers[i]}) as name column`);
+        // Temporarily set nameCol to first non-empty column
+        const tempNameCol = i;
+        const dishes = [];
+        for (let j = 1; j < data.length; j++) {
+          const row = data[j];
+          if (!row || row.length === 0) continue;
+
+          const dishName = (row[tempNameCol] || '').toString().trim();
+          if (
+            !dishName ||
+            dishName.toLowerCase() === 'totale' ||
+            dishName.toLowerCase() === 'total' ||
+            dishName.match(/^[\d\s]+$/) // Skip rows that are only numbers/spaces
+          )
+            continue;
+
+          const category =
+            categoryCol >= 0 ? (row[categoryCol] || '').toString().trim() : '';
+          const quantity = quantityCol >= 0 ? parseNumericValue(row[quantityCol]) : 0;
+          const totalValue = valueCol >= 0 ? parseNumericValue(row[valueCol]) : 0;
+          const unitPrice =
+            priceCol >= 0
+              ? parseNumericValue(row[priceCol])
+              : quantity > 0
+                ? totalValue / quantity
+                : 0;
+
+          if (dishName && dishName.length > 0) {
+            dishes.push({
+              dishName: dishName.trim(),
+              category: category.trim(),
+              quantity: Math.max(0, Math.round(quantity)),
+              totalValue: Math.max(0, totalValue),
+              unitPrice: Math.max(0, unitPrice),
+            });
+          }
+        }
+        return dishes;
+      }
+    }
+    console.log('[EXCEL PARSER] Could not find any usable column for dish names');
+    return [];
+  }
 
   const dishes = [];
   for (let i = 1; i < data.length; i++) {
@@ -186,7 +270,8 @@ function parseDetailTable(sheet) {
     if (
       !dishName ||
       dishName.toLowerCase() === 'totale' ||
-      dishName.toLowerCase() === 'total'
+      dishName.toLowerCase() === 'total' ||
+      dishName.match(/^[\d\s]+$/) // Skip rows that are only numbers/spaces
     )
       continue;
 
@@ -201,7 +286,7 @@ function parseDetailTable(sheet) {
           ? totalValue / quantity
           : 0;
 
-    if (dishName) {
+    if (dishName && dishName.length > 0) {
       dishes.push({
         dishName: dishName.trim(),
         category: category.trim(),
@@ -212,6 +297,7 @@ function parseDetailTable(sheet) {
     }
   }
 
+  console.log(`[EXCEL PARSER] Parsed ${dishes.length} dishes from detail table`);
   return dishes;
 }
 
@@ -258,8 +344,39 @@ function detectTables(workbook) {
  */
 function parseExcelFile(buffer, fileName) {
   try {
-    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+    console.log(`[EXCEL PARSER] Parsing file: ${fileName}, size: ${buffer.length} bytes`);
+    
+    // Try different options for .xlt files
+    const readOptions = {
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: false,
+      sheetStubs: false,
+    };
+    
+    // For .xlt files, try with different options
+    if (fileName.toLowerCase().endsWith('.xlt')) {
+      readOptions.cellDates = false; // Some .xlt files don't handle dates well
+      console.log('[EXCEL PARSER] Using .xlt specific options');
+    }
+    
+    const workbook = XLSX.read(buffer, readOptions);
+    console.log(`[EXCEL PARSER] Workbook loaded, sheets: ${workbook.SheetNames.join(', ')}`);
+    
+    // Log sheet info
+    workbook.SheetNames.forEach((sheetName, index) => {
+      const sheet = workbook.Sheets[sheetName];
+      const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+      console.log(`[EXCEL PARSER] Sheet ${index + 1} "${sheetName}": ${range.e.r + 1} rows, ${range.e.c + 1} cols`);
+      
+      // Log first few rows for debugging
+      const firstRows = XLSX.utils.sheet_to_json(sheet, { header: 1, range: { s: { r: 0, c: 0 }, e: { r: Math.min(5, range.e.r), c: range.e.c } } });
+      console.log(`[EXCEL PARSER] First ${Math.min(6, firstRows.length)} rows of "${sheetName}":`, JSON.stringify(firstRows).substring(0, 500));
+    });
+    
     const tables = detectTables(workbook);
+    console.log(`[EXCEL PARSER] Detected ${tables.summaryTable.length} summary rows, ${tables.detailTable.length} detail rows`);
 
     // Calculate file hash
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
@@ -281,6 +398,7 @@ function parseExcelFile(buffer, fileName) {
       fileHash,
     };
   } catch (error) {
+    console.error('[EXCEL PARSER] Error parsing file:', error);
     throw new Error(`Failed to parse Excel file: ${error.message}`);
   }
 }
