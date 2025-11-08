@@ -2847,12 +2847,18 @@ app.post(
         res.json({ success: true });
       } catch (error) {
         // If table doesn't exist, inform user they need to create it
+        const errorMessage = error?.message || String(error) || '';
+        const errorString = errorMessage.toLowerCase();
+
         if (
-          error.message &&
-          (error.message.includes('does not exist') ||
-            error.message.includes('Could not find') ||
-            error.message.includes('relation') ||
-            error.message.includes('table'))
+          error?.table === 'menu_dropdown_values' ||
+          errorString.includes('does not exist') ||
+          errorString.includes('could not find') ||
+          errorString.includes('relation') ||
+          errorString.includes('table') ||
+          errorString.includes('no such table') ||
+          errorString.includes('undefined table') ||
+          errorString.includes('menu_dropdown_values')
         ) {
           console.error(
             `Table menu_dropdown_values doesn't exist. Please create it in Supabase with columns: id (uuid, primary key), location_id (text), type (text), value (text), created_at (timestamp), updated_at (timestamp)`
@@ -2861,9 +2867,10 @@ app.post(
             error:
               'Table menu_dropdown_values does not exist. Please create it in Supabase.',
           });
-        } else {
-          throw error;
+          return;
         }
+
+        throw error;
       }
     } catch (error) {
       console.error('Failed to save dropdown values:', error);

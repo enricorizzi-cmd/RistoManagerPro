@@ -303,12 +303,22 @@ const MenuEngineering: React.FC = () => {
       showNotification('Tipologie aggiornate con successo', 'success');
     } catch (error) {
       console.error('Failed to update tipologie:', error);
-      showNotification(
-        error instanceof Error
-          ? error.message
-          : "Errore nell'aggiornamento delle tipologie",
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Table menu_dropdown_values')
+      ) {
+        showNotification(
+          'Tabella menu_dropdown_values non trovata. Crea la tabella in Supabase prima di salvare i valori dei dropdown.',
+          'error'
+        );
+      } else {
+        showNotification(
+          errorMessage || "Errore nell'aggiornamento delle tipologie",
+          'error'
+        );
+      }
       throw error;
     }
   };
@@ -396,12 +406,22 @@ const MenuEngineering: React.FC = () => {
       showNotification('Categorie aggiornate con successo', 'success');
     } catch (error) {
       console.error('Failed to update categorie:', error);
-      showNotification(
-        error instanceof Error
-          ? error.message
-          : "Errore nell'aggiornamento delle categorie",
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Table menu_dropdown_values')
+      ) {
+        showNotification(
+          'Tabella menu_dropdown_values non trovata. Crea la tabella in Supabase prima di salvare i valori dei dropdown.',
+          'error'
+        );
+      } else {
+        showNotification(
+          errorMessage || "Errore nell'aggiornamento delle categorie",
+          'error'
+        );
+      }
       throw error;
     }
   };
@@ -493,12 +513,22 @@ const MenuEngineering: React.FC = () => {
       showNotification('Materie prime aggiornate con successo', 'success');
     } catch (error) {
       console.error('Failed to update materie prime:', error);
-      showNotification(
-        error instanceof Error
-          ? error.message
-          : "Errore nell'aggiornamento delle materie prime",
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Table menu_dropdown_values')
+      ) {
+        showNotification(
+          'Tabella menu_dropdown_values non trovata. Crea la tabella in Supabase prima di salvare i valori dei dropdown.',
+          'error'
+        );
+      } else {
+        showNotification(
+          errorMessage || "Errore nell'aggiornamento delle materie prime",
+          'error'
+        );
+      }
       throw error;
     }
   };
@@ -586,12 +616,22 @@ const MenuEngineering: React.FC = () => {
       showNotification('Fornitori aggiornati con successo', 'success');
     } catch (error) {
       console.error('Failed to update fornitori:', error);
-      showNotification(
-        error instanceof Error
-          ? error.message
-          : "Errore nell'aggiornamento dei fornitori",
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Table menu_dropdown_values')
+      ) {
+        showNotification(
+          'Tabella menu_dropdown_values non trovata. Crea la tabella in Supabase prima di salvare i valori dei dropdown.',
+          'error'
+        );
+      } else {
+        showNotification(
+          errorMessage || "Errore nell'aggiornamento dei fornitori",
+          'error'
+        );
+      }
       throw error;
     }
   };
