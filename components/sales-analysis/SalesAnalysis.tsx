@@ -14,27 +14,27 @@ const SalesAnalysis: React.FC = () => {
 
   useEffect(() => {
     if (!currentLocation?.id || currentLocation.id === 'all') {
-      setError('Seleziona una location per visualizzare l\'analisi vendite');
+      setError("Seleziona una location per visualizzare l'analisi vendite");
     } else {
       setError(null);
     }
   }, [currentLocation]);
 
   const tabs = [
-    { 
-      key: 'import' as SalesAnalysisTab, 
+    {
+      key: 'import' as SalesAnalysisTab,
       label: 'Import Dati',
-      icon: UploadIcon
+      icon: UploadIcon,
     },
-    { 
-      key: 'links' as SalesAnalysisTab, 
+    {
+      key: 'links' as SalesAnalysisTab,
       label: 'Gestione Collegamenti',
-      icon: LinkIcon
+      icon: LinkIcon,
     },
-    { 
-      key: 'dashboard' as SalesAnalysisTab, 
+    {
+      key: 'dashboard' as SalesAnalysisTab,
       label: 'Dashboard Analisi',
-      icon: ChartLineIcon
+      icon: ChartLineIcon,
     },
   ];
 
@@ -56,7 +56,8 @@ const SalesAnalysis: React.FC = () => {
           Analisi Vendite
         </h1>
         <p className="mt-2 text-sm md:text-base text-gray-600">
-          Importa dati di vendita dal gestionale, collega i piatti alle ricette e analizza le performance
+          Importa dati di vendita dal gestionale, collega i piatti alle ricette
+          e analizza le performance
         </p>
       </div>
 
@@ -99,4 +100,3 @@ const SalesAnalysis: React.FC = () => {
 };
 
 export default SalesAnalysis;
-

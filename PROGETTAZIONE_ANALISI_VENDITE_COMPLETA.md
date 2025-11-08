@@ -1,6 +1,7 @@
 # 📊 PROGETTAZIONE COMPLETA E DETTAGLIATA: ANALISI VENDITE
 
 ## 🎯 OBIETTIVO STRATEGICO
+
 Creare un sistema completo di Analisi Vendite che integri dati dal gestionale di fatturazione, permetta il matching intelligente piatti-ricette, e fornisca dashboard avanzate per decisioni data-driven nel settore ristorazione.
 
 ---
@@ -12,8 +13,10 @@ Creare un sistema completo di Analisi Vendite che integri dati dal gestionale di
 **IMPORTANTE:** Il file .xlt è un template Excel legacy. Deve essere convertito in .xlsx o analizzato manualmente. Struttura attesa basata su descrizione:
 
 #### TABELLA 1: RIEPILOGO PER CATEGORIA PIATTO
+
 **Posizione:** Primo foglio o prima sezione del foglio principale
 **Struttura attesa:**
+
 ```
 | Categoria Gestionale | Quantità Venduta | Valore Totale (€) |
 |---------------------|------------------|-------------------|
@@ -25,13 +28,16 @@ Creare un sistema completo di Analisi Vendite che integri dati dal gestionale di
 ```
 
 **Note critiche:**
+
 - Le categorie sono del GESTIONALE, non dell'app
 - Potrebbero esserci categorie non standard (es: "Contorni", "Pizze", "Specialità")
 - Totale righe variabile (5-15 categorie tipicamente)
 
 #### TABELLA 2: DETTAGLIO ANALITICO PIATTI
+
 **Posizione:** Secondo foglio o seconda sezione del foglio principale
 **Struttura attesa:**
+
 ```
 | Nome Piatto                    | Categoria Gestionale | Quantità | Valore Totale (€) | Prezzo Unitario (€) |
 |-------------------------------|---------------------|----------|-------------------|---------------------|
@@ -41,6 +47,7 @@ Creare un sistema completo di Analisi Vendite che integri dati dal gestionale di
 ```
 
 **Note critiche:**
+
 - Nomi piatti possono avere variazioni (maiuscole/minuscole, accenti, spazi)
 - Prezzo unitario potrebbe essere calcolato o presente
 - Numero righe variabile (50-500+ piatti)
@@ -49,6 +56,7 @@ Creare un sistema completo di Analisi Vendite che integri dati dal gestionale di
 ### ALGORITMO DI PARSING EXCEL
 
 #### Fase 1: Identificazione Tabelle
+
 ```typescript
 interface ExcelParseResult {
   summaryTable: CategorySummary[];
@@ -70,6 +78,7 @@ interface ExcelParseResult {
 ```
 
 #### Fase 2: Normalizzazione Dati
+
 ```typescript
 function normalizeDishName(name: string): string {
   return name
@@ -85,7 +94,10 @@ function parseNumericValue(value: any): number {
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
     // Rimuovi simboli €, punti migliaia, sostituisci virgola decimale
-    const cleaned = value.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
+    const cleaned = value
+      .replace(/[€\s]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
     return parseFloat(cleaned) || 0;
   }
   return 0;
@@ -97,6 +109,7 @@ function parseNumericValue(value: any): number {
 ## 🗄️ SCHEMA DATABASE DETTAGLIATO
 
 ### TABELLA 1: sales_imports
+
 **Scopo:** Traccia ogni importazione mensile
 
 ```sql
@@ -131,11 +144,13 @@ CREATE INDEX idx_sales_imports_hash ON sales_imports(file_hash) WHERE file_hash 
 ```
 
 **Validazioni Business Logic:**
+
 - Non può esistere più di un import "completed" per stesso periodo/location
 - Se esiste import "failed", può essere sovrascritto
 - `file_hash` previene import duplicati accidentali
 
 ### TABELLA 2: sales_categories
+
 **Scopo:** Dati aggregati per categoria gestionale
 
 ```sql
@@ -157,6 +172,7 @@ CREATE INDEX idx_sales_categories_name ON sales_categories(location_id, category
 ```
 
 ### TABELLA 3: sales_dishes (MASTER LIST)
+
 **Scopo:** Catalogo univoco di tutti i piatti importati
 
 ```sql
@@ -191,11 +207,13 @@ CREATE INDEX idx_sales_dishes_unlinked ON sales_dishes(location_id) WHERE is_lin
 ```
 
 **Logica Aggiornamento:**
+
 - `dish_name_variants`: quando stesso piatto appare con nome leggermente diverso, aggiungi variante
 - `category_gestionale`: usa categoria più frequente tra tutti gli import
 - `match_confidence`: 1.0 = match esatto, 0.8-0.99 = fuzzy, <0.8 = manuale
 
 ### TABELLA 4: sales_dish_data
+
 **Scopo:** Dati vendita per piatto per periodo
 
 ```sql
@@ -228,6 +246,7 @@ CREATE INDEX idx_sales_dish_data_value_desc ON sales_dish_data(location_id, peri
 ### TRIGGER E FUNZIONI
 
 #### Trigger 1: Aggiorna recipe_sales su collegamento
+
 ```sql
 CREATE OR REPLACE FUNCTION sync_recipe_sales_on_link()
 RETURNS TRIGGER AS $$
@@ -237,7 +256,7 @@ BEGIN
   -- Solo se collegamento appena creato o modificato
   IF NEW.recipe_id IS NOT NULL AND (OLD.recipe_id IS NULL OR OLD.recipe_id != NEW.recipe_id) THEN
     -- Inserisci/aggiorna tutti i dati storici del piatto
-    FOR sales_record IN 
+    FOR sales_record IN
       SELECT * FROM sales_dish_data WHERE dish_id = NEW.id
     LOOP
       INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
@@ -249,14 +268,14 @@ BEGIN
         MAKE_DATE(sales_record.period_year, sales_record.period_month, 1)
       )
       ON CONFLICT DO NOTHING; -- Evita duplicati
-      
+
       -- Aggiorna recipe_id denormalizzato
-      UPDATE sales_dish_data 
-      SET recipe_id = NEW.recipe_id 
+      UPDATE sales_dish_data
+      SET recipe_id = NEW.recipe_id
       WHERE id = sales_record.id AND recipe_id IS DISTINCT FROM NEW.recipe_id;
     END LOOP;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -269,19 +288,20 @@ CREATE TRIGGER trigger_sync_recipe_sales_on_link
 ```
 
 #### Trigger 2: Aggiorna statistiche sales_dishes
+
 ```sql
 CREATE OR REPLACE FUNCTION update_sales_dishes_stats()
 RETURNS TRIGGER AS $$
 BEGIN
   UPDATE sales_dishes
-  SET 
+  SET
     last_seen_date = NOW(),
     total_imports = total_imports + 1,
     total_quantity_sold = total_quantity_sold + NEW.quantity,
     total_value_generated = total_value_generated + NEW.total_value,
     updated_at = NOW()
   WHERE id = NEW.dish_id;
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -299,6 +319,7 @@ CREATE TRIGGER trigger_update_sales_dishes_stats
 ### STEP 1: Upload e Validazione File
 
 **Frontend:**
+
 ```typescript
 interface FileUploadState {
   file: File | null;
@@ -321,6 +342,7 @@ interface FileUploadState {
 ```
 
 **Backend Endpoint:**
+
 ```
 POST /api/sales-analysis/upload-preview
 Content-Type: multipart/form-data
@@ -348,6 +370,7 @@ Response: {
 ### STEP 2: Selezione Periodo
 
 **UI Component:**
+
 ```typescript
 interface PeriodSelectorProps {
   onPeriodSelect: (period: { month: number; year: number }) => void;
@@ -363,6 +386,7 @@ interface PeriodSelectorProps {
 ```
 
 **Conflitto Periodo Esistente:**
+
 ```typescript
 interface ImportConflict {
   existingImport: SalesImport;
@@ -374,6 +398,7 @@ interface ImportConflict {
 ### STEP 3: Parsing Excel Avanzato
 
 **Algoritmo di Rilevamento Tabelle:**
+
 ```typescript
 function detectTables(workbook: Workbook): TableDetectionResult {
   // 1. Analizza tutti i fogli
@@ -391,6 +416,7 @@ function detectTables(workbook: Workbook): TableDetectionResult {
 ```
 
 **Gestione Errori Parsing:**
+
 ```typescript
 interface ParseError {
   type: 'missing_column' | 'invalid_data' | 'empty_row' | 'type_mismatch';
@@ -409,6 +435,7 @@ interface ParseError {
 ### STEP 4: Normalizzazione e Matching
 
 **Normalizzazione Nome Piatto:**
+
 ```typescript
 function normalizeDishName(name: string): NormalizedName {
   const normalized = name
@@ -418,22 +445,34 @@ function normalizeDishName(name: string): NormalizedName {
     .replace(/[\u0300-\u036f]/g, '') // Rimuovi accenti
     .replace(/[^\w\s]/g, '') // Rimuovi caratteri speciali
     .replace(/\s+/g, ' '); // Normalizza spazi
-  
+
   // Rimuovi articoli comuni
-  const articles = ['il', 'la', 'lo', 'gli', 'le', 'un', 'una', 'uno', 'dei', 'delle'];
+  const articles = [
+    'il',
+    'la',
+    'lo',
+    'gli',
+    'le',
+    'un',
+    'una',
+    'uno',
+    'dei',
+    'delle',
+  ];
   const words = normalized.split(' ');
   const filtered = words.filter(w => !articles.includes(w));
-  
+
   return {
     normalized: filtered.join(' '),
     original: name,
     variants: generateVariants(name), // "Pasta al pomodoro" -> ["pasta pomodoro", "pasta al pomodoro"]
-    keywords: extractKeywords(filtered) // ["pasta", "pomodoro"]
+    keywords: extractKeywords(filtered), // ["pasta", "pomodoro"]
   };
 }
 ```
 
 **Algoritmo Matching Automatico:**
+
 ```typescript
 interface MatchingResult {
   dish: SalesDish;
@@ -456,13 +495,13 @@ function matchDishToRecipe(
       recipe: findRecipe(existingDish.recipe_id),
       confidence: 1.0,
       method: 'existing',
-      reasons: ['Piatto già collegato in import precedente']
+      reasons: ['Piatto già collegato in import precedente'],
     };
   }
-  
+
   // 2. Match esatto (nome normalizzato)
-  const exactMatch = recipes.find(r => 
-    normalizeDishName(r.nome_piatto).normalized === dish.normalized
+  const exactMatch = recipes.find(
+    r => normalizeDishName(r.nome_piatto).normalized === dish.normalized
   );
   if (exactMatch) {
     return {
@@ -470,10 +509,10 @@ function matchDishToRecipe(
       recipe: exactMatch,
       confidence: 1.0,
       method: 'exact',
-      reasons: ['Nome identico dopo normalizzazione']
+      reasons: ['Nome identico dopo normalizzazione'],
     };
   }
-  
+
   // 3. Match fuzzy (Levenshtein distance)
   const fuzzyMatches = recipes
     .map(r => ({
@@ -482,11 +521,14 @@ function matchDishToRecipe(
         dish.normalized,
         normalizeDishName(r.nome_piatto).normalized
       ),
-      similarity: calculateSimilarity(dish.normalized, normalizeDishName(r.nome_piatto).normalized)
+      similarity: calculateSimilarity(
+        dish.normalized,
+        normalizeDishName(r.nome_piatto).normalized
+      ),
     }))
     .filter(m => m.similarity > 0.8)
     .sort((a, b) => b.similarity - a.similarity);
-  
+
   if (fuzzyMatches.length > 0) {
     const best = fuzzyMatches[0];
     return {
@@ -494,38 +536,41 @@ function matchDishToRecipe(
       recipe: best.recipe,
       confidence: best.similarity,
       method: 'fuzzy',
-      reasons: [`Similarità ${(best.similarity * 100).toFixed(0)}%`]
+      reasons: [`Similarità ${(best.similarity * 100).toFixed(0)}%`],
     };
   }
-  
+
   // 4. Match per keyword (almeno 2 keyword in comune)
   const keywordMatches = recipes
     .map(r => ({
       recipe: r,
-      commonKeywords: dish.keywords.filter(k => 
+      commonKeywords: dish.keywords.filter(k =>
         normalizeDishName(r.nome_piatto).keywords.includes(k)
-      ).length
+      ).length,
     }))
     .filter(m => m.commonKeywords >= 2)
     .sort((a, b) => b.commonKeywords - a.commonKeywords);
-  
+
   if (keywordMatches.length > 0) {
     return {
       dish: existingDish || createNewDish(dish),
       recipe: keywordMatches[0].recipe,
-      confidence: Math.min(0.7, keywordMatches[0].commonKeywords / dish.keywords.length),
+      confidence: Math.min(
+        0.7,
+        keywordMatches[0].commonKeywords / dish.keywords.length
+      ),
       method: 'keyword',
-      reasons: [`${keywordMatches[0].commonKeywords} keyword in comune`]
+      reasons: [`${keywordMatches[0].commonKeywords} keyword in comune`],
     };
   }
-  
+
   // 5. Nessun match trovato
   return {
     dish: existingDish || createNewDish(dish),
     recipe: null,
     confidence: 0,
     method: null,
-    reasons: ['Nessun match trovato']
+    reasons: ['Nessun match trovato'],
   };
 }
 ```
@@ -533,6 +578,7 @@ function matchDishToRecipe(
 ### STEP 5: Salvataggio Dati
 
 **Transazione Database:**
+
 ```typescript
 async function saveImportData(
   importData: ImportData,
@@ -553,6 +599,7 @@ async function saveImportData(
 ```
 
 **Gestione Duplicati:**
+
 - Se stesso piatto appare più volte nello stesso import: somma quantità e valori
 - Se stesso periodo già importato: sovrascrivi (opzione utente) o errore
 
@@ -563,11 +610,12 @@ async function saveImportData(
 ### COMPONENTE PRINCIPALE: SalesAnalysis.tsx
 
 **Struttura:**
+
 ```typescript
 const SalesAnalysis: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'import' | 'links' | 'dashboard'>('import');
   const { currentLocation } = useAppContext();
-  
+
   return (
     <div className="sales-analysis-container">
       <Header />
@@ -590,6 +638,7 @@ const SalesAnalysis: React.FC = () => {
 ### TAB 1: Import Dati - Dettaglio UI
 
 #### Sezione 1: Upload File
+
 ```tsx
 <FileUploadZone
   accept=".xls,.xlsx,.xlt"
@@ -607,11 +656,9 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 #### Sezione 2: Anteprima Dati
+
 ```tsx
-<ImportPreview
-  preview={parseResult}
-  onConfirm={handleConfirmImport}
-/>
+<ImportPreview preview={parseResult} onConfirm={handleConfirmImport} />
 
 // Mostra:
 // - Tabella riepilogativa (prime 10 righe)
@@ -623,6 +670,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 #### Sezione 3: Selezione Periodo
+
 ```tsx
 <PeriodSelector
   defaultPeriod={suggestedPeriod} // Dal nome file o data corrente
@@ -640,6 +688,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 #### Sezione 4: Progress Import
+
 ```tsx
 <ImportProgress
   status={importStatus}
@@ -661,6 +710,7 @@ const SalesAnalysis: React.FC = () => {
 ### TAB 2: Gestione Collegamenti - Dettaglio UI
 
 #### Vista Lista Piatti
+
 ```tsx
 <DishesList
   dishes={dishes}
@@ -687,6 +737,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 #### Modal Collegamento
+
 ```tsx
 <LinkDishModal
   dish={selectedDish}
@@ -708,6 +759,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 #### Batch Operations
+
 ```tsx
 <BatchLinkActions
   selectedDishes={selectedDishes}
@@ -724,6 +776,7 @@ const SalesAnalysis: React.FC = () => {
 ### TAB 3: Dashboard - Dettaglio UI
 
 #### Filtri Globali
+
 ```tsx
 <DashboardFilters
   granularity={granularity}
@@ -742,6 +795,7 @@ const SalesAnalysis: React.FC = () => {
 #### Widget Dashboard (Grid Layout Responsive)
 
 **1. KPI Cards (4 colonne)**
+
 ```tsx
 <KPIWidget
   title="Totale Venduto"
@@ -759,6 +813,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 **2. Grafico Andamento Vendite**
+
 ```tsx
 <LineChart
   data={salesTrendData}
@@ -767,7 +822,7 @@ const SalesAnalysis: React.FC = () => {
   lines={[
     { key: 'total', label: 'Totale', color: '#3B82F6' },
     { key: 'linked', label: 'Collegati', color: '#10B981' },
-    { key: 'unlinked', label: 'Non collegati', color: '#EF4444' }
+    { key: 'unlinked', label: 'Non collegati', color: '#EF4444' },
   ]}
   showTooltip
   showLegend
@@ -780,6 +835,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 **3. Distribuzione Categorie**
+
 ```tsx
 <PieChart
   data={categoryDistribution}
@@ -796,6 +852,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 **4. Top 10 Piatti**
+
 ```tsx
 <BarChart
   data={topDishes}
@@ -813,6 +870,7 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 **5. Analisi Previsionale**
+
 ```tsx
 <ForecastChart
   historicalData={historicalData}
@@ -829,17 +887,36 @@ const SalesAnalysis: React.FC = () => {
 ```
 
 **6. Tabella Dettaglio**
+
 ```tsx
 <DataTable
   columns={[
     { key: 'dishName', label: 'Piatto', sortable: true },
     { key: 'category', label: 'Categoria', filterable: true },
     { key: 'quantity', label: 'Quantità', sortable: true, align: 'right' },
-    { key: 'value', label: 'Valore', sortable: true, align: 'right', format: 'currency' },
-    { key: 'unitPrice', label: 'Prezzo Unit.', sortable: true, align: 'right', format: 'currency' },
-    { key: 'percentage', label: '% Totale', sortable: true, align: 'right', format: 'percentage' },
+    {
+      key: 'value',
+      label: 'Valore',
+      sortable: true,
+      align: 'right',
+      format: 'currency',
+    },
+    {
+      key: 'unitPrice',
+      label: 'Prezzo Unit.',
+      sortable: true,
+      align: 'right',
+      format: 'currency',
+    },
+    {
+      key: 'percentage',
+      label: '% Totale',
+      sortable: true,
+      align: 'right',
+      format: 'percentage',
+    },
     { key: 'trend', label: 'Trend', sortable: false, render: renderTrend },
-    { key: 'linked', label: 'Collegato', sortable: true, render: renderLinked }
+    { key: 'linked', label: 'Collegato', sortable: true, render: renderLinked },
   ]}
   data={tableData}
   pagination={{ pageSize: 50 }}
@@ -852,6 +929,7 @@ const SalesAnalysis: React.FC = () => {
 ## 📡 API ENDPOINTS DETTAGLIATI
 
 ### 1. Upload e Preview
+
 ```
 POST /api/sales-analysis/upload-preview
 Content-Type: multipart/form-data
@@ -890,6 +968,7 @@ Response: {
 ```
 
 ### 2. Import Dati
+
 ```
 POST /api/sales-analysis/import
 Headers: {
@@ -937,6 +1016,7 @@ Response: {
 ```
 
 ### 3. Lista Import
+
 ```
 GET /api/sales-analysis/imports?locationId=xxx&limit=50&offset=0
 
@@ -952,6 +1032,7 @@ Response: {
 ```
 
 ### 4. Lista Piatti
+
 ```
 GET /api/sales-analysis/dishes?locationId=xxx&linked=true&category=xxx&search=xxx&limit=100&offset=0
 
@@ -981,6 +1062,7 @@ Response: {
 ```
 
 ### 5. Collega Piatto
+
 ```
 PUT /api/sales-analysis/dishes/:dishId/link
 Body: {
@@ -995,6 +1077,7 @@ Response: {
 ```
 
 ### 6. Batch Link
+
 ```
 POST /api/sales-analysis/dishes/batch-link
 Body: {
@@ -1015,6 +1098,7 @@ Response: {
 ```
 
 ### 7. Dashboard Data
+
 ```
 GET /api/sales-analysis/dashboard?locationId=xxx&granularity=mese&periodMonth=1&periodYear=2024&category=xxx&recipeId=xxx&compareWithPrevious=true
 
@@ -1094,6 +1178,7 @@ Response: {
 ### Modifiche a MenuMix.tsx
 
 **Aggiunta Filtro Temporale:**
+
 ```typescript
 // Nuovi stati
 const [timeGranularity, setTimeGranularity] = useState<TimeGranularity>('anno');
@@ -1116,6 +1201,7 @@ const filteredRecipeSales = useMemo(() => {
 ```
 
 **Aggiornamento Calcolo Popolarità:**
+
 - Usa `filteredRecipeSales` invece di `recipeSales` completo
 - Popolarità calcolata solo sul periodo selezionato
 - Media popolarità ricalcolata sul periodo filtrato
@@ -1125,6 +1211,7 @@ const filteredRecipeSales = useMemo(() => {
 ## ✅ CHECKLIST IMPLEMENTAZIONE DETTAGLIATA
 
 ### FASE 1: Database (Priorità ALTA)
+
 - [ ] Eseguire script SQL migrazione in Supabase
 - [ ] Verificare creazione tabelle
 - [ ] Testare trigger e funzioni
@@ -1133,6 +1220,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] Verificare RLS policies (se necessario)
 
 ### FASE 2: Backend - Parsing Excel (Priorità ALTA)
+
 - [ ] Installare libreria Excel (xlsx o exceljs)
 - [ ] Implementare funzione detectTables
 - [ ] Implementare normalizzazione nomi
@@ -1141,6 +1229,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] Test con file reali
 
 ### FASE 3: Backend - Matching (Priorità ALTA)
+
 - [ ] Implementare algoritmo matching esatto
 - [ ] Implementare algoritmo fuzzy (Levenshtein)
 - [ ] Implementare matching per keyword
@@ -1148,6 +1237,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] Test matching con dati reali
 
 ### FASE 4: Backend - API Endpoints (Priorità ALTA)
+
 - [ ] POST /upload-preview
 - [ ] POST /import
 - [ ] GET /imports
@@ -1158,6 +1248,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] Gestione errori e validazione
 
 ### FASE 5: Frontend - Componenti Base (Priorità ALTA)
+
 - [ ] SalesAnalysis.tsx (componente principale)
 - [ ] FileUploadZone.tsx
 - [ ] ImportPreview.tsx
@@ -1168,6 +1259,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] DashboardFilters.tsx
 
 ### FASE 6: Frontend - Dashboard Widgets (Priorità MEDIA)
+
 - [ ] KPIWidget.tsx
 - [ ] LineChart.tsx (usando recharts)
 - [ ] PieChart.tsx
@@ -1177,11 +1269,13 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] HeatmapCalendar.tsx (opzionale)
 
 ### FASE 7: Integrazione Menu Mix (Priorità ALTA)
+
 - [ ] Aggiungere filtro temporale a MenuMix.tsx
 - [ ] Aggiornare calcolo popolarità
 - [ ] Test integrazione
 
 ### FASE 8: Testing (Priorità ALTA)
+
 - [ ] Test unitari parsing Excel
 - [ ] Test unitari matching
 - [ ] Test integrazione API
@@ -1190,6 +1284,7 @@ const filteredRecipeSales = useMemo(() => {
 - [ ] Test edge cases
 
 ### FASE 9: Refinement (Priorità MEDIA)
+
 - [ ] Ottimizzazione performance
 - [ ] Miglioramento UX
 - [ ] Gestione errori user-friendly
@@ -1201,6 +1296,7 @@ const filteredRecipeSales = useMemo(() => {
 ## 🎯 PRIORITÀ IMPLEMENTAZIONE
 
 **SPRINT 1 (MVP):**
+
 1. Database schema
 2. Parsing Excel base
 3. Import dati base
@@ -1209,12 +1305,14 @@ const filteredRecipeSales = useMemo(() => {
 6. Dashboard base (KPI + grafico semplice)
 
 **SPRINT 2:**
+
 1. Matching automatico
 2. Dashboard completa
 3. Filtri avanzati
 4. Integrazione Menu Mix
 
 **SPRINT 3:**
+
 1. Analisi previsionale
 2. Export report
 3. Batch operations
@@ -1225,6 +1323,7 @@ const filteredRecipeSales = useMemo(() => {
 ## 📝 NOTE FINALI
 
 Questa progettazione è completa e pronta per l'implementazione. Ogni componente è dettagliato con:
+
 - Struttura dati
 - Algoritmi
 - UI/UX
@@ -1233,4 +1332,3 @@ Questa progettazione è completa e pronta per l'implementazione. Ogni componente
 - Gestione errori
 
 **Prossimo passo:** Iniziare implementazione FASE 1 (Database).
-

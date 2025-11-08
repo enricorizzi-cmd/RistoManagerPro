@@ -25,7 +25,9 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
   const { showNotification } = useAppContext();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [granularity, setGranularity] = useState<'mese' | 'trimestre' | 'quadrimestre' | 'semestre' | 'anno' | 'totale'>('anno');
+  const [granularity, setGranularity] = useState<
+    'mese' | 'trimestre' | 'quadrimestre' | 'semestre' | 'anno' | 'totale'
+  >('anno');
   const [periodYear, setPeriodYear] = useState(new Date().getFullYear());
   const [periodMonth, setPeriodMonth] = useState(new Date().getMonth() + 1);
 
@@ -45,7 +47,9 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
       setDashboardData(data);
     } catch (error) {
       showNotification(
-        error instanceof Error ? error.message : 'Errore nel caricamento dei dati',
+        error instanceof Error
+          ? error.message
+          : 'Errore nel caricamento dei dati',
         'error'
       );
     } finally {
@@ -53,7 +57,14 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
     }
   };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  const COLORS = [
+    '#0088FE',
+    '#00C49F',
+    '#FFBB28',
+    '#FF8042',
+    '#8884d8',
+    '#82ca9d',
+  ];
 
   if (loading || !dashboardData) {
     return (
@@ -110,7 +121,9 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                 <option key={month} value={month}>
-                  {new Date(2000, month - 1).toLocaleString('it-IT', { month: 'long' })}
+                  {new Date(2000, month - 1).toLocaleString('it-IT', {
+                    month: 'long',
+                  })}
                 </option>
               ))}
             </select>
@@ -158,14 +171,21 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="total" stroke="#0088FE" name="Totale" />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#0088FE"
+                name="Totale"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Category Distribution */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Distribuzione per Categoria</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            Distribuzione per Categoria
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -173,14 +193,21 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ category, percentage }) => `${category}: ${percentage.toFixed(1)}%`}
+                label={({ category, percentage }) =>
+                  `${category}: ${percentage.toFixed(1)}%`
+                }
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {dashboardData.charts.categoryDistribution.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
+                {dashboardData.charts.categoryDistribution.map(
+                  (entry: any, index: number) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  )
+                )}
               </Pie>
               <Tooltip />
             </PieChart>
@@ -194,7 +221,12 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={dashboardData.charts.topDishes}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dishName" angle={-45} textAnchor="end" height={100} />
+            <XAxis
+              dataKey="dishName"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+            />
             <YAxis />
             <Tooltip />
             <Bar dataKey="value" fill="#0088FE" name="Valore (€)" />
@@ -206,4 +238,3 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
 };
 
 export default DashboardTab;
-

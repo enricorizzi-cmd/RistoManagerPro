@@ -11,9 +11,16 @@ const Settings = lazy(() => import('./components/Settings'));
 const FinancialPlan = lazy(() => import('./components/FinancialPlan'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
 const MenuEngineering = lazy(() => import('./components/MenuEngineering'));
-const SalesAnalysis = lazy(() => import('./components/sales-analysis/SalesAnalysis'));
+const SalesAnalysis = lazy(
+  () => import('./components/sales-analysis/SalesAnalysis')
+);
 
-type Page = 'financial-plan' | 'settings' | 'users' | 'menu-engineering' | 'sales-analysis';
+type Page =
+  | 'financial-plan'
+  | 'settings'
+  | 'users'
+  | 'menu-engineering'
+  | 'sales-analysis';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('financial-plan');
@@ -23,9 +30,13 @@ const App: React.FC = () => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') as Page;
       if (
-        ['financial-plan', 'settings', 'users', 'menu-engineering', 'sales-analysis'].includes(
-          hash
-        )
+        [
+          'financial-plan',
+          'settings',
+          'users',
+          'menu-engineering',
+          'sales-analysis',
+        ].includes(hash)
       ) {
         setCurrentPage(hash);
       } else {

@@ -36,7 +36,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
       setDishes(result.dishes);
     } catch (error) {
       showNotification(
-        error instanceof Error ? error.message : 'Errore nel caricamento dei piatti',
+        error instanceof Error
+          ? error.message
+          : 'Errore nel caricamento dei piatti',
         'error'
       );
     } finally {
@@ -61,7 +63,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
       setEditingDish(null);
     } catch (error) {
       showNotification(
-        error instanceof Error ? error.message : 'Errore nell\'aggiornamento del collegamento',
+        error instanceof Error
+          ? error.message
+          : "Errore nell'aggiornamento del collegamento",
         'error'
       );
     }
@@ -76,7 +80,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Totale Piatti</div>
-          <div className="text-2xl font-bold text-gray-900">{dishes.length}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {dishes.length}
+          </div>
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4">
           <div className="text-sm text-green-600">Collegati</div>
@@ -84,7 +90,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4">
           <div className="text-sm text-yellow-600">Non Collegati</div>
-          <div className="text-2xl font-bold text-yellow-700">{unlinkedCount}</div>
+          <div className="text-2xl font-bold text-yellow-700">
+            {unlinkedCount}
+          </div>
         </div>
       </div>
 
@@ -176,7 +184,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       {editingDish === dish.id ? (
                         <select
                           value={selectedRecipeId || dish.recipe_id || ''}
-                          onChange={e => setSelectedRecipeId(e.target.value || null)}
+                          onChange={e =>
+                            setSelectedRecipeId(e.target.value || null)
+                          }
                           className="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                         >
                           <option value="">Nessuna ricetta</option>
@@ -187,9 +197,14 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                           ))}
                         </select>
                       ) : (
-                        <span className={dish.is_linked ? 'text-green-600' : 'text-gray-400'}>
+                        <span
+                          className={
+                            dish.is_linked ? 'text-green-600' : 'text-gray-400'
+                          }
+                        >
                           {dish.is_linked
-                            ? recipes.find(r => r.id === dish.recipe_id)?.nome_piatto || 'Sconosciuta'
+                            ? recipes.find(r => r.id === dish.recipe_id)
+                                ?.nome_piatto || 'Sconosciuta'
                             : 'Non collegato'}
                         </span>
                       )}
@@ -239,4 +254,3 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
 };
 
 export default LinksTab;
-

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { UploadIcon, CheckCircleIcon } from '../icons/Icons';
-import { uploadPreview, importSalesData } from '../../services/salesAnalysisApi';
+import {
+  uploadPreview,
+  importSalesData,
+} from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
 
 interface ImportTabProps {
@@ -21,7 +24,10 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
     if (!selectedFile) return;
 
     if (!selectedFile.name.match(/\.(xls|xlsx|xlt)$/i)) {
-      showNotification('Formato file non supportato. Usa .xls, .xlsx o .xlt', 'error');
+      showNotification(
+        'Formato file non supportato. Usa .xls, .xlsx o .xlt',
+        'error'
+      );
       return;
     }
 
@@ -34,7 +40,9 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
       showNotification('File caricato con successo', 'success');
     } catch (error) {
       showNotification(
-        error instanceof Error ? error.message : 'Errore nel caricamento del file',
+        error instanceof Error
+          ? error.message
+          : 'Errore nel caricamento del file',
         'error'
       );
       setFile(null);
@@ -66,7 +74,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
       setPreview(null);
     } catch (error) {
       showNotification(
-        error instanceof Error ? error.message : 'Errore durante l\'import',
+        error instanceof Error ? error.message : "Errore durante l'import",
         'error'
       );
     } finally {
@@ -79,7 +87,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
       {/* File Upload */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Carica File Excel</h2>
-        
+
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
           <input
             type="file"
@@ -127,7 +135,9 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                   <option key={month} value={month}>
-                    {new Date(2000, month - 1).toLocaleString('it-IT', { month: 'long' })}
+                    {new Date(2000, month - 1).toLocaleString('it-IT', {
+                      month: 'long',
+                    })}
                   </option>
                 ))}
               </select>
@@ -153,11 +163,12 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
       {preview && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Anteprima Import</h2>
-          
+
           <div className="space-y-4">
             <div>
               <h3 className="font-medium text-gray-700 mb-2">
-                Tabella Riepilogativa ({preview.preview.summaryTable.totalRows} categorie)
+                Tabella Riepilogativa ({preview.preview.summaryTable.totalRows}{' '}
+                categorie)
               </h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -175,15 +186,21 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {preview.preview.summaryTable.rows.slice(0, 5).map((row: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{row.category}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{row.quantity}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">
-                          € {row.totalValue.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
+                    {preview.preview.summaryTable.rows
+                      .slice(0, 5)
+                      .map((row: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {row.category}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {row.quantity}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            € {row.totalValue.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -191,7 +208,8 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
 
             <div>
               <h3 className="font-medium text-gray-700 mb-2">
-                Tabella Dettaglio ({preview.preview.detailTable.totalRows} piatti)
+                Tabella Dettaglio ({preview.preview.detailTable.totalRows}{' '}
+                piatti)
               </h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -212,16 +230,24 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {preview.preview.detailTable.rows.slice(0, 10).map((row: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{row.dishName}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{row.category}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{row.quantity}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">
-                          € {row.totalValue.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
+                    {preview.preview.detailTable.rows
+                      .slice(0, 10)
+                      .map((row: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {row.dishName}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {row.category}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {row.quantity}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            € {row.totalValue.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -234,32 +260,39 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <h4 className="font-medium text-red-800 mb-2">Errori:</h4>
                     <ul className="list-disc list-inside text-sm text-red-700">
-                      {preview.validation.errors.map((err: any, idx: number) => (
-                        <li key={idx}>{err.message}</li>
-                      ))}
+                      {preview.validation.errors.map(
+                        (err: any, idx: number) => (
+                          <li key={idx}>{err.message}</li>
+                        )
+                      )}
                     </ul>
                   </div>
                 )}
                 {preview.validation.warnings.length > 0 && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
-                    <h4 className="font-medium text-yellow-800 mb-2">Avvisi:</h4>
+                    <h4 className="font-medium text-yellow-800 mb-2">
+                      Avvisi:
+                    </h4>
                     <ul className="list-disc list-inside text-sm text-yellow-700">
-                      {preview.validation.warnings.map((warn: any, idx: number) => (
-                        <li key={idx}>{warn.message}</li>
-                      ))}
+                      {preview.validation.warnings.map(
+                        (warn: any, idx: number) => (
+                          <li key={idx}>{warn.message}</li>
+                        )
+                      )}
                     </ul>
                   </div>
                 )}
-                {preview.validation.isValid && preview.validation.errors.length === 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <CheckCircleIcon className="w-5 h-5 text-green-600 mr-2" />
-                      <span className="text-sm text-green-700">
-                        File valido e pronto per l&apos;import
-                      </span>
+                {preview.validation.isValid &&
+                  preview.validation.errors.length === 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <CheckCircleIcon className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="text-sm text-green-700">
+                          File valido e pronto per l&apos;import
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
           </div>
@@ -291,4 +324,3 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
 };
 
 export default ImportTab;
-

@@ -328,7 +328,13 @@ export const batchLinkDishes = (
 export const getDashboardData = (
   locationId: string,
   options?: {
-    granularity?: 'mese' | 'trimestre' | 'quadrimestre' | 'semestre' | 'anno' | 'totale';
+    granularity?:
+      | 'mese'
+      | 'trimestre'
+      | 'quadrimestre'
+      | 'semestre'
+      | 'anno'
+      | 'totale';
     periodMonth?: number;
     periodYear?: number;
     category?: string;
@@ -362,4 +368,3 @@ export const getDashboardData = (
     locationId
   );
 };
-

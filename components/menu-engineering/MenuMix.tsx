@@ -2,7 +2,13 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { CalendarIcon } from '../icons/Icons';
 import type { Recipe, RecipeCategory, RecipeSales, BCGMatrix } from './types';
 
-type TimeGranularity = 'mese' | 'trimestre' | 'quadrimestre' | 'semestre' | 'anno' | 'totale';
+type TimeGranularity =
+  | 'mese'
+  | 'trimestre'
+  | 'quadrimestre'
+  | 'semestre'
+  | 'anno'
+  | 'totale';
 
 interface MenuMixProps {
   recipes: Recipe[];
@@ -267,7 +273,10 @@ const MenuMix: React.FC<MenuMixProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
-              {(granularity === 'mese' || granularity === 'trimestre' || granularity === 'quadrimestre' || granularity === 'semestre') && (
+              {(granularity === 'mese' ||
+                granularity === 'trimestre' ||
+                granularity === 'quadrimestre' ||
+                granularity === 'semestre') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mese
@@ -279,7 +288,9 @@ const MenuMix: React.FC<MenuMixProps> = ({
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                       <option key={month} value={month}>
-                        {new Date(2000, month - 1).toLocaleString('it-IT', { month: 'long' })}
+                        {new Date(2000, month - 1).toLocaleString('it-IT', {
+                          month: 'long',
+                        })}
                       </option>
                     ))}
                   </select>

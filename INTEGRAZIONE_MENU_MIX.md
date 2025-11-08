@@ -1,6 +1,7 @@
 # 🔗 INTEGRAZIONE ANALISI VENDITE CON MENU MIX
 
 ## 📋 OBIETTIVO
+
 Aggiungere il filtro temporale al componente Menu Mix per permettere l'analisi della matrice BCG su periodi specifici.
 
 ---
@@ -12,12 +13,12 @@ Aggiungere il filtro temporale al componente Menu Mix per permettere l'analisi d
 Aggiungere nuovi tipi per la granularità temporale:
 
 ```typescript
-export type TimeGranularity = 
-  | 'mese' 
-  | 'trimestre' 
-  | 'quadrimestre' 
-  | 'semestre' 
-  | 'anno' 
+export type TimeGranularity =
+  | 'mese'
+  | 'trimestre'
+  | 'quadrimestre'
+  | 'semestre'
+  | 'anno'
   | 'totale';
 
 export interface PeriodFilter {
@@ -45,7 +46,7 @@ const [selectedPeriod, setSelectedPeriod] = useState<{
   semester?: number;
   year: number;
 }>({
-  year: new Date().getFullYear()
+  year: new Date().getFullYear(),
 });
 ```
 
@@ -64,23 +65,29 @@ const filteredRecipeSales = useMemo(() => {
 
     switch (timeGranularity) {
       case 'mese':
-        return saleYear === selectedPeriod.year && 
-               saleMonth === selectedPeriod.month;
+        return (
+          saleYear === selectedPeriod.year && saleMonth === selectedPeriod.month
+        );
 
       case 'trimestre':
         const quarter = Math.ceil(saleMonth / 3); // 1-4
-        return saleYear === selectedPeriod.year && 
-               quarter === selectedPeriod.quarter;
+        return (
+          saleYear === selectedPeriod.year && quarter === selectedPeriod.quarter
+        );
 
       case 'quadrimestre':
         const quadrimestre = Math.ceil(saleMonth / 4); // 1-3
-        return saleYear === selectedPeriod.year && 
-               quadrimestre === selectedPeriod.quadrimestre;
+        return (
+          saleYear === selectedPeriod.year &&
+          quadrimestre === selectedPeriod.quadrimestre
+        );
 
       case 'semestre':
         const semester = saleMonth <= 6 ? 1 : 2;
-        return saleYear === selectedPeriod.year && 
-               semester === selectedPeriod.semester;
+        return (
+          saleYear === selectedPeriod.year &&
+          semester === selectedPeriod.semester
+        );
 
       case 'anno':
         return saleYear === selectedPeriod.year;
@@ -306,8 +313,18 @@ const getPeriodLabel = (
   period: typeof selectedPeriod
 ): string => {
   const months = [
-    'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+    'Gennaio',
+    'Febbraio',
+    'Marzo',
+    'Aprile',
+    'Maggio',
+    'Giugno',
+    'Luglio',
+    'Agosto',
+    'Settembre',
+    'Ottobre',
+    'Novembre',
+    'Dicembre',
   ];
 
   switch (granularity) {
@@ -371,14 +388,16 @@ GET /api/menu-engineering/recipe-sales?locationId=xxx&year=2024&quarter=1
 ## 🔍 CONSIDERAZIONI
 
 ### Performance
+
 - Il filtro viene fatto lato frontend, quindi con molti dati potrebbe essere lento
 - Considerare di implementare filtro lato backend per grandi dataset
 
 ### Default
+
 - Di default mostra anno corrente (da Gennaio a oggi)
 - Se non ci sono dati per il periodo selezionato, mostrare messaggio informativo
 
 ### Validazione
+
 - Verificare che il periodo selezionato abbia dati disponibili
 - Mostrare avviso se periodo senza dati
-

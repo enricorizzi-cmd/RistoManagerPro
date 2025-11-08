@@ -5,7 +5,12 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const { masterDb, getLocationDb } = require('./supabase-wrapper');
-const { parseExcelFile, validateParsedData, normalizeDishName, normalizeCategoryName } = require('./excel-parser');
+const {
+  parseExcelFile,
+  validateParsedData,
+  normalizeDishName,
+  normalizeCategoryName,
+} = require('./excel-parser');
 
 const PORT = process.env.PORT || 4000;
 
@@ -46,15 +51,17 @@ const upload = multer({
     const allowedMimes = [
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel.sheet.macroEnabled.12'
+      'application/vnd.ms-excel.sheet.macroEnabled.12',
     ];
-    if (allowedMimes.includes(file.mimetype) || 
-        file.originalname.match(/\.(xls|xlsx|xlt)$/i)) {
+    if (
+      allowedMimes.includes(file.mimetype) ||
+      file.originalname.match(/\.(xls|xlsx|xlt)$/i)
+    ) {
       cb(null, true);
     } else {
       cb(new Error('Formato file non supportato. Usa .xls, .xlsx o .xlt'));
     }
-  }
+  },
 });
 
 // Logging middleware for debugging
@@ -3710,11 +3717,16 @@ app.post(
           [req.user.id, locationId]
         );
         if (!hasPermission) {
-          return res.status(403).json({ error: 'Access denied to this location' });
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
         }
       }
 
-      const parseResult = parseExcelFile(req.file.buffer, req.file.originalname);
+      const parseResult = parseExcelFile(
+        req.file.buffer,
+        req.file.originalname
+      );
       const validation = validateParsedData(parseResult);
 
       res.json({
@@ -3723,23 +3735,25 @@ app.post(
           fileSize: parseResult.metadata.fileSize,
           sheets: parseResult.metadata.sheetNames.map(name => ({
             name,
-            rowCount: 0 // Would need to calculate from sheet
+            rowCount: 0, // Would need to calculate from sheet
           })),
           summaryTable: {
             rows: parseResult.summaryTable.slice(0, 10),
-            totalRows: parseResult.summaryTable.length
+            totalRows: parseResult.summaryTable.length,
           },
           detailTable: {
             rows: parseResult.detailTable.slice(0, 20),
             totalRows: parseResult.detailTable.length,
-            sampleRows: parseResult.detailTable.slice(0, 20)
-          }
+            sampleRows: parseResult.detailTable.slice(0, 20),
+          },
         },
-        validation
+        validation,
       });
     } catch (error) {
       console.error('Failed to parse Excel file:', error);
-      res.status(500).json({ error: error.message || 'Failed to parse Excel file' });
+      res
+        .status(500)
+        .json({ error: error.message || 'Failed to parse Excel file' });
     }
   }
 );
@@ -3773,7 +3787,9 @@ app.post(
           [req.user.id, locationId]
         );
         if (!hasPermission) {
-          return res.status(403).json({ error: 'Access denied to this location' });
+          return res
+            .status(403)
+            .json({ error: 'Access denied to this location' });
         }
       }
 
@@ -3788,24 +3804,29 @@ app.post(
       if (existingImport && !overwriteExisting) {
         return res.status(409).json({
           error: 'Import già esistente per questo periodo',
-          existingImport
+          existingImport,
         });
       }
 
       // Parse Excel file
-      const parseResult = parseExcelFile(req.file.buffer, req.file.originalname);
+      const parseResult = parseExcelFile(
+        req.file.buffer,
+        req.file.originalname
+      );
       const validation = validateParsedData(parseResult);
 
       if (!validation.isValid) {
         return res.status(400).json({
           error: 'File contiene errori',
-          validation
+          validation,
         });
       }
 
       // Delete existing import if overwriting
       if (existingImport && overwriteExisting) {
-        await db.run('DELETE FROM sales_imports WHERE id = ?', [existingImport.id]);
+        await db.run('DELETE FROM sales_imports WHERE id = ?', [
+          existingImport.id,
+        ]);
       }
 
       // Create import record
@@ -3829,7 +3850,7 @@ app.post(
           parseResult.detailTable.reduce((sum, d) => sum + d.quantity, 0),
           parseResult.detailTable.reduce((sum, d) => sum + d.totalValue, 0),
           'processing',
-          req.user.id
+          req.user.id,
         ]
       );
 
@@ -3869,7 +3890,7 @@ app.post(
             category.category,
             normalizeCategoryName(category.category),
             category.quantity,
-            category.totalValue
+            category.totalValue,
           ]
         );
       }
@@ -3891,7 +3912,7 @@ app.post(
             dish_name_original: dishData.dishName,
             category_gestionale: dishData.category,
             recipe_id: null,
-            is_linked: false
+            is_linked: false,
           };
 
           // Try to match with recipes
@@ -3900,26 +3921,29 @@ app.post(
 
           for (const recipe of recipes) {
             const recipeNormalized = normalizeDishName(recipe.nome_piatto);
-            
+
             // Exact match
             if (normalizedName === recipeNormalized) {
               bestMatch = recipe;
               bestConfidence = 1.0;
               matchResult = {
                 method: 'exact',
-                reasons: ['Nome identico dopo normalizzazione']
+                reasons: ['Nome identico dopo normalizzazione'],
               };
               break;
             }
 
             // Fuzzy match
-            const similarity = calculateSimilarity(normalizedName, recipeNormalized);
+            const similarity = calculateSimilarity(
+              normalizedName,
+              recipeNormalized
+            );
             if (similarity > bestConfidence && similarity > 0.8) {
               bestMatch = recipe;
               bestConfidence = similarity;
               matchResult = {
                 method: 'fuzzy',
-                reasons: [`Similarità ${(similarity * 100).toFixed(0)}%`]
+                reasons: [`Similarità ${(similarity * 100).toFixed(0)}%`],
               };
             }
           }
@@ -3935,7 +3959,7 @@ app.post(
               recipeName: bestMatch.nome_piatto,
               confidence: bestConfidence,
               method: matchResult.method,
-              reasons: matchResult.reasons
+              reasons: matchResult.reasons,
             });
           } else {
             dishesUnmatched++;
@@ -3946,7 +3970,7 @@ app.post(
               recipeName: null,
               confidence: 0,
               method: null,
-              reasons: ['Nessun match trovato']
+              reasons: ['Nessun match trovato'],
             });
           }
 
@@ -3964,7 +3988,7 @@ app.post(
               dish.recipe_id,
               dish.is_linked,
               bestConfidence > 0 ? bestConfidence : null,
-              matchResult?.method || null
+              matchResult?.method || null,
             ]
           );
 
@@ -3994,13 +4018,15 @@ app.post(
             dishData.quantity,
             dishData.totalValue,
             periodMonth,
-            periodYear
+            periodYear,
           ]
         );
 
         // If dish is linked, create recipe_sales record
         if (dish.recipe_id) {
-          const saleDate = new Date(periodYear, periodMonth - 1, 1).toISOString().split('T')[0];
+          const saleDate = new Date(periodYear, periodMonth - 1, 1)
+            .toISOString()
+            .split('T')[0];
           try {
             await db.run(
               `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
@@ -4010,7 +4036,7 @@ app.post(
                 locationId,
                 dish.recipe_id,
                 dishData.quantity,
-                saleDate
+                saleDate,
               ]
             );
           } catch (err) {
@@ -4038,16 +4064,24 @@ app.post(
           dishesExisting,
           dishesMatched,
           dishesUnmatched,
-          totalQuantity: parseResult.detailTable.reduce((sum, d) => sum + d.quantity, 0),
-          totalValue: parseResult.detailTable.reduce((sum, d) => sum + d.totalValue, 0)
+          totalQuantity: parseResult.detailTable.reduce(
+            (sum, d) => sum + d.quantity,
+            0
+          ),
+          totalValue: parseResult.detailTable.reduce(
+            (sum, d) => sum + d.totalValue,
+            0
+          ),
         },
         matches,
         errors: validation.errors,
-        warnings: validation.warnings
+        warnings: validation.warnings,
       });
     } catch (error) {
       console.error('Failed to import sales data:', error);
-      res.status(500).json({ error: error.message || 'Failed to import sales data' });
+      res
+        .status(500)
+        .json({ error: error.message || 'Failed to import sales data' });
     }
   }
 );
@@ -4084,7 +4118,7 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     }
 
     const db = getLocationDb(locationId);
-    
+
     // Get all dishes first, then filter in JavaScript since Supabase wrapper doesn't support complex ILIKE with OR
     let dishes = await db.query(
       'SELECT * FROM sales_dishes WHERE location_id = ?',
@@ -4104,9 +4138,11 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
 
     if (search) {
       const searchLower = search.toLowerCase();
-      dishes = dishes.filter(d => 
-        (d.dish_name && d.dish_name.toLowerCase().includes(searchLower)) ||
-        (d.dish_name_original && d.dish_name_original.toLowerCase().includes(searchLower))
+      dishes = dishes.filter(
+        d =>
+          (d.dish_name && d.dish_name.toLowerCase().includes(searchLower)) ||
+          (d.dish_name_original &&
+            d.dish_name_original.toLowerCase().includes(searchLower))
       );
     }
 
@@ -4119,7 +4155,10 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
 
     // Apply pagination
     const total = dishes.length;
-    const paginatedDishes = dishes.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+    const paginatedDishes = dishes.slice(
+      parseInt(offset),
+      parseInt(offset) + parseInt(limit)
+    );
 
     res.json({
       dishes: paginatedDishes,
@@ -4127,164 +4166,184 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        hasMore: parseInt(offset) + parseInt(limit) < total
-      }
+        hasMore: parseInt(offset) + parseInt(limit) < total,
+      },
     });
   } catch (error) {
     console.error('Failed to get dishes:', error);
-    res.status(500).json({ error: 'Failed to get dishes: ' + (error.message || 'Unknown error') });
+    res.status(500).json({
+      error: 'Failed to get dishes: ' + (error.message || 'Unknown error'),
+    });
   }
 });
 
 // Link dish to recipe
-app.put('/api/sales-analysis/dishes/:dishId/link', requireAuth, async (req, res) => {
-  try {
-    const locationId = req.headers['x-location-id'] || req.body.locationId;
-    const { dishId } = req.params;
-    const { recipeId } = req.body;
+app.put(
+  '/api/sales-analysis/dishes/:dishId/link',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      const { dishId } = req.params;
+      const { recipeId } = req.body;
 
-    if (!locationId || locationId === 'all') {
-      return res.status(400).json({ error: 'Location ID valido richiesto' });
-    }
-
-    const db = getLocationDb(locationId);
-    
-    // Update dish
-    await db.run(
-      'UPDATE sales_dishes SET recipe_id = ?, is_linked = ?, match_method = ?, updated_at = NOW() WHERE id = ? AND location_id = ?',
-      [
-        recipeId || null,
-        !!recipeId,
-        recipeId ? 'manual' : null,
-        dishId,
-        locationId
-      ]
-    );
-
-    // Get updated dish
-    const dish = await db.get('SELECT * FROM sales_dishes WHERE id = ?', [dishId]);
-
-    // If linked, create recipe_sales records for all historical data
-    if (recipeId) {
-      const dishData = await db.query(
-        'SELECT * FROM sales_dish_data WHERE dish_id = ?',
-        [dishId]
-      );
-
-      for (const data of dishData) {
-        const saleDate = new Date(data.period_year, data.period_month - 1, 1).toISOString().split('T')[0];
-        try {
-          await db.run(
-            `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
-             VALUES (?, ?, ?, ?, ?)`,
-            [
-              crypto.randomUUID(),
-              locationId,
-              recipeId,
-              data.quantity,
-              saleDate
-            ]
-          );
-        } catch (err) {
-          // Ignore duplicates
-          if (!err.message.includes('UNIQUE constraint')) {
-            console.error('Failed to create recipe_sales:', err);
-          }
-        }
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
       }
 
-      // Update sales_dish_data with recipe_id
+      const db = getLocationDb(locationId);
+
+      // Update dish
       await db.run(
-        'UPDATE sales_dish_data SET recipe_id = ? WHERE dish_id = ?',
-        [recipeId, dishId]
+        'UPDATE sales_dishes SET recipe_id = ?, is_linked = ?, match_method = ?, updated_at = NOW() WHERE id = ? AND location_id = ?',
+        [
+          recipeId || null,
+          !!recipeId,
+          recipeId ? 'manual' : null,
+          dishId,
+          locationId,
+        ]
       );
-    }
 
-    res.json({ success: true, dish });
-  } catch (error) {
-    console.error('Failed to link dish:', error);
-    res.status(500).json({ error: 'Failed to link dish' });
-  }
-});
+      // Get updated dish
+      const dish = await db.get('SELECT * FROM sales_dishes WHERE id = ?', [
+        dishId,
+      ]);
 
-// Batch link dishes
-app.post('/api/sales-analysis/dishes/batch-link', requireAuth, async (req, res) => {
-  try {
-    const locationId = req.headers['x-location-id'] || req.body.locationId;
-    const { links } = req.body;
-
-    if (!locationId || locationId === 'all') {
-      return res.status(400).json({ error: 'Location ID valido richiesto' });
-    }
-
-    if (!Array.isArray(links)) {
-      return res.status(400).json({ error: 'Links deve essere un array' });
-    }
-
-    const db = getLocationDb(locationId);
-    let linked = 0;
-    const errors = [];
-
-    for (const link of links) {
-      try {
-        await db.run(
-          'UPDATE sales_dishes SET recipe_id = ?, is_linked = ?, match_method = ?, updated_at = NOW() WHERE id = ? AND location_id = ?',
-          [
-            link.recipeId || null,
-            !!link.recipeId,
-            link.recipeId ? 'manual' : null,
-            link.dishId,
-            locationId
-          ]
+      // If linked, create recipe_sales records for all historical data
+      if (recipeId) {
+        const dishData = await db.query(
+          'SELECT * FROM sales_dish_data WHERE dish_id = ?',
+          [dishId]
         );
 
-        if (link.recipeId) {
-          // Create recipe_sales records
-          const dishData = await db.query(
-            'SELECT * FROM sales_dish_data WHERE dish_id = ?',
-            [link.dishId]
-          );
-
-          for (const data of dishData) {
-            const saleDate = new Date(data.period_year, data.period_month - 1, 1).toISOString().split('T')[0];
-            try {
-              await db.run(
-                `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [
-                  crypto.randomUUID(),
-                  locationId,
-                  link.recipeId,
-                  data.quantity,
-                  saleDate
-                ]
-              );
-            } catch (err) {
-              // Ignore duplicates
+        for (const data of dishData) {
+          const saleDate = new Date(data.period_year, data.period_month - 1, 1)
+            .toISOString()
+            .split('T')[0];
+          try {
+            await db.run(
+              `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
+             VALUES (?, ?, ?, ?, ?)`,
+              [
+                crypto.randomUUID(),
+                locationId,
+                recipeId,
+                data.quantity,
+                saleDate,
+              ]
+            );
+          } catch (err) {
+            // Ignore duplicates
+            if (!err.message.includes('UNIQUE constraint')) {
+              console.error('Failed to create recipe_sales:', err);
             }
           }
-
-          await db.run(
-            'UPDATE sales_dish_data SET recipe_id = ? WHERE dish_id = ?',
-            [link.recipeId, link.dishId]
-          );
         }
 
-        linked++;
-      } catch (error) {
-        errors.push({
-          dishId: link.dishId,
-          error: error.message
-        });
+        // Update sales_dish_data with recipe_id
+        await db.run(
+          'UPDATE sales_dish_data SET recipe_id = ? WHERE dish_id = ?',
+          [recipeId, dishId]
+        );
       }
-    }
 
-    res.json({ success: true, linked, errors });
-  } catch (error) {
-    console.error('Failed to batch link:', error);
-    res.status(500).json({ error: 'Failed to batch link' });
+      res.json({ success: true, dish });
+    } catch (error) {
+      console.error('Failed to link dish:', error);
+      res.status(500).json({ error: 'Failed to link dish' });
+    }
   }
-});
+);
+
+// Batch link dishes
+app.post(
+  '/api/sales-analysis/dishes/batch-link',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      const { links } = req.body;
+
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      if (!Array.isArray(links)) {
+        return res.status(400).json({ error: 'Links deve essere un array' });
+      }
+
+      const db = getLocationDb(locationId);
+      let linked = 0;
+      const errors = [];
+
+      for (const link of links) {
+        try {
+          await db.run(
+            'UPDATE sales_dishes SET recipe_id = ?, is_linked = ?, match_method = ?, updated_at = NOW() WHERE id = ? AND location_id = ?',
+            [
+              link.recipeId || null,
+              !!link.recipeId,
+              link.recipeId ? 'manual' : null,
+              link.dishId,
+              locationId,
+            ]
+          );
+
+          if (link.recipeId) {
+            // Create recipe_sales records
+            const dishData = await db.query(
+              'SELECT * FROM sales_dish_data WHERE dish_id = ?',
+              [link.dishId]
+            );
+
+            for (const data of dishData) {
+              const saleDate = new Date(
+                data.period_year,
+                data.period_month - 1,
+                1
+              )
+                .toISOString()
+                .split('T')[0];
+              try {
+                await db.run(
+                  `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
+                 VALUES (?, ?, ?, ?, ?)`,
+                  [
+                    crypto.randomUUID(),
+                    locationId,
+                    link.recipeId,
+                    data.quantity,
+                    saleDate,
+                  ]
+                );
+              } catch (err) {
+                // Ignore duplicates
+              }
+            }
+
+            await db.run(
+              'UPDATE sales_dish_data SET recipe_id = ? WHERE dish_id = ?',
+              [link.recipeId, link.dishId]
+            );
+          }
+
+          linked++;
+        } catch (error) {
+          errors.push({
+            dishId: link.dishId,
+            error: error.message,
+          });
+        }
+      }
+
+      res.json({ success: true, linked, errors });
+    } catch (error) {
+      console.error('Failed to batch link:', error);
+      res.status(500).json({ error: 'Failed to batch link' });
+    }
+  }
+);
 
 // Get dashboard data
 app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
@@ -4296,7 +4355,7 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
       periodYear,
       category,
       recipeId,
-      compareWithPrevious = 'false'
+      compareWithPrevious = 'false',
     } = req.query;
 
     if (!locationId) {
@@ -4321,21 +4380,28 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
       case 'trimestre':
         if (currentMonth) {
           const quarter = Math.ceil(currentMonth / 3);
-          periodFilter = 'period_year = ? AND period_month >= ? AND period_month <= ?';
+          periodFilter =
+            'period_year = ? AND period_month >= ? AND period_month <= ?';
           periodParams.push(currentYear, (quarter - 1) * 3 + 1, quarter * 3);
         }
         break;
       case 'quadrimestre':
         if (currentMonth) {
           const quadrimestre = Math.ceil(currentMonth / 4);
-          periodFilter = 'period_year = ? AND period_month >= ? AND period_month <= ?';
-          periodParams.push(currentYear, (quadrimestre - 1) * 4 + 1, Math.min(quadrimestre * 4, 12));
+          periodFilter =
+            'period_year = ? AND period_month >= ? AND period_month <= ?';
+          periodParams.push(
+            currentYear,
+            (quadrimestre - 1) * 4 + 1,
+            Math.min(quadrimestre * 4, 12)
+          );
         }
         break;
       case 'semestre':
         if (currentMonth) {
           const semester = currentMonth <= 6 ? 1 : 2;
-          periodFilter = 'period_year = ? AND period_month >= ? AND period_month <= ?';
+          periodFilter =
+            'period_year = ? AND period_month >= ? AND period_month <= ?';
           periodParams.push(currentYear, (semester - 1) * 6 + 1, semester * 6);
         }
         break;
@@ -4360,22 +4426,31 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
       filteredData = allDishData.filter(row => {
         switch (granularity) {
           case 'mese':
-            return row.period_year === currentYear && row.period_month === currentMonth;
+            return (
+              row.period_year === currentYear &&
+              row.period_month === currentMonth
+            );
           case 'trimestre':
             const quarter = Math.ceil(currentMonth / 3);
-            return row.period_year === currentYear && 
-                   row.period_month >= (quarter - 1) * 3 + 1 && 
-                   row.period_month <= quarter * 3;
+            return (
+              row.period_year === currentYear &&
+              row.period_month >= (quarter - 1) * 3 + 1 &&
+              row.period_month <= quarter * 3
+            );
           case 'quadrimestre':
             const quadrimestre = Math.ceil(currentMonth / 4);
-            return row.period_year === currentYear && 
-                   row.period_month >= (quadrimestre - 1) * 4 + 1 && 
-                   row.period_month <= Math.min(quadrimestre * 4, 12);
+            return (
+              row.period_year === currentYear &&
+              row.period_month >= (quadrimestre - 1) * 4 + 1 &&
+              row.period_month <= Math.min(quadrimestre * 4, 12)
+            );
           case 'semestre':
             const semester = currentMonth <= 6 ? 1 : 2;
-            return row.period_year === currentYear && 
-                   row.period_month >= (semester - 1) * 6 + 1 && 
-                   row.period_month <= semester * 6;
+            return (
+              row.period_year === currentYear &&
+              row.period_month >= (semester - 1) * 6 + 1 &&
+              row.period_month <= semester * 6
+            );
           case 'anno':
             return row.period_year === currentYear;
           default:
@@ -4400,8 +4475,14 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
     }
 
     // Calculate KPIs
-    const totalQuantity = filteredData.reduce((sum, d) => sum + (parseInt(d.quantity) || 0), 0);
-    const totalValue = filteredData.reduce((sum, d) => sum + (parseFloat(d.total_value) || 0), 0);
+    const totalQuantity = filteredData.reduce(
+      (sum, d) => sum + (parseInt(d.quantity) || 0),
+      0
+    );
+    const totalValue = filteredData.reduce(
+      (sum, d) => sum + (parseFloat(d.total_value) || 0),
+      0
+    );
     const uniqueDishes = new Set(filteredData.map(d => d.dish_id)).size;
     const linkedDishesCount = new Set(
       filteredData.filter(d => d.recipe_id).map(d => d.dish_id)
@@ -4418,14 +4499,14 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
           totalValue: 0,
           totalQuantity: 0,
           uniqueDishes: 0,
-          averageTicket: 0
+          averageTicket: 0,
         },
         changes: {
           value: 0,
           quantity: 0,
           uniqueDishes: 0,
-          averageTicket: 0
-        }
+          averageTicket: 0,
+        },
       };
     }
 
@@ -4444,7 +4525,7 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
           period_year: row.period_year,
           period_month: row.period_month,
           quantity: 0,
-          total_value: 0
+          total_value: 0,
         });
       }
       const entry = trendMap.get(key);
@@ -4457,13 +4538,16 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
         if (granularity === 'totale') return true;
         if (granularity === 'anno') return t.period_year === currentYear;
         if (granularity === 'mese' && currentMonth) {
-          return t.period_year === currentYear && t.period_month === currentMonth;
+          return (
+            t.period_year === currentYear && t.period_month === currentMonth
+          );
         }
         // Add other filters as needed
         return true;
       })
       .sort((a, b) => {
-        if (a.period_year !== b.period_year) return a.period_year - b.period_year;
+        if (a.period_year !== b.period_year)
+          return a.period_year - b.period_year;
         return a.period_month - b.period_month;
       });
 
@@ -4473,7 +4557,7 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
       [locationId]
     );
     const dishesMapById = new Map(allDishes.map(d => [d.id, d]));
-    
+
     const categoryMap = new Map();
     allDishData.forEach(row => {
       const dish = dishesMapById.get(row.dish_id);
@@ -4487,14 +4571,17 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
     });
 
     const categoryData = Array.from(categoryMap.values());
-    const totalCategoryValue = categoryData.reduce((sum, c) => sum + c.value, 0);
+    const totalCategoryValue = categoryData.reduce(
+      (sum, c) => sum + c.value,
+      0
+    );
 
     // Get top dishes - simplified (no JOIN)
     const dishMap = new Map();
     allDishData.forEach(row => {
       const dish = dishesMapById.get(row.dish_id);
       if (!dish) return;
-      
+
       if (!dishMap.has(row.dish_id)) {
         dishMap.set(row.dish_id, {
           dish_id: row.dish_id,
@@ -4502,7 +4589,7 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
           quantity: 0,
           value: 0,
           recipe_id: dish.recipe_id,
-          is_linked: dish.is_linked
+          is_linked: dish.is_linked,
         });
       }
       const entry = dishMap.get(row.dish_id);
@@ -4526,22 +4613,23 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
           value: { change: 0, trend: 'stable' },
           quantity: { change: 0, trend: 'stable' },
           uniqueDishes: { change: 0, trend: 'stable' },
-          averageTicket: { change: 0, trend: 'stable' }
+          averageTicket: { change: 0, trend: 'stable' },
         },
-        comparison
+        comparison,
       },
       charts: {
         salesTrend: trendData.map(t => ({
           date: `${t.period_year}-${String(t.period_month).padStart(2, '0')}-01`,
           total: t.total_value,
           linked: 0, // Would need to calculate separately
-          unlinked: 0
+          unlinked: 0,
         })),
         categoryDistribution: categoryData.map(c => ({
           category: c.category,
           quantity: c.quantity,
           value: c.value,
-          percentage: totalCategoryValue > 0 ? (c.value / totalCategoryValue) * 100 : 0
+          percentage:
+            totalCategoryValue > 0 ? (c.value / totalCategoryValue) * 100 : 0,
         })),
         topDishes: topDishes.map(d => ({
           dishId: d.dish_id,
@@ -4549,12 +4637,12 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
           quantity: d.quantity,
           value: d.value,
           isLinked: d.is_linked,
-          recipeId: d.recipe_id
+          recipeId: d.recipe_id,
         })),
         forecast: {
           historical: [],
-          predicted: []
-        }
+          predicted: [],
+        },
       },
       table: {
         dishes: [],
@@ -4562,9 +4650,9 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
         pagination: {
           limit: 50,
           offset: 0,
-          hasMore: false
-        }
-      }
+          hasMore: false,
+        },
+      },
     });
   } catch (error) {
     console.error('Failed to get dashboard data:', error);

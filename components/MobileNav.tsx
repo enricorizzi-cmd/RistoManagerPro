@@ -1,5 +1,11 @@
 import React from 'react';
-import { UsersIcon, CogIcon, CashIcon, BeakerIcon, ChartLineIcon } from './icons/Icons';
+import {
+  UsersIcon,
+  CogIcon,
+  CashIcon,
+  BeakerIcon,
+  ChartLineIcon,
+} from './icons/Icons';
 import { useAuth } from '../contexts/AuthContext';
 
 interface MobileNavProps {

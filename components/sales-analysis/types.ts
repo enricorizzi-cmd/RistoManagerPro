@@ -229,13 +229,15 @@ export interface DashboardData {
     forecast: ForecastData;
   };
   table: {
-    dishes: Array<DishDetail & {
-      dishId: string;
-      percentage: number;
-      trend?: number;
-      isLinked: boolean;
-      recipeId?: string | null;
-    }>;
+    dishes: Array<
+      DishDetail & {
+        dishId: string;
+        percentage: number;
+        trend?: number;
+        isLinked: boolean;
+        recipeId?: string | null;
+      }
+    >;
     total: number;
     pagination: {
       limit: number;
@@ -244,4 +246,3 @@ export interface DashboardData {
     };
   };
 }
-
