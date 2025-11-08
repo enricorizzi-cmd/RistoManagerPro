@@ -3833,24 +3833,21 @@ app.post(
       const importId = crypto.randomUUID();
       await db.run(
         `INSERT INTO sales_imports (
-          id, location_id, period_month, period_year, file_name, file_size_bytes, 
-          file_hash, total_categories, total_dishes, total_quantity, total_value,
-          status, imported_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, location_id, period_month, period_year, file_name, 
+          total_categories, total_dishes, total_quantity, total_value,
+          status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           importId,
           locationId,
           periodMonth,
           periodYear,
           parseResult.metadata.fileName,
-          parseResult.metadata.fileSize,
-          parseResult.fileHash,
           parseResult.summaryTable.length,
           parseResult.detailTable.length,
           parseResult.detailTable.reduce((sum, d) => sum + d.quantity, 0),
           parseResult.detailTable.reduce((sum, d) => sum + d.totalValue, 0),
           'processing',
-          req.user.id,
         ]
       );
 

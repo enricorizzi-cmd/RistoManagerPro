@@ -758,16 +758,20 @@ function getLocationDb(locationId) {
         // Tables that don't have location_id column
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const data = {};
-        // Only add location_id if the table requires it
-        if (!tablesWithoutLocationId.includes(table)) {
+
+        // Check if location_id is already in the columns list
+        const hasLocationIdInColumns = columns.includes('location_id');
+
+        // Only add location_id if the table requires it AND it's not already in the INSERT
+        if (
+          !tablesWithoutLocationId.includes(table) &&
+          !hasLocationIdInColumns
+        ) {
           data.location_id = locationId;
         }
+
         columns.forEach((col, index) => {
-          if (
-            col !== 'location_id' &&
-            placeholders[index] === '?' &&
-            params[index] !== undefined
-          ) {
+          if (placeholders[index] === '?' && params[index] !== undefined) {
             data[col] = params[index];
           }
         });
