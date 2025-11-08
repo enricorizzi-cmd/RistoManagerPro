@@ -31,6 +31,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId, granularity, periodYear, periodMonth]);
 
   const loadDashboardData = async () => {

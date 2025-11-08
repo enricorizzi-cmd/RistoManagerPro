@@ -44,18 +44,21 @@ const MenuMix: React.FC<MenuMixProps> = ({
       switch (granularity) {
         case 'mese':
           return saleYear === periodYear && saleMonth === periodMonth;
-        case 'trimestre':
+        case 'trimestre': {
           const quarter = Math.ceil(periodMonth / 3);
           const saleQuarter = Math.ceil(saleMonth / 3);
           return saleYear === periodYear && saleQuarter === quarter;
-        case 'quadrimestre':
+        }
+        case 'quadrimestre': {
           const quadrimestre = Math.ceil(periodMonth / 4);
           const saleQuadrimestre = Math.ceil(saleMonth / 4);
           return saleYear === periodYear && saleQuadrimestre === quadrimestre;
-        case 'semestre':
+        }
+        case 'semestre': {
           const semester = periodMonth <= 6 ? 1 : 2;
           const saleSemester = saleMonth <= 6 ? 1 : 2;
           return saleYear === periodYear && saleSemester === semester;
+        }
         case 'anno':
           return saleYear === periodYear;
         default:

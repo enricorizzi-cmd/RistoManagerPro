@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UploadIcon, CheckCircleIcon, XCircleIcon } from '../icons/Icons';
+import { UploadIcon, CheckCircleIcon } from '../icons/Icons';
 import { uploadPreview, importSalesData } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
 
@@ -255,7 +255,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                     <div className="flex items-center">
                       <CheckCircleIcon className="w-5 h-5 text-green-600 mr-2" />
                       <span className="text-sm text-green-700">
-                        File valido e pronto per l'import
+                        File valido e pronto per l&apos;import
                       </span>
                     </div>
                   </div>

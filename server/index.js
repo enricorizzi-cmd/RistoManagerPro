@@ -4084,47 +4084,55 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     }
 
     const db = getLocationDb(locationId);
-    let query = 'SELECT * FROM sales_dishes WHERE location_id = ?';
-    const params = [locationId];
-
-    if (linked === 'true') {
-      query += ' AND is_linked = TRUE';
-    } else if (linked === 'false') {
-      query += ' AND is_linked = FALSE';
-    }
-
-    if (category) {
-      query += ' AND category_gestionale = ?';
-      params.push(category);
-    }
-
-    if (search) {
-      query += ' AND (dish_name ILIKE ? OR dish_name_original ILIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm);
-    }
-
-    query += ' ORDER BY last_seen_date DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
-
-    const dishes = await db.query(query, params);
-    const total = await db.get(
-      'SELECT COUNT(*) as count FROM sales_dishes WHERE location_id = ?',
+    
+    // Get all dishes first, then filter in JavaScript since Supabase wrapper doesn't support complex ILIKE with OR
+    let dishes = await db.query(
+      'SELECT * FROM sales_dishes WHERE location_id = ?',
       [locationId]
     );
 
+    // Apply filters in JavaScript
+    if (linked === 'true') {
+      dishes = dishes.filter(d => d.is_linked === true);
+    } else if (linked === 'false') {
+      dishes = dishes.filter(d => d.is_linked === false);
+    }
+
+    if (category) {
+      dishes = dishes.filter(d => d.category_gestionale === category);
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      dishes = dishes.filter(d => 
+        (d.dish_name && d.dish_name.toLowerCase().includes(searchLower)) ||
+        (d.dish_name_original && d.dish_name_original.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Sort by last_seen_date DESC
+    dishes.sort((a, b) => {
+      const dateA = new Date(a.last_seen_date || 0).getTime();
+      const dateB = new Date(b.last_seen_date || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Apply pagination
+    const total = dishes.length;
+    const paginatedDishes = dishes.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
     res.json({
-      dishes,
-      total: total?.count || 0,
+      dishes: paginatedDishes,
+      total,
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        hasMore: dishes.length === parseInt(limit)
+        hasMore: parseInt(offset) + parseInt(limit) < total
       }
     });
   } catch (error) {
     console.error('Failed to get dishes:', error);
-    res.status(500).json({ error: 'Failed to get dishes' });
+    res.status(500).json({ error: 'Failed to get dishes: ' + (error.message || 'Unknown error') });
   }
 });
 

@@ -8,9 +8,8 @@ import DashboardTab from './DashboardTab';
 type SalesAnalysisTab = 'import' | 'links' | 'dashboard';
 
 const SalesAnalysis: React.FC = () => {
-  const { currentLocation, showNotification } = useAppContext();
+  const { currentLocation } = useAppContext();
   const [activeTab, setActiveTab] = useState<SalesAnalysisTab>('import');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,17 +43,6 @@ const SalesAnalysis: React.FC = () => {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Caricamento dati...</p>
         </div>
       </div>
     );

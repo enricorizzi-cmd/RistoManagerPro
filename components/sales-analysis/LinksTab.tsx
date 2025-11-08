@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LinkIcon, PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
+import { PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
 import { getDishes, linkDish } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
 import { getRecipes } from '../../services/menuEngineeringApi';
@@ -21,6 +21,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   useEffect(() => {
     loadDishes();
     loadRecipes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId, filter]);
 
   const loadDishes = async () => {
