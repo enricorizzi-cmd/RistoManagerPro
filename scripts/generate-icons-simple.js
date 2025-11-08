@@ -36,16 +36,17 @@ if (fs.existsSync(logoPath)) {
     fs.copyFileSync(logoPath, destPath);
     console.log(`Creato: ${destPath}`);
   });
-  
+
   // Crea anche favicon.ico (copia del PNG per ora)
   fs.copyFileSync(logoPath, path.join(publicDir, 'favicon.ico'));
   console.log('Creato: public/favicon.ico');
-  
+
   console.log('\nTutti i file sono stati creati!');
-  console.log('NOTA: Le immagini hanno le stesse dimensioni del logo originale.');
+  console.log(
+    'NOTA: Le immagini hanno le stesse dimensioni del logo originale.'
+  );
   console.log('Dovranno essere ridimensionate alle dimensioni corrette.');
 } else {
   console.error(`Errore: ${logoPath} non trovato!`);
   process.exit(1);
 }
-

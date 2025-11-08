@@ -28,29 +28,29 @@ const iconSizes = [
 async function generateIcons() {
   try {
     console.log('Generazione icone da:', logoPath);
-    
+
     for (const icon of iconSizes) {
       const outputPath = path.join(publicDir, icon.name);
       await sharp(logoPath)
         .resize(icon.size, icon.size, {
           fit: 'contain',
-          background: { r: 255, g: 255, b: 255, alpha: 0 }
+          background: { r: 255, g: 255, b: 255, alpha: 0 },
         })
         .png()
         .toFile(outputPath);
       console.log(`✓ Creato: ${icon.name} (${icon.size}x${icon.size})`);
     }
-    
+
     // Crea favicon.ico (32x32)
     const icoPath = path.join(publicDir, 'favicon.ico');
     await sharp(logoPath)
       .resize(32, 32, {
         fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
       })
       .toFile(icoPath);
     console.log(`✓ Creato: favicon.ico (32x32)`);
-    
+
     console.log('\n✅ Tutte le icone sono state create con successo!');
   } catch (error) {
     console.error('Errore durante la generazione delle icone:', error);
@@ -59,4 +59,3 @@ async function generateIcons() {
 }
 
 generateIcons();
-
