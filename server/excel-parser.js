@@ -110,7 +110,19 @@ function detectHeaderRow(sheet, maxRows = 30) {
 function findColumnIndex(headers, keywords) {
   for (let i = 0; i < headers.length; i++) {
     const header = (headers[i] || '').toLowerCase();
-    if (keywords.some(kw => header.includes(kw))) {
+    // Normalize encoding issues (QuantitÃ -> Quantità)
+    const normalized = header
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ã/g, 'à')
+      .replace(/Ã/g, 'À');
+
+    if (
+      keywords.some(kw => {
+        const kwLower = kw.toLowerCase();
+        return header.includes(kwLower) || normalized.includes(kwLower);
+      })
+    ) {
       return i;
     }
   }
@@ -135,7 +147,12 @@ function parseSummaryTable(sheet) {
 
   const headers = data[0].map(h => (h || '').toString().toLowerCase());
   const categoryCol = findColumnIndex(headers, ['categoria']);
-  const quantityCol = findColumnIndex(headers, ['quantità', 'quantita', 'qty']);
+  const quantityCol = findColumnIndex(headers, [
+    'quantità',
+    'quantita',
+    'qty',
+    'quantit', // Handle encoding issue: QuantitÃ
+  ]);
   const valueCol = findColumnIndex(headers, ['valore', 'totale', 'importo']);
 
   if (categoryCol === -1) return [];
@@ -214,6 +231,7 @@ function parseDetailTable(sheet) {
     'qty',
     'qtà',
     'q.ta',
+    'quantit', // Handle encoding issue: QuantitÃ
   ]);
   const valueCol = findColumnIndex(headers, [
     'valore',
@@ -332,6 +350,74 @@ function parseDetailTable(sheet) {
 }
 
 /**
+ * Detect if sheet has two separate tables (summary + detail)
+ * Returns the row index where detail table starts, or -1 if not found
+ */
+function findDetailTableStart(sheet) {
+  const sheetRange = sheet['!ref']
+    ? XLSX.utils.decode_range(sheet['!ref'])
+    : null;
+  if (!sheetRange) return -1;
+
+  const maxRows = Math.min(sheetRange.e.r + 1, 100);
+
+  // Look for a second header row that indicates start of detail table
+  // Pattern: header row with "Prodotto" or "Nome" column after a summary section
+  for (let row = 5; row < maxRows; row++) {
+    const rowData = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      range: { s: { r: row, c: 0 }, e: { r: row, c: 10 } },
+      defval: null,
+    });
+
+    if (rowData.length === 0) continue;
+
+    const firstRow = rowData[0];
+    if (!firstRow || firstRow.length === 0) continue;
+
+    const headers = firstRow
+      .map(h => {
+        if (h === null || h === undefined) return '';
+        return String(h).trim().toLowerCase();
+      })
+      .filter(h => h && h.length > 0);
+
+    // Check if this looks like a detail table header (has "Prodotto" or "Nome")
+    const detailKeywords = [
+      'prodotto',
+      'nome',
+      'piatto',
+      'articolo',
+      'descrizione',
+    ];
+    const hasDetailKeyword = headers.some(h => {
+      const normalized = h
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ã/g, 'à');
+      return detailKeywords.some(
+        kw => normalized.includes(kw) || h.includes(kw)
+      );
+    });
+
+    // Also check for "Categoria" to confirm it's a detail header
+    const hasCategory = headers.some(h => {
+      const normalized = h.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return normalized.includes('categoria') || h.includes('categoria');
+    });
+
+    if (hasDetailKeyword && hasCategory && headers.length >= 4) {
+      console.log(
+        `[EXCEL PARSER] Found detail table starting at row ${row + 1}`
+      );
+      return row + 1; // Return 1-based index
+    }
+  }
+
+  return -1;
+}
+
+/**
  * Detect tables in workbook
  */
 function detectTables(workbook) {
@@ -342,16 +428,63 @@ function detectTables(workbook) {
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
 
-    // Try to parse as summary table (fewer rows, category-focused)
-    const summary = parseSummaryTable(sheet);
-    if (summary.length > 0 && summary.length < 50) {
-      summaryTable.push(...summary);
-    }
+    // Check if this sheet has two separate tables
+    const detailStartRow = findDetailTableStart(sheet);
 
-    // Try to parse as detail table (more rows, dish-focused)
-    const detail = parseDetailTable(sheet);
-    if (detail.length > 0) {
-      detailTable.push(...detail);
+    if (detailStartRow > 0) {
+      // Sheet has two tables: parse them separately
+      console.log(
+        `[EXCEL PARSER] Sheet "${sheetName}" has two tables, detail starts at row ${detailStartRow}`
+      );
+
+      // Parse summary table (rows before detailStartRow)
+      const summarySheet = { ...sheet };
+      const summaryRange = sheet['!ref']
+        ? XLSX.utils.decode_range(sheet['!ref'])
+        : null;
+      if (summaryRange) {
+        // Limit summary range to rows before detail table
+        summarySheet['!ref'] = XLSX.utils.encode_range({
+          s: { r: 0, c: 0 },
+          e: { r: detailStartRow - 2, c: summaryRange.e.c },
+        });
+        const summary = parseSummaryTable(summarySheet);
+        if (summary.length > 0) {
+          summaryTable.push(...summary);
+          console.log(
+            `[EXCEL PARSER] Parsed ${summary.length} summary categories`
+          );
+        }
+      }
+
+      // Parse detail table (rows from detailStartRow onwards)
+      const detailSheet = { ...sheet };
+      const detailRange = sheet['!ref']
+        ? XLSX.utils.decode_range(sheet['!ref'])
+        : null;
+      if (detailRange) {
+        // Start detail range from detailStartRow
+        detailSheet['!ref'] = XLSX.utils.encode_range({
+          s: { r: detailStartRow - 1, c: 0 },
+          e: { r: detailRange.e.r, c: detailRange.e.c },
+        });
+        const detail = parseDetailTable(detailSheet);
+        if (detail.length > 0) {
+          detailTable.push(...detail);
+          console.log(`[EXCEL PARSER] Parsed ${detail.length} detail dishes`);
+        }
+      }
+    } else {
+      // Single table: try to parse as both summary and detail
+      const summary = parseSummaryTable(sheet);
+      if (summary.length > 0 && summary.length < 50) {
+        summaryTable.push(...summary);
+      }
+
+      const detail = parseDetailTable(sheet);
+      if (detail.length > 0) {
+        detailTable.push(...detail);
+      }
     }
   }
 
