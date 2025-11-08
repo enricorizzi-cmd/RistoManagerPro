@@ -3877,15 +3877,14 @@ app.post(
       for (const category of parseResult.summaryTable) {
         await db.run(
           `INSERT INTO sales_categories (
-            id, location_id, import_id, category_name, category_name_normalized,
+            id, location_id, import_id, category_name,
             quantity, total_value
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
           [
             crypto.randomUUID(),
             locationId,
             importId,
             category.category,
-            normalizeCategoryName(category.category),
             category.quantity,
             category.totalValue,
           ]
@@ -3974,8 +3973,8 @@ app.post(
           await db.run(
             `INSERT INTO sales_dishes (
               id, location_id, dish_name, dish_name_original, category_gestionale,
-              recipe_id, is_linked, match_confidence, match_method
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              recipe_id, is_linked
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               dish.id,
               dish.location_id,
@@ -3984,8 +3983,6 @@ app.post(
               dish.category_gestionale,
               dish.recipe_id,
               dish.is_linked,
-              bestConfidence > 0 ? bestConfidence : null,
-              matchResult?.method || null,
             ]
           );
 

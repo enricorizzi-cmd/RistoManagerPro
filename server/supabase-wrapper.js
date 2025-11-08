@@ -744,8 +744,11 @@ function getLocationDb(locationId) {
     },
 
     async run(sql, params = []) {
+      // Normalize SQL: remove extra whitespace and newlines
+      const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+
       // INSERT
-      const insertMatch = sql.match(
+      const insertMatch = normalizedSql.match(
         /INSERT\s+INTO\s+(\w+)\s*\((.+?)\)\s+VALUES\s*\((.+?)\)/i
       );
       if (insertMatch) {
@@ -776,6 +779,10 @@ function getLocationDb(locationId) {
           }
         });
 
+        console.log(
+          `[SUPABASE] INSERT into ${table}:`,
+          Object.keys(data).join(', ')
+        );
         return await supabaseCall('POST', table, { data, upsert: false });
       }
 
