@@ -1,1 +1,20 @@
 @import 'tailwindcss';
+
+@theme {
+  --font-family-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary-50: #ebf5ff;
+  --color-primary-100: #d6eaf8;
+  --color-primary-200: #aed6f1;
+  --color-primary-300: #85c1e9;
+  --color-primary-400: #5dade2;
+  --color-primary-500: #3498db;
+  --color-primary-600: #2e86c1;
+  --color-primary-700: #2874a6;
+  --color-primary-800: #21618c;
+  --color-primary-900: #1b4f72;
+  --color-primary: #1e40af;
+
+  --color-secondary: #fbbf24;
+  --color-accent: #ec4899;
+}
