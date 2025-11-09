@@ -3893,27 +3893,97 @@ app.post(
       let dishesMatched = 0;
       let dishesUnmatched = 0;
 
-      // Process categories
+      // Process categories - group by normalized name to avoid duplicates
+      const categoriesMap = new Map();
       for (const category of parseResult.summaryTable) {
-        await db.run(
-          `INSERT INTO sales_categories (
-            id, location_id, import_id, category_name, category_name_normalized,
-            quantity, total_value
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            crypto.randomUUID(),
-            locationId,
-            importId,
-            category.category,
-            normalizeCategoryName(category.category),
-            category.quantity,
-            category.totalValue,
-          ]
-        );
+        const normalized = normalizeCategoryName(category.category);
+        if (categoriesMap.has(normalized)) {
+          // Merge with existing category (sum quantities and values)
+          const existing = categoriesMap.get(normalized);
+          existing.quantity += category.quantity;
+          existing.totalValue += category.totalValue;
+          // Keep the first category name found (or the longest one)
+          if (category.category.length > existing.category.length) {
+            existing.category = category.category;
+          }
+        } else {
+          categoriesMap.set(normalized, {
+            category: category.category,
+            normalized,
+            quantity: category.quantity,
+            totalValue: category.totalValue,
+          });
+        }
       }
 
-      // Process dishes
+      // Insert unique categories
+      for (const categoryData of categoriesMap.values()) {
+        try {
+          await db.run(
+            `INSERT INTO sales_categories (
+              id, location_id, import_id, category_name, category_name_normalized,
+              quantity, total_value
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              crypto.randomUUID(),
+              locationId,
+              importId,
+              categoryData.category,
+              categoryData.normalized,
+              categoryData.quantity,
+              categoryData.totalValue,
+            ]
+          );
+        } catch (error) {
+          // If duplicate key error, try to update instead
+          if (error.message && error.message.includes('duplicate key')) {
+            console.warn(
+              `[IMPORT] Duplicate category detected: ${categoryData.category}, attempting update`
+            );
+            // Try to update existing record
+            await db.run(
+              `UPDATE sales_categories 
+               SET quantity = quantity + ?, total_value = total_value + ?
+               WHERE import_id = ? AND category_name_normalized = ?`,
+              [
+                categoryData.quantity,
+                categoryData.totalValue,
+                importId,
+                categoryData.normalized,
+              ]
+            );
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      // Process dishes - group duplicates by normalized name first
+      const dishesDataMap = new Map();
       for (const dishData of parseResult.detailTable) {
+        const normalizedName = normalizeDishName(dishData.dishName);
+        if (dishesDataMap.has(normalizedName)) {
+          // Merge duplicate dishes (sum quantities and values)
+          const existing = dishesDataMap.get(normalizedName);
+          existing.quantity += dishData.quantity;
+          existing.totalValue += dishData.totalValue;
+          // Keep the first category found
+          if (!existing.category && dishData.category) {
+            existing.category = dishData.category;
+          }
+        } else {
+          dishesDataMap.set(normalizedName, {
+            dishName: dishData.dishName,
+            category: dishData.category,
+            quantity: dishData.quantity,
+            totalValue: dishData.totalValue,
+            unitPrice: dishData.unitPrice,
+          });
+        }
+      }
+
+      // Process unique dishes
+      for (const dishData of Array.from(dishesDataMap.values())) {
         const normalizedName = normalizeDishName(dishData.dishName);
         let dish = dishesMap.get(normalizedName);
         let matchResult = null;
@@ -4019,23 +4089,45 @@ app.post(
         }
 
         // Create sales_dish_data record
-        await db.run(
-          `INSERT INTO sales_dish_data (
-            id, location_id, import_id, dish_id, recipe_id,
-            quantity, total_value, period_month, period_year
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            crypto.randomUUID(),
-            locationId,
-            importId,
-            dish.id,
-            dish.recipe_id,
-            dishData.quantity,
-            dishData.totalValue,
-            periodMonth,
-            periodYear,
-          ]
-        );
+        try {
+          await db.run(
+            `INSERT INTO sales_dish_data (
+              id, location_id, import_id, dish_id, recipe_id,
+              quantity, total_value, period_month, period_year
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              crypto.randomUUID(),
+              locationId,
+              importId,
+              dish.id,
+              dish.recipe_id,
+              dishData.quantity,
+              dishData.totalValue,
+              periodMonth,
+              periodYear,
+            ]
+          );
+        } catch (error) {
+          // If duplicate key error, try to update instead
+          if (error.message && error.message.includes('duplicate key')) {
+            console.warn(
+              `[IMPORT] Duplicate dish_data detected for dish ${dish.dish_name}, attempting update`
+            );
+            await db.run(
+              `UPDATE sales_dish_data 
+               SET quantity = quantity + ?, total_value = total_value + ?
+               WHERE import_id = ? AND dish_id = ?`,
+              [
+                dishData.quantity,
+                dishData.totalValue,
+                importId,
+                dish.id,
+              ]
+            );
+          } else {
+            throw error;
+          }
+        }
 
         // If dish is linked, create recipe_sales record
         if (dish.recipe_id) {
