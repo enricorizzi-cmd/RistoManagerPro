@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
-import { getDishes, linkDish } from '../../services/salesAnalysisApi';
+import { getDishes, linkDish, archiveDish } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
 import { getRecipes } from '../../services/menuEngineeringApi';
 
@@ -13,7 +13,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const [dishes, setDishes] = useState<any[]>([]);
   const [recipes, setRecipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [filter, setFilter] = useState<'all' | 'linked' | 'unlinked' | 'archived'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDish, setEditingDish] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
@@ -27,8 +27,11 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const loadDishes = async () => {
     setLoading(true);
     try {
+      // Archiviati sono sempre non collegati
+      const isArchivedView = filter === 'archived';
       const result = await getDishes(locationId, {
-        linked: filter === 'all' ? undefined : filter === 'linked',
+        linked: filter === 'all' ? undefined : filter === 'linked' ? true : (filter === 'unlinked' || isArchivedView) ? false : undefined,
+        archived: isArchivedView ? true : undefined,
         search: searchTerm || undefined,
         limit: 100,
         offset: 0,
@@ -71,8 +74,27 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     }
   };
 
-  const linkedCount = dishes.filter(d => d.is_linked).length;
-  const unlinkedCount = dishes.filter(d => !d.is_linked).length;
+  const handleArchive = async (dishId: string, archived: boolean) => {
+    try {
+      await archiveDish(locationId, dishId, archived);
+      showNotification(
+        archived ? 'Piatto archiviato con successo' : 'Piatto disarchiviato con successo',
+        'success'
+      );
+      await loadDishes();
+    } catch (error) {
+      showNotification(
+        error instanceof Error
+          ? error.message
+          : "Errore nell'archiviazione del piatto",
+        'error'
+      );
+    }
+  };
+
+  const linkedCount = dishes.filter(d => d.is_linked && !d.is_archived).length;
+  const unlinkedCount = dishes.filter(d => !d.is_linked && !d.is_archived).length;
+  const archivedCount = dishes.filter(d => d.is_archived).length;
 
   return (
     <div className="space-y-6">
@@ -123,13 +145,25 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
             <button
               onClick={() => setFilter('unlinked')}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                filter === 'unlinked'
+                filter === 'unlinked' || filter === 'archived'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               Non Collegati
             </button>
+            {(filter === 'unlinked' || filter === 'archived') && (
+              <button
+                onClick={() => setFilter(filter === 'archived' ? 'unlinked' : 'archived')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  filter === 'archived'
+                    ? 'bg-gray-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {filter === 'archived' ? '← Torna a Non Collegati' : 'Archiviati'}
+              </button>
+            )}
           </div>
           <input
             type="text"
@@ -172,8 +206,17 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {dishes.map(dish => (
-                  <tr key={dish.id}>
+                {dishes.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                      {filter === 'archived' 
+                        ? 'Nessun piatto archiviato' 
+                        : 'Nessun piatto trovato'}
+                    </td>
+                  </tr>
+                ) : (
+                  dishes.map(dish => (
+                    <tr key={dish.id} className={dish.is_archived ? 'bg-gray-50 opacity-75' : ''}>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {dish.dish_name_original || dish.dish_name}
                     </td>
@@ -217,6 +260,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                               handleLink(dish.id, selectedRecipeId);
                             }}
                             className="text-green-600 hover:text-green-700"
+                            title="Salva"
                           >
                             <CheckCircleIcon className="w-5 h-5" />
                           </button>
@@ -226,24 +270,71 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                               setSelectedRecipeId(null);
                             }}
                             className="text-gray-600 hover:text-gray-700"
+                            title="Annulla"
                           >
                             <XIcon className="w-5 h-5" />
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => {
-                            setEditingDish(dish.id);
-                            setSelectedRecipeId(dish.recipe_id);
-                          }}
-                          className="text-primary hover:text-primary-600"
-                        >
-                          <PencilIcon className="w-5 h-5" />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingDish(dish.id);
+                              setSelectedRecipeId(dish.recipe_id);
+                            }}
+                            className="text-primary hover:text-primary-600"
+                            title="Modifica"
+                          >
+                            <PencilIcon className="w-5 h-5" />
+                          </button>
+                          {!dish.is_archived && (
+                            <button
+                              onClick={() => handleArchive(dish.id, true)}
+                              className="text-gray-500 hover:text-gray-700"
+                              title="Archivia"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                          {dish.is_archived && (
+                            <button
+                              onClick={() => handleArchive(dish.id, false)}
+                              className="text-blue-500 hover:text-blue-700"
+                              title="Disarchivia"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

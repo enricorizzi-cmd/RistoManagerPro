@@ -120,6 +120,7 @@ export interface SalesDish {
   category_gestionale?: string;
   recipe_id?: string | null;
   is_linked: boolean;
+  is_archived?: boolean;
   match_confidence?: number | null;
   match_method?: 'exact' | 'fuzzy' | 'manual' | 'suggested' | null;
   total_imports: number;
@@ -265,6 +266,7 @@ export const getDishes = (
     linked?: boolean;
     category?: string;
     search?: string;
+    archived?: boolean;
     limit?: number;
     offset?: number;
   }
@@ -286,6 +288,9 @@ export const getDishes = (
   }
   if (options?.search) {
     params.append('search', options.search);
+  }
+  if (options?.archived !== undefined) {
+    params.append('archived', options.archived.toString());
   }
   if (options?.limit) {
     params.append('limit', options.limit.toString());
@@ -310,6 +315,18 @@ export const linkDish = (
   return apiCall(`/api/sales-analysis/dishes/${dishId}/link`, locationId, {
     method: 'PUT',
     body: JSON.stringify({ recipeId }),
+  });
+};
+
+// Archive/Unarchive dish
+export const archiveDish = (
+  locationId: string,
+  dishId: string,
+  archived: boolean
+): Promise<{ success: boolean; dish: SalesDish }> => {
+  return apiCall(`/api/sales-analysis/dishes/${dishId}/archive`, locationId, {
+    method: 'PUT',
+    body: JSON.stringify({ archived }),
   });
 };
 

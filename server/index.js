@@ -4257,6 +4257,12 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     );
 
     // Apply filters in JavaScript
+    // By default, exclude archived dishes unless explicitly requested
+    const includeArchived = req.query.archived === 'true';
+    if (!includeArchived) {
+      dishes = dishes.filter(d => !d.is_archived);
+    }
+
     if (linked === 'true') {
       dishes = dishes.filter(d => d.is_linked === true);
     } else if (linked === 'false') {
@@ -4307,6 +4313,41 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     });
   }
 });
+
+// Archive/Unarchive dish
+app.put(
+  '/api/sales-analysis/dishes/:dishId/archive',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.body.locationId;
+      const { dishId } = req.params;
+      const { archived } = req.body;
+
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      const db = getLocationDb(locationId);
+
+      // Update dish archive status
+      await db.run(
+        'UPDATE sales_dishes SET is_archived = ?, updated_at = NOW() WHERE id = ? AND location_id = ?',
+        [!!archived, dishId, locationId]
+      );
+
+      // Get updated dish
+      const dish = await db.get('SELECT * FROM sales_dishes WHERE id = ?', [
+        dishId,
+      ]);
+
+      res.json({ success: true, dish });
+    } catch (error) {
+      console.error('Failed to archive dish:', error);
+      res.status(500).json({ error: 'Failed to archive dish' });
+    }
+  }
+);
 
 // Link dish to recipe
 app.put(

@@ -351,16 +351,28 @@ function parseDetailTable(sheet) {
 
   if (nameCol === -1) {
     console.log(
-      '[EXCEL PARSER] No name column found, trying to use first non-empty column'
+      '[EXCEL PARSER] No name column found (Prodotto/Nome/Piatto), this might be a summary table, not a detail table'
     );
     console.log('[EXCEL PARSER] Available headers:', headers);
     
-    // Try to use first column as name if no name column found
+    // CRITICAL: If we don't have a "Prodotto" column, this is likely a SUMMARY table, not a detail table
+    // Don't try to parse it as dishes - return empty array
+    if (headers.includes('categoria') && !headers.some(h => 
+      h.includes('prodotto') || h.includes('nome') || h.includes('piatto') || h.includes('articolo')
+    )) {
+      console.log(
+        '[EXCEL PARSER] This appears to be a summary table (has Categoria but no Prodotto), skipping detail parsing'
+      );
+      return [];
+    }
+    
+    // Try to use first column as name if no name column found, but only if it's not "categoria"
     for (let i = 0; i < headers.length; i++) {
       if (
         headers[i] &&
         headers[i].length > 0 &&
-        !headers[i].match(/^(totale|total|sum|somma)$/i)
+        !headers[i].match(/^(totale|total|sum|somma|categoria)$/i) &&
+        headers[i] !== 'categoria'
       ) {
         console.log(
           `[EXCEL PARSER] Using column ${i} (${headers[i]}) as name column`
@@ -377,6 +389,7 @@ function parseDetailTable(sheet) {
             !dishName ||
             dishName.toLowerCase() === 'totale' ||
             dishName.toLowerCase() === 'total' ||
+            dishName.toLowerCase() === 'categoria' ||
             dishName.match(/^[\d\s]+$/) // Skip rows that are only numbers/spaces
           )
             continue;
@@ -604,14 +617,56 @@ function detectTables(workbook) {
       }
     } else {
       // Single table: try to parse as both summary and detail
-      const summary = parseSummaryTable(sheet);
-      if (summary.length > 0 && summary.length < 50) {
-        summaryTable.push(...summary);
-      }
-
-      const detail = parseDetailTable(sheet);
-      if (detail.length > 0) {
-        detailTable.push(...detail);
+      // BUT: Only parse as summary if it doesn't have a "Prodotto" column
+      const testHeaders = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        range: { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        defval: null,
+      });
+      
+      if (testHeaders.length > 0) {
+        const firstRowHeaders = (testHeaders[0] || []).map(h => 
+          (h || '').toString().toLowerCase().trim()
+        );
+        const hasProdotto = firstRowHeaders.some(h => 
+          h.includes('prodotto') || h.includes('nome') || h.includes('piatto')
+        );
+        const hasOnlyCategoria = firstRowHeaders.includes('categoria') && 
+                                 !hasProdotto && 
+                                 firstRowHeaders.length <= 3;
+        
+        // If it has "Prodotto" column, it's a detail table, not summary
+        if (hasProdotto) {
+          console.log('[EXCEL PARSER] Single table detected as detail table (has Prodotto column)');
+          const detail = parseDetailTable(sheet);
+          if (detail.length > 0) {
+            detailTable.push(...detail);
+          }
+        } else if (hasOnlyCategoria) {
+          // If it only has Categoria (and Quantità, Totale), it's a summary table
+          console.log('[EXCEL PARSER] Single table detected as summary table (only Categoria)');
+          const summary = parseSummaryTable(sheet);
+          if (summary.length > 0) {
+            summaryTable.push(...summary);
+          }
+        } else {
+          // Try both, but prefer detail if it has more rows
+          const summary = parseSummaryTable(sheet);
+          const detail = parseDetailTable(sheet);
+          
+          // Only use summary if it's clearly a summary (few rows, no prodotto column)
+          if (summary.length > 0 && summary.length < 50 && detail.length === 0) {
+            summaryTable.push(...summary);
+          }
+          
+          // Prefer detail table if it has data
+          if (detail.length > 0) {
+            detailTable.push(...detail);
+          } else if (summary.length > 0 && summary.length < 50) {
+            // Only use summary as fallback if no detail found
+            summaryTable.push(...summary);
+          }
+        }
       }
     }
   }

@@ -60,6 +60,7 @@ export interface SalesDish {
   category_gestionale?: string;
   recipe_id?: string | null;
   is_linked: boolean;
+  is_archived?: boolean;
   match_confidence?: number | null;
   match_method?: 'exact' | 'fuzzy' | 'manual' | 'suggested' | null;
   first_seen_date: string;
