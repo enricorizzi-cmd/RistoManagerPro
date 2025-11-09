@@ -29,17 +29,76 @@ function normalizeCategoryName(name) {
 
 /**
  * Parse numeric value from Excel cell
+ * Handles both Italian format (1.234,56) and international format (1,234.56 or 1234.56)
  */
 function parseNumericValue(value) {
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
-    // Remove currency symbols, thousand separators, replace decimal comma
-    const cleaned = value
-      .replace(/[€\s]/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
+    // Remove currency symbols and spaces
+    let cleaned = value.replace(/[€\s]/g, '').trim();
+    
+    if (!cleaned || cleaned === '') return 0;
+    
+    // Count commas and dots to determine format
+    const commaCount = (cleaned.match(/,/g) || []).length;
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    
+    // Determine format based on pattern
+    if (commaCount === 1 && dotCount === 0) {
+      // Italian format: 1234,56 (comma as decimal separator)
+      cleaned = cleaned.replace(',', '.');
+    } else if (commaCount === 0 && dotCount === 1) {
+      // International format: 1234.56 (dot as decimal separator)
+      // Keep as is
+    } else if (commaCount === 1 && dotCount >= 1) {
+      // Mixed: could be Italian (1.234,56) or international (1,234.56)
+      // Check position: if comma comes after last dot, it's Italian format
+      const lastDotIndex = cleaned.lastIndexOf('.');
+      const commaIndex = cleaned.indexOf(',');
+      if (commaIndex > lastDotIndex) {
+        // Italian format: 1.234,56 - remove dots (thousands), replace comma with dot
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else {
+        // International format: 1,234.56 - remove commas (thousands), keep dot
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    } else if (commaCount === 0 && dotCount > 1) {
+      // International format with thousands: 1.234.56 - remove all dots except last
+      const lastDotIndex = cleaned.lastIndexOf('.');
+      cleaned = cleaned.substring(0, lastDotIndex).replace(/\./g, '') + 
+                cleaned.substring(lastDotIndex);
+    } else if (commaCount > 1 && dotCount === 0) {
+      // Unlikely but possible: 1,234,56 - treat last comma as decimal
+      const lastCommaIndex = cleaned.lastIndexOf(',');
+      cleaned = cleaned.substring(0, lastCommaIndex).replace(/,/g, '') + 
+                '.' + cleaned.substring(lastCommaIndex + 1);
+    } else {
+      // Default: remove all separators except last comma or dot
+      // Try to preserve the last separator as decimal
+      const lastCommaIndex = cleaned.lastIndexOf(',');
+      const lastDotIndex = cleaned.lastIndexOf('.');
+      
+      if (lastCommaIndex > lastDotIndex) {
+        // Last separator is comma - Italian format
+        cleaned = cleaned.substring(0, lastCommaIndex).replace(/[.,]/g, '') + 
+                  '.' + cleaned.substring(lastCommaIndex + 1);
+      } else if (lastDotIndex > lastCommaIndex) {
+        // Last separator is dot - International format
+        cleaned = cleaned.substring(0, lastDotIndex).replace(/[.,]/g, '') + 
+                  cleaned.substring(lastDotIndex);
+      } else {
+        // No separators or only one type - remove all
+        cleaned = cleaned.replace(/[.,]/g, '');
+      }
+    }
+    
     const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
+    if (isNaN(parsed)) {
+      console.warn(`[EXCEL PARSER] Failed to parse numeric value: "${value}" -> "${cleaned}"`);
+      return 0;
+    }
+    
+    return parsed;
   }
   return 0;
 }
@@ -47,18 +106,21 @@ function parseNumericValue(value) {
 /**
  * Detect header row in sheet
  */
-function detectHeaderRow(sheet, maxRows = 30) {
+function detectHeaderRow(sheet, maxRows = 50) {
   const sheetRange = sheet['!ref']
     ? XLSX.utils.decode_range(sheet['!ref'])
     : null;
   const maxSheetRows = sheetRange ? sheetRange.e.r + 1 : maxRows;
   const actualMaxRows = Math.min(maxRows, maxSheetRows);
 
+  console.log(`[EXCEL PARSER] Searching for header row in first ${actualMaxRows} rows`);
+
   for (let row = 0; row < actualMaxRows; row++) {
     const rowData = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
       range: { s: { r: row, c: 0 }, e: { r: row, c: 20 } },
       defval: null,
+      raw: false,
     });
     if (rowData.length === 0) continue;
 
@@ -68,9 +130,17 @@ function detectHeaderRow(sheet, maxRows = 30) {
     const headers = firstRow
       .map(h => {
         if (h === null || h === undefined) return '';
-        return String(h).trim();
+        const str = String(h).trim();
+        // Normalize encoding issues
+        return str
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/ã/g, 'à')
+          .replace(/Ã/g, 'À');
       })
       .filter(h => h && h.length > 0);
+
+    if (headers.length === 0) continue;
 
     // Check if this looks like a header row
     const headerKeywords = [
@@ -79,18 +149,28 @@ function detectHeaderRow(sheet, maxRows = 30) {
       'piatto',
       'descrizione',
       'articolo',
+      'prodotto',
       'quantità',
       'quantita',
       'qty',
+      'qtà',
+      'q.ta',
+      'quantit', // Handle encoding issue: QuantitÃ
       'valore',
       'totale',
       'importo',
       'prezzo',
       'unitario',
+      'ammontare',
     ];
-    const hasHeaderKeywords = headers.some(h =>
-      headerKeywords.some(kw => h.toLowerCase().includes(kw.toLowerCase()))
-    );
+    
+    const hasHeaderKeywords = headers.some(h => {
+      const hLower = h.toLowerCase();
+      return headerKeywords.some(kw => {
+        const kwLower = kw.toLowerCase();
+        return hLower.includes(kwLower) || hLower === kwLower;
+      });
+    });
 
     if (hasHeaderKeywords && headers.length >= 2) {
       console.log(
@@ -109,23 +189,43 @@ function detectHeaderRow(sheet, maxRows = 30) {
  */
 function findColumnIndex(headers, keywords) {
   for (let i = 0; i < headers.length; i++) {
-    const header = (headers[i] || '').toLowerCase();
+    const header = (headers[i] || '').toLowerCase().trim();
+    if (!header) continue;
+    
     // Normalize encoding issues (QuantitÃ -> Quantità)
-    const normalized = header
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+    // Handle common UTF-8 encoding issues where accented chars are split
+    let normalized = header;
+    // Fix common encoding issues: Ã -> à, etc.
+    normalized = normalized
+      .replace(/Ã /g, 'à')
+      .replace(/Ã¡/g, 'á')
+      .replace(/Ã©/g, 'é')
+      .replace(/Ã­/g, 'í')
+      .replace(/Ã³/g, 'ó')
+      .replace(/Ãº/g, 'ú')
+      .replace(/Ã /g, 'à')
+      .replace(/Ã/g, 'à') // Catch-all for Ã
       .replace(/ã/g, 'à')
-      .replace(/Ã/g, 'À');
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
 
-    if (
-      keywords.some(kw => {
-        const kwLower = kw.toLowerCase();
-        return header.includes(kwLower) || normalized.includes(kwLower);
-      })
-    ) {
+    const found = keywords.some(kw => {
+      const kwLower = kw.toLowerCase().trim();
+      // Try exact match first
+      if (header === kwLower || normalized === kwLower) return true;
+      // Try contains match
+      if (header.includes(kwLower) || normalized.includes(kwLower)) return true;
+      // Try reverse (keyword contains header)
+      if (kwLower.includes(header) || kwLower.includes(normalized)) return true;
+      return false;
+    });
+
+    if (found) {
+      console.log(`[EXCEL PARSER] Found column "${headers[i]}" at index ${i} for keywords: ${keywords.join(', ')}`);
       return i;
     }
   }
+  console.log(`[EXCEL PARSER] Column not found for keywords: ${keywords.join(', ')}`);
   return -1;
 }
 
@@ -152,6 +252,8 @@ function parseSummaryTable(sheet) {
     'quantita',
     'qty',
     'quantit', // Handle encoding issue: QuantitÃ
+    'quantitã', // Direct encoding issue variant
+    'quantitÃ', // Another encoding variant
   ]);
   const valueCol = findColumnIndex(headers, ['valore', 'totale', 'importo']);
 
@@ -218,11 +320,11 @@ function parseDetailTable(sheet) {
   console.log('[EXCEL PARSER] Detail table headers:', headers);
 
   const nameCol = findColumnIndex(headers, [
+    'prodotto', // Most common in Italian systems
     'nome',
     'piatto',
     'descrizione',
     'articolo',
-    'prodotto',
   ]);
   const categoryCol = findColumnIndex(headers, ['categoria', 'cat']);
   const quantityCol = findColumnIndex(headers, [
@@ -232,6 +334,8 @@ function parseDetailTable(sheet) {
     'qtà',
     'q.ta',
     'quantit', // Handle encoding issue: QuantitÃ
+    'quantitã', // Direct encoding issue variant
+    'quantitÃ', // Another encoding variant
   ]);
   const valueCol = findColumnIndex(headers, [
     'valore',
@@ -249,6 +353,8 @@ function parseDetailTable(sheet) {
     console.log(
       '[EXCEL PARSER] No name column found, trying to use first non-empty column'
     );
+    console.log('[EXCEL PARSER] Available headers:', headers);
+    
     // Try to use first column as name if no name column found
     for (let i = 0; i < headers.length; i++) {
       if (
@@ -298,12 +404,14 @@ function parseDetailTable(sheet) {
             });
           }
         }
+        console.log(`[EXCEL PARSER] Parsed ${dishes.length} dishes using fallback method`);
         return dishes;
       }
     }
     console.log(
       '[EXCEL PARSER] Could not find any usable column for dish names'
     );
+    console.log('[EXCEL PARSER] Headers found:', headers);
     return [];
   }
 
@@ -359,7 +467,9 @@ function findDetailTableStart(sheet) {
     : null;
   if (!sheetRange) return -1;
 
-  const maxRows = Math.min(sheetRange.e.r + 1, 100);
+  const maxRows = Math.min(sheetRange.e.r + 1, 200);
+
+  console.log(`[EXCEL PARSER] Searching for detail table start in first ${maxRows} rows`);
 
   // Look for a second header row that indicates start of detail table
   // Pattern: header row with "Prodotto" or "Nome" column after a summary section
@@ -368,6 +478,7 @@ function findDetailTableStart(sheet) {
       header: 1,
       range: { s: { r: row, c: 0 }, e: { r: row, c: 10 } },
       defval: null,
+      raw: false,
     });
 
     if (rowData.length === 0) continue;
@@ -378,9 +489,18 @@ function findDetailTableStart(sheet) {
     const headers = firstRow
       .map(h => {
         if (h === null || h === undefined) return '';
-        return String(h).trim().toLowerCase();
+        const str = String(h).trim();
+        // Normalize encoding issues
+        return str
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/ã/g, 'à')
+          .replace(/Ã/g, 'À')
+          .toLowerCase();
       })
       .filter(h => h && h.length > 0);
+
+    if (headers.length < 3) continue;
 
     // Check if this looks like a detail table header (has "Prodotto" or "Nome")
     const detailKeywords = [
@@ -391,29 +511,37 @@ function findDetailTableStart(sheet) {
       'descrizione',
     ];
     const hasDetailKeyword = headers.some(h => {
-      const normalized = h
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/ã/g, 'à');
-      return detailKeywords.some(
-        kw => normalized.includes(kw) || h.includes(kw)
-      );
+      return detailKeywords.some(kw => {
+        return h.includes(kw) || h === kw;
+      });
     });
 
     // Also check for "Categoria" to confirm it's a detail header
     const hasCategory = headers.some(h => {
-      const normalized = h.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return normalized.includes('categoria') || h.includes('categoria');
+      return h.includes('categoria') || h === 'categoria';
     });
 
-    if (hasDetailKeyword && hasCategory && headers.length >= 4) {
+    // Check for quantity column
+    const hasQuantity = headers.some(h => {
+      return h.includes('quantit') || h.includes('qty') || h.includes('qtà');
+    });
+
+    // Check for value column
+    const hasValue = headers.some(h => {
+      return h.includes('totale') || h.includes('valore') || h.includes('importo');
+    });
+
+    // A detail table should have: Prodotto/Nome, Categoria, Quantità, Totale
+    if (hasDetailKeyword && hasCategory && (hasQuantity || hasValue) && headers.length >= 4) {
       console.log(
-        `[EXCEL PARSER] Found detail table starting at row ${row + 1}`
+        `[EXCEL PARSER] Found detail table starting at row ${row + 1}, headers:`,
+        firstRow.filter(h => h !== null && h !== undefined)
       );
       return row + 1; // Return 1-based index
     }
   }
 
+  console.log(`[EXCEL PARSER] No separate detail table found, using single table mode`);
   return -1;
 }
 
@@ -512,7 +640,7 @@ function parseExcelFile(buffer, fileName) {
     );
 
     // Try different options for .xlt files
-    const readOptions = {
+    let readOptions = {
       type: 'buffer',
       cellDates: true,
       cellNF: false,
@@ -523,10 +651,39 @@ function parseExcelFile(buffer, fileName) {
     // For .xlt files, try with different options
     if (fileName.toLowerCase().endsWith('.xlt')) {
       readOptions.cellDates = false; // Some .xlt files don't handle dates well
+      readOptions.cellNF = false;
+      readOptions.cellStyles = false;
       console.log('[EXCEL PARSER] Using .xlt specific options');
     }
 
-    const workbook = XLSX.read(buffer, readOptions);
+    let workbook;
+    try {
+      workbook = XLSX.read(buffer, readOptions);
+    } catch (firstError) {
+      // If first attempt fails for .xlt, try alternative options
+      if (fileName.toLowerCase().endsWith('.xlt')) {
+        console.log('[EXCEL PARSER] First attempt failed, trying alternative options');
+        readOptions = {
+          type: 'buffer',
+          cellDates: false,
+          cellNF: false,
+          cellStyles: false,
+          sheetStubs: false,
+          dense: false,
+        };
+        try {
+          workbook = XLSX.read(buffer, readOptions);
+          console.log('[EXCEL PARSER] Alternative options succeeded');
+        } catch (secondError) {
+          // Last resort: try with minimal options
+          console.log('[EXCEL PARSER] Second attempt failed, trying minimal options');
+          workbook = XLSX.read(buffer, { type: 'buffer' });
+          console.log('[EXCEL PARSER] Minimal options succeeded');
+        }
+      } else {
+        throw firstError;
+      }
+    }
     console.log(
       `[EXCEL PARSER] Workbook loaded, sheets: ${workbook.SheetNames.join(', ')}`
     );
@@ -558,10 +715,25 @@ function parseExcelFile(buffer, fileName) {
       `[EXCEL PARSER] Detected ${tables.summaryTable.length} summary rows, ${tables.detailTable.length} detail rows`
     );
 
+    // If no data found, try to parse all sheets more aggressively
+    if (tables.summaryTable.length === 0 && tables.detailTable.length === 0) {
+      console.log('[EXCEL PARSER] No data found with standard parsing, trying aggressive parsing');
+      
+      // Try to parse first sheet as detail table without summary
+      if (workbook.SheetNames.length > 0) {
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const detail = parseDetailTable(firstSheet);
+        if (detail.length > 0) {
+          console.log(`[EXCEL PARSER] Found ${detail.length} dishes in first sheet`);
+          tables.detailTable = detail;
+        }
+      }
+    }
+
     // Calculate file hash
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    return {
+    const result = {
       summaryTable: tables.summaryTable,
       detailTable: tables.detailTable,
       metadata: {
@@ -577,8 +749,12 @@ function parseExcelFile(buffer, fileName) {
       },
       fileHash,
     };
+
+    console.log(`[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes`);
+    return result;
   } catch (error) {
     console.error('[EXCEL PARSER] Error parsing file:', error);
+    console.error('[EXCEL PARSER] Error stack:', error.stack);
     throw new Error(`Failed to parse Excel file: ${error.message}`);
   }
 }
@@ -597,7 +773,13 @@ function validateParsedData(parseResult) {
   ) {
     errors.push({
       type: 'no_data',
-      message: 'Nessun dato trovato nel file Excel',
+      message: 'Nessun dato trovato nel file Excel. Verifica che il file contenga una tabella con colonne: Nome/Piatto, Categoria, Quantità, Valore/Totale. Le intestazioni devono essere nella prima riga o nelle prime righe del foglio.',
+      severity: 'error',
+    });
+  } else if (parseResult.detailTable.length === 0) {
+    errors.push({
+      type: 'no_detail_data',
+      message: 'Nessun piatto trovato nel file. Verifica che il file contenga una tabella dettaglio con colonne: Nome/Piatto, Quantità, Valore/Totale.',
       severity: 'error',
     });
   }

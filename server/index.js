@@ -3751,9 +3751,16 @@ app.post(
       });
     } catch (error) {
       console.error('Failed to parse Excel file:', error);
+      console.error('Error stack:', error.stack);
+      const errorMessage = error.message || 'Failed to parse Excel file';
+      const isValidationError = errorMessage.includes('Nessun dato trovato') || 
+                                errorMessage.includes('Nessun piatto trovato');
       res
-        .status(500)
-        .json({ error: error.message || 'Failed to parse Excel file' });
+        .status(isValidationError ? 400 : 500)
+        .json({ 
+          error: errorMessage,
+          details: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : undefined
+        });
     }
   }
 );
@@ -3809,16 +3816,29 @@ app.post(
       }
 
       // Parse Excel file
-      const parseResult = parseExcelFile(
-        req.file.buffer,
-        req.file.originalname
-      );
+      let parseResult;
+      try {
+        parseResult = parseExcelFile(
+          req.file.buffer,
+          req.file.originalname
+        );
+      } catch (parseError) {
+        console.error('Excel parsing error:', parseError);
+        return res.status(400).json({
+          error: `Errore nel parsing del file: ${parseError.message}`,
+          suggestion: 'Verifica che il file sia un file Excel valido (.xls, .xlsx, .xlt) e che contenga dati nelle colonne corrette.',
+        });
+      }
+
       const validation = validateParsedData(parseResult);
 
       if (!validation.isValid) {
         return res.status(400).json({
           error: 'File contiene errori',
           validation,
+          suggestion: validation.errors.length > 0 && validation.errors[0].message 
+            ? validation.errors[0].message 
+            : 'Verifica che il file contenga le colonne richieste: Nome/Piatto, Categoria, Quantità, Valore/Totale',
         });
       }
 
