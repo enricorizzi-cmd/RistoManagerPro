@@ -291,10 +291,22 @@ function parseSummaryTable(sheet) {
  * Parse detail table (dishes)
  */
 function parseDetailTable(sheet) {
-  const headerRow = detectHeaderRow(sheet);
+  // If sheet has a limited range (e.g., starts at row 21), the header should be at the start
   const sheetRange = sheet['!ref']
     ? XLSX.utils.decode_range(sheet['!ref'])
     : null;
+  const rangeStartRow = sheetRange ? sheetRange.s.r : 0;
+  
+  // Try to detect header row, but if range starts after row 0, assume first row is header
+  let headerRow = 1;
+  if (rangeStartRow === 0) {
+    headerRow = detectHeaderRow(sheet);
+  } else {
+    // If range starts later (e.g., row 21), first row of range is likely the header
+    headerRow = 1;
+    console.log(`[EXCEL PARSER] Range starts at row ${rangeStartRow + 1}, assuming first row is header`);
+  }
+  
   const maxRows = sheetRange ? sheetRange.e.r + 1 : 1000;
 
   const data = XLSX.utils.sheet_to_json(sheet, {
@@ -480,13 +492,46 @@ function findDetailTableStart(sheet) {
     : null;
   if (!sheetRange) return -1;
 
-  const maxRows = Math.min(sheetRange.e.r + 1, 200);
+  const maxRows = Math.min(sheetRange.e.r + 1, 500); // Increased to 500 to find tables further down
 
   console.log(`[EXCEL PARSER] Searching for detail table start in first ${maxRows} rows`);
 
+  // First, try to find where summary table ends (look for empty rows or pattern change)
+  let summaryEndRow = -1;
+  for (let row = 0; row < Math.min(50, maxRows); row++) {
+    const rowData = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      range: { s: { r: row, c: 0 }, e: { r: row, c: 5 } },
+      defval: null,
+      raw: false,
+    });
+
+    if (rowData.length === 0) continue;
+    const firstRow = rowData[0];
+    if (!firstRow || firstRow.length === 0) continue;
+
+    // Check if this row has "Categoria" but NOT "Prodotto" (summary table header)
+    const headers = firstRow
+      .map(h => (h || '').toString().toLowerCase().trim())
+      .filter(h => h.length > 0);
+
+    const hasCategoria = headers.some(h => h.includes('categoria'));
+    const hasProdotto = headers.some(h => 
+      h.includes('prodotto') || h.includes('nome') || h.includes('piatto')
+    );
+
+    if (hasCategoria && !hasProdotto && headers.length <= 3) {
+      // This is likely the summary table header
+      summaryEndRow = row;
+      console.log(`[EXCEL PARSER] Found summary table header at row ${row + 1}`);
+    }
+  }
+
   // Look for a second header row that indicates start of detail table
-  // Pattern: header row with "Prodotto" or "Nome" column after a summary section
-  for (let row = 5; row < maxRows; row++) {
+  // Start searching from row 5, or after summary table if found
+  const startSearchRow = summaryEndRow > 0 ? summaryEndRow + 5 : 5;
+  
+  for (let row = startSearchRow; row < maxRows; row++) {
     const rowData = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
       range: { s: { r: row, c: 0 }, e: { r: row, c: 10 } },
@@ -545,7 +590,8 @@ function findDetailTableStart(sheet) {
     });
 
     // A detail table should have: Prodotto/Nome, Categoria, Quantità, Totale
-    if (hasDetailKeyword && hasCategory && (hasQuantity || hasValue) && headers.length >= 4) {
+    // More lenient: if it has Prodotto/Nome AND (Categoria OR Quantità OR Totale), it's likely detail
+    if (hasDetailKeyword && (hasCategory || hasQuantity || hasValue) && headers.length >= 3) {
       console.log(
         `[EXCEL PARSER] Found detail table starting at row ${row + 1}, headers:`,
         firstRow.filter(h => h !== null && h !== undefined)
@@ -609,10 +655,19 @@ function detectTables(workbook) {
           s: { r: detailStartRow - 1, c: 0 },
           e: { r: detailRange.e.r, c: detailRange.e.c },
         });
+        console.log(`[EXCEL PARSER] Parsing detail table from row ${detailStartRow} to ${detailRange.e.r + 1}`);
         const detail = parseDetailTable(detailSheet);
         if (detail.length > 0) {
           detailTable.push(...detail);
           console.log(`[EXCEL PARSER] Parsed ${detail.length} detail dishes`);
+        } else {
+          // Fallback: try parsing the full sheet as detail table
+          console.log(`[EXCEL PARSER] No dishes found in limited range, trying full sheet as detail table`);
+          const fullDetail = parseDetailTable(sheet);
+          if (fullDetail.length > 0) {
+            detailTable.push(...fullDetail);
+            console.log(`[EXCEL PARSER] Parsed ${fullDetail.length} detail dishes from full sheet`);
+          }
         }
       }
     } else {
@@ -671,12 +726,29 @@ function detectTables(workbook) {
     }
   }
 
-  // If we found detail table in multiple sheets, use the one with most rows
+  // If we found summary but no detail table, try to parse the full sheet as detail
+  if (summaryTable.length > 0 && detailTable.length === 0 && workbook.SheetNames.length > 0) {
+    console.log('[EXCEL PARSER] Found summary but no detail table, trying to parse full sheet as detail');
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      // Try parsing the full sheet, but skip rows that look like summary
+      const detail = parseDetailTable(sheet);
+      if (detail.length > 0) {
+        console.log(`[EXCEL PARSER] Found ${detail.length} dishes in full sheet "${sheetName}"`);
+        detailTable.push(...detail);
+        break; // Use first sheet with data
+      }
+    }
+  }
+
+  // Final fallback: if still no detail table, try first sheet as detail table
   if (detailTable.length === 0 && workbook.SheetNames.length > 0) {
-    // Try first sheet as detail table
+    console.log('[EXCEL PARSER] Final fallback: trying first sheet as detail table');
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const detail = parseDetailTable(sheet);
-    detailTable.push(...detail);
+    if (detail.length > 0) {
+      detailTable.push(...detail);
+    }
   }
 
   return {
