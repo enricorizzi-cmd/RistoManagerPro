@@ -3897,14 +3897,15 @@ app.post(
       for (const category of parseResult.summaryTable) {
         await db.run(
           `INSERT INTO sales_categories (
-            id, location_id, import_id, category_name,
+            id, location_id, import_id, category_name, category_name_normalized,
             quantity, total_value
-          ) VALUES (?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             crypto.randomUUID(),
             locationId,
             importId,
             category.category,
+            normalizeCategoryName(category.category),
             category.quantity,
             category.totalValue,
           ]
@@ -4093,6 +4094,30 @@ app.post(
       });
     } catch (error) {
       console.error('Failed to import sales data:', error);
+      console.error('Error stack:', error.stack);
+      
+      // Check if error is about missing tables
+      const errorMessage = error.message || '';
+      const isTableMissing = errorMessage.includes('does not exist') || 
+                            errorMessage.includes('Table') && errorMessage.includes('not exist') ||
+                            errorMessage.includes('relation') && errorMessage.includes('does not exist');
+      
+      if (isTableMissing) {
+        return res.status(500).json({ 
+          error: 'Le tabelle per l\'analisi vendite non esistono in Supabase',
+          details: errorMessage,
+          solution: 'Esegui lo script di migrazione nel SQL Editor di Supabase Dashboard',
+          migrationScript: 'server/migrations/create_sales_analysis_tables.sql',
+          instructions: [
+            '1. Apri il Supabase Dashboard',
+            '2. Vai al SQL Editor',
+            '3. Copia e incolla il contenuto del file server/migrations/create_sales_analysis_tables.sql',
+            '4. Esegui lo script',
+            '5. Riprova l\'import'
+          ]
+        });
+      }
+      
       res
         .status(500)
         .json({ error: error.message || 'Failed to import sales data' });
