@@ -2571,15 +2571,54 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       // Continue without financial plan state - will use financial_stats only
     }
 
-    // Calculate financial metrics from financial plan (same as FinancialOverview)
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth(); // 0-based (0 = January, 11 = December)
-    const monthsToInclude = Math.max(0, currentMonth); // YTD: up to previous month
+    // Calculate date range based on period filter
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-based (0 = January, 11 = December)
+    const currentDay = now.getDate();
 
-    let incassatoYTD = 0;
-    let costiFissiYTD = 0;
-    let costiVariabiliYTD = 0;
-    let utileYTD = 0;
+    let startDate = null;
+    let endDate = new Date(currentYear, currentMonth, currentDay);
+    let monthsToInclude = 0;
+    let daysToInclude = 0;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(currentYear, currentMonth, currentDay);
+        daysToInclude = 1;
+        monthsToInclude = 0;
+        break;
+      case 'week':
+        // Last 7 days
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        daysToInclude = 7;
+        monthsToInclude = 0;
+        break;
+      case 'month':
+        // Current month
+        startDate = new Date(currentYear, currentMonth, 1);
+        monthsToInclude = currentMonth + 1; // Include current month
+        daysToInclude = 0;
+        break;
+      case 'year':
+        // Current year YTD
+        startDate = new Date(currentYear, 0, 1);
+        monthsToInclude = currentMonth + 1; // Include current month
+        daysToInclude = 0;
+        break;
+      default:
+        // Default to month
+        startDate = new Date(currentYear, currentMonth, 1);
+        monthsToInclude = currentMonth + 1;
+        daysToInclude = 0;
+    }
+
+    let incassatoPeriod = 0;
+    let costiFissiPeriod = 0;
+    let costiVariabiliPeriod = 0;
+    let utilePeriod = 0;
+    let fatturatoPeriod = 0;
 
     if (financialPlanState && financialPlanState.consuntivoOverrides) {
       // Get causali catalog (default if not in state)
@@ -2645,19 +2684,29 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           return 0;
         };
 
-        // Calculate totals for each month (YTD)
-        for (let monthIndex = 0; monthIndex < monthsToInclude; monthIndex++) {
+        // Calculate totals for each month in the period
+        const startYear = startDate.getFullYear();
+        const startMonthIndex = startDate.getMonth();
+        const endYear = endDate.getFullYear();
+        const endMonthIndex = endDate.getMonth();
+
+        // Calculate for each month in the period
+        for (let year = startYear; year <= endYear; year++) {
+          const monthStart = year === startYear ? startMonthIndex : 0;
+          const monthEnd = year === endYear ? endMonthIndex : 11;
+
+          for (let monthIndex = monthStart; monthIndex <= monthEnd; monthIndex++) {
           // Calculate Incassato (macroId: 1)
           causaliCatalog.forEach(group => {
             if (group.macroId === 1) {
               // Incassato
               group.categories.forEach(category => {
                 category.items.forEach(item => {
-                  incassatoYTD += getConsuntivoValue(
+                  incassatoPeriod += getConsuntivoValue(
                     group.macroCategory,
                     category.name,
                     item,
-                    currentYear,
+                    year,
                     monthIndex
                   );
                 });
@@ -2666,11 +2715,11 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
               // Costi Fissi
               group.categories.forEach(category => {
                 category.items.forEach(item => {
-                  costiFissiYTD += getConsuntivoValue(
+                  costiFissiPeriod += getConsuntivoValue(
                     group.macroCategory,
                     category.name,
                     item,
-                    currentYear,
+                    year,
                     monthIndex
                   );
                 });
@@ -2679,21 +2728,22 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
               // Costi Variabili
               group.categories.forEach(category => {
                 category.items.forEach(item => {
-                  costiVariabiliYTD += getConsuntivoValue(
+                  costiVariabiliPeriod += getConsuntivoValue(
                     group.macroCategory,
                     category.name,
                     item,
-                    currentYear,
+                    year,
                     monthIndex
                   );
                 });
               });
             }
           });
+          }
         }
 
         // Utile = Incassato - Costi Fissi - Costi Variabili
-        utileYTD = incassatoYTD - costiFissiYTD - costiVariabiliYTD;
+        utilePeriod = incassatoPeriod - costiFissiPeriod - costiVariabiliPeriod;
       } else {
         console.log(
           `[Dashboard API] No causali catalog available, skipping financial plan calculations`
@@ -2737,37 +2787,99 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       return null;
     };
 
-    // If financial plan data is not available, try to use financial_stats
-    // But financial_stats might not have costiFissi and costiVariabili
-    // So we prefer financial plan data
-    if (incassatoYTD === 0 && financialStats.length > 0) {
-      // Fallback: sum incassato from financial_stats for YTD
-      const currentYearStats = financialStats.filter(stat => {
+    // Calculate fatturato from financial_stats for the period
+    if (financialStats.length > 0) {
+      const periodStats = financialStats.filter(stat => {
         const parsed = parsePlanMonthLabel(stat.month);
-        if (parsed && parsed.year === currentYear) {
-          return parsed.monthIndex < monthsToInclude;
-        }
-        return false;
+        if (!parsed) return false;
+
+        const statDate = new Date(parsed.year, parsed.monthIndex, 1);
+        return statDate >= startDate && statDate <= endDate;
       });
-      incassatoYTD = currentYearStats.reduce(
-        (sum, stat) => sum + (parseFloat(stat.incassato || 0) || 0),
-        0
-      );
+
+      fatturatoPeriod = periodStats.reduce((sum, stat) => {
+        const fatturato =
+          stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined
+            ? stat.fatturatoTotale
+            : stat.fatturatoImponibile !== null &&
+                stat.fatturatoImponibile !== undefined
+              ? stat.fatturatoImponibile
+              : 0;
+        return sum + (parseFloat(fatturato) || 0);
+      }, 0);
+
+      // Fallback: if incassatoPeriod is 0, try to use financial_stats
+      if (incassatoPeriod === 0) {
+        incassatoPeriod = periodStats.reduce(
+          (sum, stat) => sum + (parseFloat(stat.incassato || 0) || 0),
+          0
+        );
+      }
     }
 
     // Log calculated values for debugging
     console.log(
-      `[Dashboard API] Financial Plan YTD - Incassato: ${incassatoYTD}, Costi Fissi: ${costiFissiYTD}, Costi Variabili: ${costiVariabiliYTD}, Utile: ${utileYTD}`
+      `[Dashboard API] Financial Plan Period (${period}) - Fatturato: ${fatturatoPeriod}, Incassato: ${incassatoPeriod}, Costi Fissi: ${costiFissiPeriod}, Costi Variabili: ${costiVariabiliPeriod}, Utile: ${utilePeriod}`
     );
 
-    const totalSalesValue = salesDishes.reduce(
-      (sum, d) => sum + parseFloat(d.total_value || 0),
-      0
-    );
-    const totalSalesQuantity = salesDishes.reduce(
-      (sum, d) => sum + parseInt(d.total_quantity || 0),
-      0
-    );
+    // Filter sales data by period
+    // Note: sales_dish_data has period_year and period_month fields
+    let totalSalesValue = 0;
+    let totalSalesQuantity = 0;
+
+    // Get sales data filtered by period
+    try {
+      const salesDataQuery = `
+        SELECT 
+          SUM(sdd.total_value) as total_value,
+          SUM(sdd.quantity) as total_quantity
+        FROM sales_dish_data sdd
+        WHERE sdd.location_id = ?
+          AND (
+            (sdd.period_year = ? AND sdd.period_month >= ? AND sdd.period_month <= ?)
+            OR (sdd.period_year > ? AND sdd.period_year < ?)
+            OR (sdd.period_year = ? AND sdd.period_month <= ?)
+          )
+      `;
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth() + 1; // 1-based for DB
+      const endYear = endDate.getFullYear();
+      const endMonth = endDate.getMonth() + 1; // 1-based for DB
+
+      const salesPeriodData = await dbQuery(
+        locationId,
+        salesDataQuery,
+        [
+          locationId,
+          startYear,
+          startMonth,
+          endMonth,
+          startYear,
+          endYear,
+          endYear,
+          endMonth,
+        ]
+      );
+
+      if (salesPeriodData && salesPeriodData.length > 0) {
+        totalSalesValue = parseFloat(salesPeriodData[0].total_value || 0);
+        totalSalesQuantity = parseInt(salesPeriodData[0].total_quantity || 0);
+      }
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching sales data for period:`,
+        error.message
+      );
+      // Fallback to aggregated data
+      totalSalesValue = salesDishes.reduce(
+        (sum, d) => sum + parseFloat(d.total_value || 0),
+        0
+      );
+      totalSalesQuantity = salesDishes.reduce(
+        (sum, d) => sum + parseInt(d.total_quantity || 0),
+        0
+      );
+    }
 
     // Calculate percentages
     const topDishes = salesDishes.map(dish => ({
@@ -2933,24 +3045,58 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       };
     }
 
-    const fatturatoCurrent =
-      currentMonthData?.fatturato !== null &&
+    // Use period totals instead of single month
+    const fatturatoCurrent = fatturatoPeriod > 0 ? fatturatoPeriod : 
+      (currentMonthData?.fatturato !== null &&
       currentMonthData?.fatturato !== undefined
         ? currentMonthData.fatturato
-        : 0;
-    const fatturatoPrevious =
-      prevMonthData?.fatturato !== null &&
-      prevMonthData?.fatturato !== undefined
-        ? prevMonthData.fatturato
-        : 0;
-    const utileCurrent =
-      currentMonthData?.utile !== null && currentMonthData?.utile !== undefined
+        : 0);
+    const utileCurrent = utilePeriod > 0 ? utilePeriod :
+      (currentMonthData?.utile !== null && currentMonthData?.utile !== undefined
         ? currentMonthData.utile
-        : 0;
-    const utilePrevious =
-      prevMonthData?.utile !== null && prevMonthData?.utile !== undefined
+        : 0);
+    
+    // For previous period comparison, calculate previous period totals
+    let fatturatoPrevious = 0;
+    let utilePrevious = 0;
+    
+    // Calculate previous period based on current period
+    if (period === 'month') {
+      // Previous month
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      
+      if (financialStats.length > 0) {
+        const prevMonthStats = financialStats.filter(stat => {
+          const parsed = parsePlanMonthLabel(stat.month);
+          if (parsed && parsed.year === prevYear && parsed.monthIndex === prevMonth) {
+            return true;
+          }
+          return false;
+        });
+        
+        if (prevMonthStats.length > 0) {
+          const prevStat = prevMonthStats[0];
+          fatturatoPrevious = prevStat.fatturatoTotale !== null && prevStat.fatturatoTotale !== undefined
+            ? prevStat.fatturatoTotale
+            : prevStat.fatturatoImponibile !== null && prevStat.fatturatoImponibile !== undefined
+              ? prevStat.fatturatoImponibile
+              : 0;
+          utilePrevious = prevStat.utile !== null && prevStat.utile !== undefined
+            ? prevStat.utile
+            : 0;
+        }
+      }
+    } else {
+      // For other periods, use previous period data
+      fatturatoPrevious = prevMonthData?.fatturato !== null &&
+        prevMonthData?.fatturato !== undefined
+          ? prevMonthData.fatturato
+          : 0;
+      utilePrevious = prevMonthData?.utile !== null && prevMonthData?.utile !== undefined
         ? prevMonthData.utile
         : 0;
+    }
 
     // Debug: Log calculated KPIs
     console.log(
@@ -2989,7 +3135,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         sparkline: calculateSparkline(financialData, 'utile', 7),
       },
       vendite: {
-        current: totalSalesQuantity,
+        current: totalSalesValue, // Use total value, not quantity
         previous: 0,
         change: 0,
         changePercent: 0,
@@ -3009,36 +3155,46 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         ...kpis,
         // Add YTD values from financial plan (same as FinancialOverview)
         incassato: {
-          current: incassatoYTD,
-          previous: 0, // TODO: calculate previous year YTD for comparison
-          change: incassatoYTD,
+          current: incassatoPeriod,
+          previous: 0, // TODO: calculate previous period for comparison
+          change: incassatoPeriod,
           changePercent: 0,
           sparkline: [],
         },
         costiFissi: {
-          current: costiFissiYTD,
+          current: costiFissiPeriod,
           previous: 0,
-          change: costiFissiYTD,
+          change: costiFissiPeriod,
           changePercent: 0,
           sparkline: [],
         },
         costiVariabili: {
-          current: costiVariabiliYTD,
+          current: costiVariabiliPeriod,
           previous: 0,
-          change: costiVariabiliYTD,
+          change: costiVariabiliPeriod,
           changePercent: 0,
           sparkline: [],
         },
-        // Update utile with YTD value if calculated from financial plan
-        utile: utileYTD > 0
+        // Update utile with period value if calculated from financial plan
+        utile: utilePeriod > 0
           ? {
-              current: utileYTD,
+              current: utilePeriod,
               previous: utilePrevious,
-              change: utileYTD - utilePrevious,
-              changePercent: calculateChangePercent(utileYTD, utilePrevious),
+              change: utilePeriod - utilePrevious,
+              changePercent: calculateChangePercent(utilePeriod, utilePrevious),
               sparkline: calculateSparkline(financialData, 'utile', 7),
             }
           : kpis.utile,
+        // Update fatturato with period value
+        fatturato: fatturatoPeriod > 0
+          ? {
+              current: fatturatoPeriod,
+              previous: fatturatoPrevious,
+              change: fatturatoPeriod - fatturatoPrevious,
+              changePercent: calculateChangePercent(fatturatoPeriod, fatturatoPrevious),
+              sparkline: calculateSparkline(financialData, 'fatturato', 7),
+            }
+          : kpis.fatturato,
       },
       financialData: financialData.reverse(), // Reverse to show oldest first
       bcgMatrix: recipesWithPopolarita,
