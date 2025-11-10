@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UploadIcon, CheckCircleIcon } from '../icons/Icons';
 import {
   uploadPreview,
   importSalesData,
+  getImports,
+  deleteImport,
 } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
+import type { SalesImport } from '../../services/salesAnalysisApi';
 
 interface ImportTabProps {
   locationId: string;
@@ -18,6 +21,9 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
   const [periodMonth, setPeriodMonth] = useState(new Date().getMonth() + 1);
   const [periodYear, setPeriodYear] = useState(new Date().getFullYear());
   const [importing, setImporting] = useState(false);
+  const [imports, setImports] = useState<SalesImport[]>([]);
+  const [loadingImports, setLoadingImports] = useState(false);
+  const [deletingImportId, setDeletingImportId] = useState<string | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -51,6 +57,22 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
     }
   };
 
+  useEffect(() => {
+    loadImports();
+  }, [locationId]);
+
+  const loadImports = async () => {
+    setLoadingImports(true);
+    try {
+      const result = await getImports(locationId);
+      setImports(result.imports);
+    } catch (error) {
+      console.error('Failed to load imports:', error);
+    } finally {
+      setLoadingImports(false);
+    }
+  };
+
   const handleImport = async () => {
     if (!file || !preview) return;
 
@@ -72,6 +94,8 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
       // Reset
       setFile(null);
       setPreview(null);
+      // Reload imports list
+      await loadImports();
     } catch (error) {
       showNotification(
         error instanceof Error ? error.message : "Errore durante l'import",
@@ -80,6 +104,38 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleDeleteImport = async (importId: string) => {
+    if (
+      !window.confirm(
+        'Sei sicuro di voler eliminare questo import? Questa azione eliminerà tutti i dati correlati e non può essere annullata.'
+      )
+    ) {
+      return;
+    }
+
+    setDeletingImportId(importId);
+    try {
+      await deleteImport(locationId, importId);
+      showNotification('Import eliminato con successo', 'success');
+      await loadImports();
+    } catch (error) {
+      showNotification(
+        error instanceof Error
+          ? error.message
+          : "Errore durante l'eliminazione dell'import",
+        'error'
+      );
+    } finally {
+      setDeletingImportId(null);
+    }
+  };
+
+  const getMonthName = (month: number) => {
+    return new Date(2000, month - 1).toLocaleString('it-IT', {
+      month: 'long',
+    });
   };
 
   return (
@@ -319,6 +375,101 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
           </div>
         </div>
       )}
+
+      {/* Existing Imports List */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-4">Import Esistenti</h2>
+        {loadingImports ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-2 text-gray-600">Caricamento import...</p>
+          </div>
+        ) : imports.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            Nessun import trovato
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Periodo
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    File
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Piatti
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Quantità
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Valore
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Data Import
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Azioni
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {imports.map(importItem => (
+                  <tr key={importItem.id}>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {getMonthName(importItem.period_month)} {importItem.period_year}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {importItem.file_name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {importItem.total_dishes}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {importItem.total_quantity.toLocaleString('it-IT')}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      € {importItem.total_value.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {new Date(importItem.import_date).toLocaleDateString('it-IT')}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => handleDeleteImport(importItem.id)}
+                        disabled={deletingImportId === importItem.id}
+                        className="text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Elimina import"
+                      >
+                        {deletingImportId === importItem.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

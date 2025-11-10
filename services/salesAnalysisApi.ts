@@ -259,6 +259,20 @@ export const getImports = (
   );
 };
 
+// Delete import
+export const deleteImport = (
+  locationId: string,
+  importId: string
+): Promise<{ success: boolean; message: string }> => {
+  return apiCall<{ success: boolean; message: string }>(
+    `/api/sales-analysis/imports/${importId}`,
+    locationId,
+    {
+      method: 'DELETE',
+    }
+  );
+};
+
 // Get dishes list
 export const getDishes = (
   locationId: string,

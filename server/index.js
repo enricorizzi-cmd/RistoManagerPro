@@ -4395,6 +4395,153 @@ app.get('/api/sales-analysis/imports', requireAuth, async (req, res) => {
   }
 });
 
+// Delete import and all related data
+app.delete(
+  '/api/sales-analysis/imports/:importId',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'] || req.query.locationId;
+      const { importId } = req.params;
+
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      if (!importId) {
+        return res.status(400).json({ error: 'Import ID richiesto' });
+      }
+
+      const db = getLocationDb(locationId);
+
+      // Verify import exists and belongs to location
+      const importRecord = await db.get(
+        'SELECT * FROM sales_imports WHERE id = ? AND location_id = ?',
+        [importId, locationId]
+      );
+
+      if (!importRecord) {
+        return res.status(404).json({ error: 'Import non trovato' });
+      }
+
+      // Get all dish_data records for this import BEFORE deletion
+      // We need to get all the data we need before CASCADE deletes it
+      const dishDataRecords = await db.query(
+        'SELECT dish_id, recipe_id, period_year, period_month, quantity FROM sales_dish_data WHERE import_id = ?',
+        [importId]
+      );
+
+      // Get all dish_ids that will be affected
+      const affectedDishIds = [...new Set(dishDataRecords.map(d => d.dish_id))];
+
+      // Group dish_data by recipe_id and date for efficient recipe_sales updates
+      const recipeSalesUpdates = new Map<string, { recipeId: string; saleDate: string; quantity: number }>();
+      
+      for (const dishData of dishDataRecords) {
+        if (dishData.recipe_id) {
+          const saleDate = new Date(
+            dishData.period_year,
+            dishData.period_month - 1,
+            1
+          )
+            .toISOString()
+            .split('T')[0];
+          
+          const key = `${dishData.recipe_id}_${saleDate}`;
+          if (recipeSalesUpdates.has(key)) {
+            recipeSalesUpdates.get(key)!.quantity += dishData.quantity || 0;
+          } else {
+            recipeSalesUpdates.set(key, {
+              recipeId: dishData.recipe_id,
+              saleDate: saleDate,
+              quantity: dishData.quantity || 0,
+            });
+          }
+        }
+      }
+
+      // Update or delete recipe_sales records
+      for (const update of recipeSalesUpdates.values()) {
+        const recipeSale = await db.get(
+          'SELECT * FROM recipe_sales WHERE location_id = ? AND recipe_id = ? AND sale_date = ?',
+          [locationId, update.recipeId, update.saleDate]
+        );
+
+        if (recipeSale) {
+          const newQuantity = recipeSale.quantity - update.quantity;
+          if (newQuantity <= 0) {
+            // Delete if quantity becomes 0 or negative
+            await db.run(
+              'DELETE FROM recipe_sales WHERE location_id = ? AND recipe_id = ? AND sale_date = ?',
+              [locationId, update.recipeId, update.saleDate]
+            );
+          } else {
+            // Update quantity
+            await db.run(
+              'UPDATE recipe_sales SET quantity = ?, updated_at = NOW() WHERE location_id = ? AND recipe_id = ? AND sale_date = ?',
+              [newQuantity, locationId, update.recipeId, update.saleDate]
+            );
+          }
+        }
+      }
+
+      // Delete the import (CASCADE will delete sales_categories and sales_dish_data)
+      await db.run('DELETE FROM sales_imports WHERE id = ? AND location_id = ?', [
+        importId,
+        locationId,
+      ]);
+
+      // Update sales_dishes: decrement total_imports and update last_seen_date
+      for (const dishId of affectedDishIds) {
+        // Check if dish still has other imports
+        const remainingImports = await db.query(
+          'SELECT COUNT(*) as count FROM sales_dish_data WHERE dish_id = ?',
+          [dishId]
+        );
+        const remainingCount = remainingImports[0]?.count || 0;
+
+        if (remainingCount === 0) {
+          // No more imports for this dish, we could delete it or just update
+          // For now, we'll just update the counts
+          await db.run(
+            'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), updated_at = NOW() WHERE id = ?',
+            [dishId]
+          );
+        } else {
+          // Update last_seen_date to the most recent remaining import
+          const latestImport = await db.query(
+            `SELECT MAX(MAKE_DATE(period_year, period_month, 1)) as latest_date 
+             FROM sales_dish_data 
+             WHERE dish_id = ?`,
+            [dishId]
+          );
+          if (latestImport[0]?.latest_date) {
+            await db.run(
+              'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), last_seen_date = ?, updated_at = NOW() WHERE id = ?',
+              [latestImport[0].latest_date, dishId]
+            );
+          } else {
+            await db.run(
+              'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), updated_at = NOW() WHERE id = ?',
+              [dishId]
+            );
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Import eliminato con successo',
+      });
+    } catch (error) {
+      console.error('Failed to delete import:', error);
+      res.status(500).json({
+        error: 'Errore durante l\'eliminazione dell\'import: ' + (error.message || 'Unknown error'),
+      });
+    }
+  }
+);
+
 // Get dishes list
 app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
   try {
