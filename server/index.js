@@ -4493,37 +4493,49 @@ app.delete(
 
       // Update sales_dishes: decrement total_imports and update last_seen_date
       for (const dishId of affectedDishIds) {
-        // Check if dish still has other imports
-        const remainingImports = await db.query(
-          'SELECT COUNT(*) as count FROM sales_dish_data WHERE dish_id = ?',
+        // Get current dish info
+        const dish = await db.get(
+          'SELECT total_imports, last_seen_date FROM sales_dishes WHERE id = ?',
           [dishId]
         );
-        const remainingCount = remainingImports[0]?.count || 0;
+
+        if (!dish) continue;
+
+        // Check if dish still has other imports
+        const remainingImports = await db.query(
+          'SELECT period_year, period_month FROM sales_dish_data WHERE dish_id = ?',
+          [dishId]
+        );
+        const remainingCount = remainingImports.length;
+
+        // Calculate new total_imports (ensure it doesn't go below 0)
+        const newTotalImports = Math.max(0, (dish.total_imports || 1) - 1);
 
         if (remainingCount === 0) {
-          // No more imports for this dish, we could delete it or just update
-          // For now, we'll just update the counts
+          // No more imports for this dish, just update the counts
           await db.run(
-            'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), updated_at = NOW() WHERE id = ?',
-            [dishId]
+            'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
+            [newTotalImports, dishId]
           );
         } else {
-          // Update last_seen_date to the most recent remaining import
-          const latestImport = await db.query(
-            `SELECT MAX(MAKE_DATE(period_year, period_month, 1)) as latest_date 
-             FROM sales_dish_data 
-             WHERE dish_id = ?`,
-            [dishId]
-          );
-          if (latestImport[0]?.latest_date) {
+          // Find the most recent remaining import date
+          let latestDate = null;
+          for (const imp of remainingImports) {
+            const importDate = new Date(imp.period_year, imp.period_month - 1, 1);
+            if (!latestDate || importDate > latestDate) {
+              latestDate = importDate;
+            }
+          }
+
+          if (latestDate) {
             await db.run(
-              'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), last_seen_date = ?, updated_at = NOW() WHERE id = ?',
-              [latestImport[0].latest_date, dishId]
+              'UPDATE sales_dishes SET total_imports = ?, last_seen_date = ?, updated_at = NOW() WHERE id = ?',
+              [newTotalImports, latestDate.toISOString(), dishId]
             );
           } else {
             await db.run(
-              'UPDATE sales_dishes SET total_imports = GREATEST(0, total_imports - 1), updated_at = NOW() WHERE id = ?',
-              [dishId]
+              'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
+              [newTotalImports, dishId]
             );
           }
         }
