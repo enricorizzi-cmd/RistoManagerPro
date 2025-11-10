@@ -2571,87 +2571,38 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     };
 
     // Calculate KPIs based on period filter
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
-    const monthNames = [
-      'Gen',
-      'Feb',
-      'Mar',
-      'Apr',
-      'Mag',
-      'Giu',
-      'Lug',
-      'Ago',
-      'Set',
-      'Ott',
-      'Nov',
-      'Dic',
-    ];
-
-    // Try multiple formats for current month (including with dot)
-    const currentMonthFormats = [
-      `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
-      `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
-      `${monthNames[currentMonth]} ${currentYear}`,
-      `${monthNames[currentMonth]}. ${currentYear}`,
-      // Also try full month names
-      `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
-      `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
-    ];
-
-    // Find current month data (try different formats)
+    // Use the most recent month with data instead of current month
+    // This handles cases where data is from different years
     let currentMonthData = null;
-    for (const format of currentMonthFormats) {
-      currentMonthData = financialData.find(d => matchMonth(d.month, format));
-      if (currentMonthData) break;
-    }
+    let prevMonthData = null;
 
-    // If current month not found, use the most recent month
-    if (!currentMonthData && financialData.length > 0) {
-      currentMonthData = financialData[financialData.length - 1];
+    if (financialData.length > 0) {
+      // Sort by month (most recent first) - financialData is already sorted DESC
+      // Use the first (most recent) month as current
+      currentMonthData = financialData[0];
+
+      // Use the second month as previous, or the same if only one month exists
+      if (financialData.length > 1) {
+        prevMonthData = financialData[1];
+      } else {
+        prevMonthData = financialData[0];
+      }
+
       console.log(
-        `[Dashboard API] Current month not found, using most recent: ${currentMonthData.month}`
+        `[Dashboard API] Using most recent month: ${currentMonthData.month}`
       );
-      console.log(
-        `[Dashboard API] Available months:`,
-        financialData.slice(-5).map(d => d.month)
-      );
-    } else if (currentMonthData) {
-      console.log(
-        `[Dashboard API] Current month data found: ${currentMonthData.month}`
-      );
+      console.log(`[Dashboard API] Previous month: ${prevMonthData.month}`);
       console.log(
         `[Dashboard API] Current month values - Fatturato: ${currentMonthData.fatturato}, Utile: ${currentMonthData.utile}`
       );
+      console.log(
+        `[Dashboard API] Previous month values - Fatturato: ${prevMonthData.fatturato}, Utile: ${prevMonthData.utile}`
+      );
     } else {
       console.log(`[Dashboard API] No financial data available`);
-      console.log(
-        `[Dashboard API] Financial data array length: ${financialData.length}`
-      );
     }
 
-    // Find previous month data
-    const prevMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const prevMonthFormats = [
-      `${monthNames[prevMonthIndex]} ${prevMonthYear.toString().slice(-2)}`,
-      `${monthNames[prevMonthIndex]}. ${prevMonthYear.toString().slice(-2)}`,
-      `${monthNames[prevMonthIndex]} ${prevMonthYear}`,
-      `${monthNames[prevMonthIndex]}. ${prevMonthYear}`,
-    ];
-
-    let prevMonthData = null;
-    for (const format of prevMonthFormats) {
-      prevMonthData = financialData.find(d => matchMonth(d.month, format));
-      if (prevMonthData) break;
-    }
-
-    // If previous month not found, use second to last month or last month
-    if (!prevMonthData && financialData.length > 1) {
-      prevMonthData = financialData[financialData.length - 2];
-    } else if (!prevMonthData && financialData.length > 0) {
-      prevMonthData = financialData[financialData.length - 1];
-    }
+    // prevMonthData is already set above
 
     const fatturatoCurrent = currentMonthData?.fatturato || 0;
     const fatturatoPrevious = prevMonthData?.fatturato || 0;
