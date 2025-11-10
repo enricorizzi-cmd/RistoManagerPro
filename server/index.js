@@ -2372,7 +2372,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     try {
       const { supabaseCall } = require('./supabase-wrapper');
       const recipesRaw = await supabaseCall('GET', 'recipes', {
-        select: 'id,nome_piatto,prezzo_vendita,food_cost,utile,marginalita,categoria',
+        select:
+          'id,nome_piatto,prezzo_vendita,food_cost,utile,marginalita,categoria',
         filters: { location_id: locationId },
         limit: 10000,
       });
