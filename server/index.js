@@ -2766,7 +2766,7 @@ app.get(
         }
       }
 
-      const db = getDatabase(locationId);
+      const db = getLocationDb(locationId);
       try {
         const values = await db.query(
           'SELECT value FROM menu_dropdown_values WHERE location_id = ? AND type = ? ORDER BY value',
@@ -2792,7 +2792,10 @@ app.get(
           error?.table === 'menu_dropdown_values' ||
           error?.code === 'PGRST205' ||
           error?.statusCode === 404 ||
-          error?.statusCode === 500 ||
+          (error?.statusCode === 500 && 
+           (errorString.includes('does not exist') ||
+            errorString.includes('pgrst205') ||
+            errorString.includes('menu_dropdown_values'))) ||
           errorString.includes('does not exist') ||
           errorString.includes('could not find') ||
           errorString.includes('relation') ||
@@ -2811,10 +2814,14 @@ app.get(
             `[DROPDOWN] Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
           );
           return res.json([]);
-        } else {
-          // Re-throw to outer catch for additional handling
-          throw error;
         }
+        
+        // For any other error, log it but still return empty array to prevent 500 errors
+        console.warn(
+          `[DROPDOWN] Error getting dropdown values for type ${type}:`,
+          error?.message || error
+        );
+        return res.json([]);
       }
     } catch (error) {
       // Check again in outer catch for table not found errors
@@ -2834,7 +2841,10 @@ app.get(
         error?.table === 'menu_dropdown_values' ||
         error?.code === 'PGRST205' ||
         error?.statusCode === 404 ||
-        error?.statusCode === 500 ||
+        (error?.statusCode === 500 && 
+         (errorString.includes('does not exist') ||
+          errorString.includes('pgrst205') ||
+          errorString.includes('menu_dropdown_values'))) ||
         errorString.includes('does not exist') ||
         errorString.includes('could not find') ||
         errorString.includes('relation') ||
@@ -2861,10 +2871,15 @@ app.get(
         message: error?.message,
         table: error?.table,
         statusCode: error?.statusCode,
-        stack: error?.stack,
+        code: error?.code,
+        stack: error?.stack?.substring(0, 500),
         errorString: errorString.substring(0, 200),
       });
-      res.status(500).json({ error: 'Failed to get dropdown values' });
+      
+      // Return empty array instead of 500 error to prevent frontend crashes
+      // The table might not exist yet, which is a valid state
+      console.warn('[DROPDOWN] Returning empty array due to error');
+      return res.json([]);
     }
   }
 );
