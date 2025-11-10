@@ -2118,15 +2118,44 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         0
       );
 
-      const topDishes = salesDishes.map(dish => ({
-        dishName: dish.dish_name,
-        value: parseFloat(dish.total_value || 0),
-        quantity: parseInt(dish.total_quantity || 0),
-        percentage:
-          totalSalesValue > 0
-            ? (parseFloat(dish.total_value || 0) / totalSalesValue) * 100
-            : 0,
-      }));
+      // Top 10 piatti dalla matrice BCG: ordinati per fatturato e marginalità
+      // Preferiamo piatti con alta marginalità e alto fatturato
+      const topDishesFromBCG = recipesWithPopolarita
+        .sort((a, b) => {
+          // Prima ordina per fatturato (decrescente)
+          if (b.fatturato !== a.fatturato) {
+            return b.fatturato - a.fatturato;
+          }
+          // Poi per marginalità (decrescente)
+          return b.marginalita - a.marginalita;
+        })
+        .slice(0, 10)
+        .map(recipe => ({
+          dishName: recipe.nome,
+          value: recipe.fatturato,
+          quantity: 0, // Non disponibile dalla matrice BCG
+          percentage:
+            totalSalesValue > 0
+              ? (recipe.fatturato / totalSalesValue) * 100
+              : 0,
+          marginalita: recipe.marginalita,
+          popolarita: recipe.popolarita,
+          categoria: recipe.categoria,
+        }));
+
+      // Fallback: se non ci sono ricette nella matrice BCG, usa salesDishes
+      const topDishes =
+        topDishesFromBCG.length > 0
+          ? topDishesFromBCG
+          : salesDishes.map(dish => ({
+              dishName: dish.dish_name,
+              value: parseFloat(dish.total_value || 0),
+              quantity: parseInt(dish.total_quantity || 0),
+              percentage:
+                totalSalesValue > 0
+                  ? (parseFloat(dish.total_value || 0) / totalSalesValue) * 100
+                  : 0,
+            }));
 
       const categoryDistribution = salesCategories.map(cat => ({
         category: cat.category_name,

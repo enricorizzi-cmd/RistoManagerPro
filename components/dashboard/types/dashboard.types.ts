@@ -69,6 +69,9 @@ export interface SalesAnalysisData {
     value: number;
     quantity: number;
     percentage: number;
+    marginalita?: number;
+    popolarita?: number;
+    categoria?: string;
   }[];
   categoryDistribution: {
     category: string;
