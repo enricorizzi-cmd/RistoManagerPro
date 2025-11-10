@@ -4528,11 +4528,8 @@ app.delete(
           const newTotalImports = Math.max(0, (dish.total_imports || 1) - 1);
 
           if (remainingCount === 0) {
-            // No more imports for this dish, just update the counts
-            await db.run(
-              'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
-              [newTotalImports, dish.id]
-            );
+            // No more imports for this dish - delete it completely
+            await db.run('DELETE FROM sales_dishes WHERE id = ?', [dish.id]);
           } else {
             // Find the most recent remaining import date
             let latestDate = null;
