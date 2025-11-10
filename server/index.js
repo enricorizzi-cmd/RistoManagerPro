@@ -2437,9 +2437,18 @@ ULTIMI 3 MESI DETTAGLIATI:`;
         recipe.ingredienti = ingredients;
       }
 
-      // 3. Get recipe sales
+      // 3. Get recipe sales - aggregate quantities by recipe_id and sale_date
+      // When multiple dishes are linked to the same recipe, sum their quantities
       const recipeSales = await db.query(
-        'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+        `SELECT 
+          recipe_id,
+          location_id,
+          sale_date,
+          SUM(quantity) as quantity
+        FROM recipe_sales 
+        WHERE location_id = ? 
+        GROUP BY recipe_id, location_id, sale_date
+        ORDER BY sale_date DESC`,
         [locationId]
       );
 
@@ -3598,8 +3607,17 @@ app.get('/api/menu-engineering/recipe-sales', requireAuth, async (req, res) => {
       res.json(allSales);
     } else {
       const db = getDatabase(locationId);
+      // Aggregate quantities by recipe_id and sale_date when multiple dishes are linked to same recipe
       const sales = await db.query(
-        'SELECT * FROM recipe_sales WHERE location_id = ? ORDER BY sale_date DESC',
+        `SELECT 
+          recipe_id,
+          location_id,
+          sale_date,
+          SUM(quantity) as quantity
+        FROM recipe_sales 
+        WHERE location_id = ? 
+        GROUP BY recipe_id, location_id, sale_date
+        ORDER BY sale_date DESC`,
         [locationId]
       );
 
@@ -4129,28 +4147,43 @@ app.post(
           }
         }
 
-        // If dish is linked, create recipe_sales record
+        // If dish is linked, create/update recipe_sales record (sum quantities if multiple dishes linked to same recipe)
         if (dish.recipe_id) {
           const saleDate = new Date(periodYear, periodMonth - 1, 1)
             .toISOString()
             .split('T')[0];
           try {
-            await db.run(
-              `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
-               VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
-                locationId,
-                dish.recipe_id,
-                dishData.quantity,
-                saleDate,
-              ]
+            // Try to update existing record first
+            const existing = await db.get(
+              `SELECT * FROM recipe_sales 
+               WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+              [locationId, dish.recipe_id, saleDate]
             );
-          } catch (err) {
-            // Ignore duplicate key errors
-            if (!err.message.includes('UNIQUE constraint')) {
-              console.error('Failed to create recipe_sales:', err);
+            
+            if (existing) {
+              // Sum quantities if record already exists
+              await db.run(
+                `UPDATE recipe_sales 
+                 SET quantity = quantity + ? 
+                 WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+                [dishData.quantity, locationId, dish.recipe_id, saleDate]
+              );
+            } else {
+              // Insert new record
+              await db.run(
+                `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                  crypto.randomUUID(),
+                  locationId,
+                  dish.recipe_id,
+                  dishData.quantity,
+                  saleDate,
+                ]
+              );
             }
+          } catch (err) {
+            console.error('Failed to create/update recipe_sales:', err);
           }
         }
       }
@@ -4394,22 +4427,37 @@ app.put(
             .toISOString()
             .split('T')[0];
           try {
-            await db.run(
-              `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
-             VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
-                locationId,
-                recipeId,
-                data.quantity,
-                saleDate,
-              ]
+            // Try to update existing record first (sum quantities if multiple dishes linked to same recipe)
+            const existing = await db.get(
+              `SELECT * FROM recipe_sales 
+               WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+              [locationId, recipeId, saleDate]
             );
-          } catch (err) {
-            // Ignore duplicates
-            if (!err.message.includes('UNIQUE constraint')) {
-              console.error('Failed to create recipe_sales:', err);
+            
+            if (existing) {
+              // Sum quantities if record already exists
+              await db.run(
+                `UPDATE recipe_sales 
+                 SET quantity = quantity + ? 
+                 WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+                [data.quantity, locationId, recipeId, saleDate]
+              );
+            } else {
+              // Insert new record
+              await db.run(
+                `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                  crypto.randomUUID(),
+                  locationId,
+                  recipeId,
+                  data.quantity,
+                  saleDate,
+                ]
+              );
             }
+          } catch (err) {
+            console.error('Failed to create/update recipe_sales:', err);
           }
         }
 
@@ -4478,19 +4526,37 @@ app.post(
                 .toISOString()
                 .split('T')[0];
               try {
-                await db.run(
-                  `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
-                 VALUES (?, ?, ?, ?, ?)`,
-                  [
-                    crypto.randomUUID(),
-                    locationId,
-                    link.recipeId,
-                    data.quantity,
-                    saleDate,
-                  ]
+                // Try to update existing record first (sum quantities if multiple dishes linked to same recipe)
+                const existing = await db.get(
+                  `SELECT * FROM recipe_sales 
+                   WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+                  [locationId, link.recipeId, saleDate]
                 );
+                
+                if (existing) {
+                  // Sum quantities if record already exists
+                  await db.run(
+                    `UPDATE recipe_sales 
+                     SET quantity = quantity + ? 
+                     WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
+                    [data.quantity, locationId, link.recipeId, saleDate]
+                  );
+                } else {
+                  // Insert new record
+                  await db.run(
+                    `INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [
+                      crypto.randomUUID(),
+                      locationId,
+                      link.recipeId,
+                      data.quantity,
+                      saleDate,
+                    ]
+                  );
+                }
               } catch (err) {
-                // Ignore duplicates
+                console.error('Failed to create/update recipe_sales:', err);
               }
             }
 

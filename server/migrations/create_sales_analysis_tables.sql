@@ -156,6 +156,7 @@ BEGIN
   -- Se il piatto è stato appena collegato (recipe_id non è NULL)
   IF NEW.recipe_id IS NOT NULL AND (OLD.recipe_id IS NULL OR OLD.recipe_id != NEW.recipe_id) THEN
     -- Inserisci/aggiorna record in recipe_sales per tutti i dati storici del piatto
+    -- Somma le quantità se più piatti sono collegati alla stessa ricetta
     INSERT INTO recipe_sales (id, location_id, recipe_id, quantity, sale_date)
     SELECT 
       gen_random_uuid()::text,
@@ -166,7 +167,8 @@ BEGIN
       MAKE_DATE(sdd.period_year, sdd.period_month, 1)
     FROM sales_dish_data sdd
     WHERE sdd.dish_id = NEW.id
-    ON CONFLICT DO NOTHING; -- Evita duplicati se già esistono
+    ON CONFLICT (location_id, recipe_id, sale_date) 
+    DO UPDATE SET quantity = recipe_sales.quantity + EXCLUDED.quantity;
     
     -- Aggiorna anche i record esistenti in sales_dish_data con il nuovo recipe_id
     UPDATE sales_dish_data

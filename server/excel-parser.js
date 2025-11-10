@@ -296,7 +296,7 @@ function parseDetailTable(sheet) {
   
   let headerRow = 1;
   let dataStartRow = 0;
-  let maxRows = 1000;
+  let maxRows = null; // No limit - read all rows
   
   if (detailStartRow !== null) {
     // This is a detail table that starts at a specific row in the original sheet
@@ -307,23 +307,33 @@ function parseDetailTable(sheet) {
     const sheetRange = sheet['!ref']
       ? XLSX.utils.decode_range(sheet['!ref'])
       : null;
-    maxRows = sheetRange ? sheetRange.e.r + 1 : 1000;
+    // Read all rows from dataStartRow to the end of the sheet
+    maxRows = sheetRange ? sheetRange.e.r + 1 : null;
   } else {
     // Normal parsing - detect header row
     headerRow = detectHeaderRow(sheet);
     const sheetRange = sheet['!ref']
       ? XLSX.utils.decode_range(sheet['!ref'])
       : null;
-    maxRows = sheetRange ? sheetRange.e.r + 1 : 1000;
+    // Read all rows from headerRow to the end of the sheet
+    maxRows = sheetRange ? sheetRange.e.r + 1 : null;
     dataStartRow = headerRow - 1;
+  }
+
+  // Build range - if maxRows is null, read to the end
+  const range = {
+    s: { r: dataStartRow, c: 0 },
+    e: maxRows !== null ? { r: maxRows - 1, c: 20 } : undefined, // If maxRows is null, don't set end row
+  };
+  
+  // Remove undefined properties
+  if (range.e === undefined) {
+    delete range.e;
   }
 
   const data = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
-    range: {
-      s: { r: dataStartRow, c: 0 },
-      e: { r: maxRows - 1, c: 20 },
-    },
+    range: range,
     defval: null,
     raw: false, // Convert numbers to strings for easier parsing
   });

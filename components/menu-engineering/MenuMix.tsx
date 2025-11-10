@@ -43,7 +43,7 @@ const MenuMix: React.FC<MenuMixProps> = ({
     }
 
     return recipeSales.filter(sale => {
-      const saleDate = new Date(sale.saleDate);
+      const saleDate = new Date(sale.date);
       const saleYear = saleDate.getFullYear();
       const saleMonth = saleDate.getMonth() + 1;
 
