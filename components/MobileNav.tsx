@@ -5,6 +5,7 @@ import {
   CashIcon,
   BeakerIcon,
   ChartLineIcon,
+  DashboardIcon,
 } from './icons/Icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,6 +38,12 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentPage }) => {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg flex z-40">
+      <NavLink
+        href="#dashboard"
+        icon={<DashboardIcon className="h-6 w-6" />}
+        label="Dashboard"
+        isActive={currentPage === 'dashboard'}
+      />
       <NavLink
         href="#financial-plan"
         icon={<CashIcon className="h-6 w-6" />}

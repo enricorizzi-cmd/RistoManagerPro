@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   BeakerIcon,
   ChartLineIcon,
+  DashboardIcon,
 } from './icons/Icons';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,6 +66,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage }) => {
         </button>
       </div>
       <nav className={`flex-1 py-4 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
+        <NavLink
+          href="#dashboard"
+          icon={<DashboardIcon className="h-6 w-6" />}
+          label="Dashboard"
+          isActive={currentPage === 'dashboard'}
+          collapsed={sidebarCollapsed}
+        />
         <NavLink
           href="#financial-plan"
           icon={<CashIcon className="h-6 w-6" />}

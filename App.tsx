@@ -8,6 +8,7 @@ import AuthPage from './components/auth/AuthPage';
 import { useAuth } from './contexts/AuthContext';
 
 const Settings = lazy(() => import('./components/Settings'));
+const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
 const FinancialPlan = lazy(() => import('./components/FinancialPlan'));
 const UserManagement = lazy(() => import('./components/UserManagement'));
 const MenuEngineering = lazy(() => import('./components/MenuEngineering'));
@@ -16,6 +17,7 @@ const SalesAnalysis = lazy(
 );
 
 type Page =
+  | 'dashboard'
   | 'financial-plan'
   | 'settings'
   | 'users'
@@ -23,7 +25,7 @@ type Page =
   | 'sales-analysis';
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>('financial-plan');
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -31,6 +33,7 @@ const App: React.FC = () => {
       const hash = window.location.hash.replace('#', '') as Page;
       if (
         [
+          'dashboard',
           'financial-plan',
           'settings',
           'users',
@@ -40,7 +43,7 @@ const App: React.FC = () => {
       ) {
         setCurrentPage(hash);
       } else {
-        setCurrentPage('financial-plan');
+        setCurrentPage('dashboard');
       }
     };
 
@@ -54,6 +57,8 @@ const App: React.FC = () => {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard />;
       case 'financial-plan':
         return <FinancialPlan />;
       case 'settings':
@@ -65,7 +70,7 @@ const App: React.FC = () => {
       case 'sales-analysis':
         return <SalesAnalysis />;
       default:
-        return <FinancialPlan />;
+        return <Dashboard />;
     }
   };
 

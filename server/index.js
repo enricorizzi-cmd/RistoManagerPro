@@ -1815,6 +1815,308 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
   }
 });
 
+// Dashboard API - Aggregated data for dashboard
+app.get('/api/dashboard', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.query.locationId;
+
+    if (!locationId) {
+      return res.status(400).json({ error: 'Location ID is required' });
+    }
+
+    // Check if user has access to this location
+    if (req.user.role !== 'admin') {
+      if (locationId === 'all') {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to aggregated view' });
+      }
+
+      const hasPermission = await masterDbGet(
+        'SELECT id FROM user_location_permissions WHERE user_id = ? AND location_id = ?',
+        [req.user.id, locationId]
+      );
+
+      if (!hasPermission) {
+        return res
+          .status(403)
+          .json({ error: 'Access denied to this location' });
+      }
+    }
+
+    const db = getDatabase(locationId);
+
+    // Get financial stats
+    const financialStats = await dbQuery(
+      locationId,
+      `
+      SELECT 
+        month,
+        fatturato_totale as fatturatoTotale,
+        fatturato_imponibile as fatturatoImponibile,
+        fatturato_previsionale as fatturatoPrevisionale,
+        incassato,
+        incassato_previsionale as incassatoPrevisionale,
+        utile,
+        utile_previsionale as utilePrevisionale
+      FROM financial_stats 
+      WHERE location_id = ? 
+      ORDER BY month DESC
+      LIMIT 48
+    `,
+      [locationId]
+    );
+
+    // Get recipes for BCG matrix
+    const recipes = await dbQuery(
+      locationId,
+      `
+      SELECT 
+        id,
+        nome_piatto as nome,
+        prezzo_vendita as prezzoVendita,
+        food_cost as foodCost,
+        utile,
+        marginalita,
+        categoria
+      FROM recipes
+      WHERE location_id = ?
+    `,
+      [locationId]
+    );
+
+    // Get recipe sales for popolarità calculation
+    const recipeSales = await dbQuery(
+      locationId,
+      `
+      SELECT 
+        recipe_id,
+        SUM(quantity) as total_quantity
+      FROM recipe_sales
+      WHERE location_id = ?
+      GROUP BY recipe_id
+    `,
+      [locationId]
+    );
+
+    // Calculate popolarità for each recipe
+    const totalSales = recipeSales.reduce(
+      (sum, rs) => sum + (rs.total_quantity || 0),
+      0
+    );
+    const recipesWithPopolarita = recipes.map(recipe => {
+      const sales = recipeSales.find(rs => rs.recipe_id === recipe.id);
+      const quantity = sales?.total_quantity || 0;
+      const popolarita = totalSales > 0 ? (quantity / totalSales) * 100 : 0;
+
+      return {
+        id: recipe.id,
+        nome: recipe.nome,
+        popolarita: popolarita,
+        marginalita: parseFloat(recipe.marginalita) || 0,
+        fatturato: quantity * parseFloat(recipe.prezzoVendita) || 0,
+        categoria: recipe.categoria,
+        prezzoVendita: parseFloat(recipe.prezzoVendita) || 0,
+        foodCost: parseFloat(recipe.foodCost) || 0,
+      };
+    });
+
+    // Get sales data (top dishes and categories)
+    const salesDishes = await dbQuery(
+      locationId,
+      `
+      SELECT 
+        d.dish_name,
+        SUM(sdd.total_value) as total_value,
+        SUM(sdd.quantity) as total_quantity
+      FROM sales_dish_data sdd
+      JOIN sales_dishes d ON sdd.dish_id = d.id
+      WHERE sdd.location_id = ?
+      GROUP BY d.dish_name
+      ORDER BY total_value DESC
+      LIMIT 10
+    `,
+      [locationId]
+    );
+
+    const salesCategories = await dbQuery(
+      locationId,
+      `
+      SELECT 
+        category_name,
+        SUM(total_value) as total_value,
+        SUM(quantity) as total_quantity
+      FROM sales_categories
+      WHERE location_id = ?
+      GROUP BY category_name
+      ORDER BY total_value DESC
+    `,
+      [locationId]
+    );
+
+    const totalSalesValue = salesDishes.reduce(
+      (sum, d) => sum + parseFloat(d.total_value || 0),
+      0
+    );
+    const totalSalesQuantity = salesDishes.reduce(
+      (sum, d) => sum + parseInt(d.total_quantity || 0),
+      0
+    );
+
+    // Calculate percentages
+    const topDishes = salesDishes.map(dish => ({
+      dishName: dish.dish_name,
+      value: parseFloat(dish.total_value || 0),
+      quantity: parseInt(dish.total_quantity || 0),
+      percentage:
+        totalSalesValue > 0
+          ? (parseFloat(dish.total_value || 0) / totalSalesValue) * 100
+          : 0,
+    }));
+
+    const categoryDistribution = salesCategories.map(cat => ({
+      category: cat.category_name,
+      value: parseFloat(cat.total_value || 0),
+      quantity: parseInt(cat.total_quantity || 0),
+      percentage:
+        totalSalesValue > 0
+          ? (parseFloat(cat.total_value || 0) / totalSalesValue) * 100
+          : 0,
+    }));
+
+    // Transform financial stats to dashboard format
+    const financialData = financialStats.map(stat => ({
+      month: stat.month,
+      fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
+      fatturatoPrevisionale: stat.fatturatoPrevisionale || null,
+      incassato: stat.incassato || null,
+      incassatoPrevisionale: stat.incassatoPrevisionale || null,
+      costiFissi: null,
+      costiVariabili: null,
+      utile: stat.utile || null,
+      utilePrevisionale: stat.utilePrevisionale || null,
+    }));
+
+    // Calculate KPIs
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    const currentMonthLabel =
+      [
+        'Gen',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mag',
+        'Giu',
+        'Lug',
+        'Ago',
+        'Set',
+        'Ott',
+        'Nov',
+        'Dic',
+      ][currentMonth] +
+      ' ' +
+      currentYear.toString().slice(-2);
+
+    const currentMonthData = financialData.find(
+      d => d.month === currentMonthLabel
+    );
+    const prevMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const prevMonthLabel =
+      [
+        'Gen',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mag',
+        'Giu',
+        'Lug',
+        'Ago',
+        'Set',
+        'Ott',
+        'Nov',
+        'Dic',
+      ][prevMonthIndex] +
+      ' ' +
+      prevMonthYear.toString().slice(-2);
+    const prevMonthData =
+      financialData.find(d => d.month === prevMonthLabel) ||
+      financialData[financialData.length - 1];
+
+    const fatturatoCurrent = currentMonthData?.fatturato || 0;
+    const fatturatoPrevious = prevMonthData?.fatturato || 0;
+    const utileCurrent = currentMonthData?.utile || 0;
+    const utilePrevious = prevMonthData?.utile || 0;
+    const margineCurrent =
+      fatturatoCurrent > 0 ? (utileCurrent / fatturatoCurrent) * 100 : 0;
+    const marginePrevious =
+      fatturatoPrevious > 0 ? (utilePrevious / fatturatoPrevious) * 100 : 0;
+
+    const calculateChangePercent = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const calculateSparkline = (data, field, periods = 7) => {
+      return data.slice(-periods).map(d => d[field] || 0);
+    };
+
+    const kpis = {
+      fatturato: {
+        current: fatturatoCurrent,
+        previous: fatturatoPrevious,
+        change: fatturatoCurrent - fatturatoPrevious,
+        changePercent: calculateChangePercent(
+          fatturatoCurrent,
+          fatturatoPrevious
+        ),
+        sparkline: calculateSparkline(financialData, 'fatturato', 7),
+      },
+      utile: {
+        current: utileCurrent,
+        previous: utilePrevious,
+        change: utileCurrent - utilePrevious,
+        changePercent: calculateChangePercent(utileCurrent, utilePrevious),
+        sparkline: calculateSparkline(financialData, 'utile', 7),
+      },
+      vendite: {
+        current: totalSalesQuantity,
+        previous: 0,
+        change: 0,
+        changePercent: 0,
+        sparkline: [],
+      },
+      margine: {
+        current: margineCurrent,
+        previous: marginePrevious,
+        change: margineCurrent - marginePrevious,
+        changePercent: calculateChangePercent(margineCurrent, marginePrevious),
+        sparkline: [],
+      },
+    };
+
+    res.json({
+      kpis,
+      financialData: financialData.reverse(), // Reverse to show oldest first
+      bcgMatrix: recipesWithPopolarita,
+      salesAnalysis: {
+        topDishes,
+        categoryDistribution,
+        ticketMedio:
+          totalSalesQuantity > 0 ? totalSalesValue / totalSalesQuantity : 0,
+        totalVendite: totalSalesValue,
+        totalQuantity: totalSalesQuantity,
+      },
+      aiInsights: [],
+      aiPredictions: null,
+    });
+  } catch (error) {
+    console.error('Failed to get dashboard data', error);
+    res.status(500).json({ error: 'Failed to get dashboard data' });
+  }
+});
+
 app.put('/api/financial-stats', requireAuth, async (req, res) => {
   try {
     const { locationId, stats } = req.body;
