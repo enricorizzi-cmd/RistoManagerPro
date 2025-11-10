@@ -86,17 +86,15 @@ export const SalesAnalysis: React.FC<SalesAnalysisProps> = ({ data }) => {
         <h2 className="text-xl font-bold text-gray-900 mb-6">
           Distribuzione per Categoria
         </h2>
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={350}>
           <PieChart>
             <Pie
               data={data.categoryDistribution}
               cx="50%"
-              cy="50%"
+              cy="40%"
               labelLine={false}
-              label={({ category, percentage }) =>
-                `${category}: ${percentage.toFixed(1)}%`
-              }
-              outerRadius={80}
+              label={({ percentage }) => `${percentage.toFixed(1)}%`}
+              outerRadius={100}
               fill="#8884d8"
               dataKey="value"
             >
@@ -107,7 +105,33 @@ export const SalesAnalysis: React.FC<SalesAnalysisProps> = ({ data }) => {
                 />
               ))}
             </Pie>
-            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Tooltip
+              formatter={(value: number, name: string, props: any) => [
+                formatCurrency(value),
+                `${props.payload.category} (${props.payload.percentage.toFixed(1)}%)`,
+              ]}
+              contentStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px',
+              }}
+            />
+            <Legend
+              verticalAlign="bottom"
+              height={80}
+              formatter={(value: string, entry: any) => {
+                const category = entry.payload.category;
+                const percentage = entry.payload.percentage.toFixed(1);
+                // Truncate long category names
+                const maxLength = 20;
+                const truncated =
+                  category.length > maxLength
+                    ? `${category.substring(0, maxLength)}...`
+                    : category;
+                return `${truncated}: ${percentage}%`;
+              }}
+              wrapperStyle={{ fontSize: '12px' }}
+            />
           </PieChart>
         </ResponsiveContainer>
       </GlassCard>
