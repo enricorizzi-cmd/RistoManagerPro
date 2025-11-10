@@ -22,16 +22,21 @@ interface FinancialOverviewProps {
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   data,
 }) => {
-  // Filter out null values and get last 12 months with data
+  // Convert null to 0 for chart rendering and get last 12 months
   const chartData = data
-    .filter(
-      d =>
-        d.fatturato !== null ||
-        d.fatturatoPrevisionale !== null ||
-        d.incassato !== null ||
-        d.utile !== null
-    )
+    .map(d => ({
+      ...d,
+      fatturato: d.fatturato ?? 0,
+      fatturatoPrevisionale: d.fatturatoPrevisionale ?? 0,
+      incassato: d.incassato ?? 0,
+      utile: d.utile ?? 0,
+    }))
     .slice(-12);
+
+  // Debug: log data
+  if (chartData.length > 0) {
+    console.log('[FinancialOverview] Chart data:', chartData.slice(0, 3));
+  }
 
   // If no data, show message
   if (chartData.length === 0) {
@@ -78,8 +83,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             stroke="#1E40AF"
             strokeWidth={3}
             name="Fatturato Reale"
-            dot={false}
-            connectNulls={false}
+            dot={{ fill: '#1E40AF', r: 4 }}
+            activeDot={{ r: 6 }}
+            connectNulls={true}
           />
           <Line
             type="monotone"
@@ -88,8 +94,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             strokeWidth={2}
             strokeDasharray="5 5"
             name="Fatturato Previsionale"
-            dot={false}
-            connectNulls={false}
+            dot={{ fill: '#6366F1', r: 3 }}
+            activeDot={{ r: 5 }}
+            connectNulls={true}
           />
           <Line
             type="monotone"
@@ -97,8 +104,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             stroke="#10B981"
             strokeWidth={2}
             name="Incassato"
-            dot={false}
-            connectNulls={false}
+            dot={{ fill: '#10B981', r: 3 }}
+            activeDot={{ r: 5 }}
+            connectNulls={true}
           />
           <Line
             type="monotone"
@@ -106,8 +114,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             stroke="#EC4899"
             strokeWidth={2}
             name="Utile"
-            dot={false}
-            connectNulls={false}
+            dot={{ fill: '#EC4899', r: 3 }}
+            activeDot={{ r: 5 }}
+            connectNulls={true}
           />
         </ComposedChart>
       </ResponsiveContainer>

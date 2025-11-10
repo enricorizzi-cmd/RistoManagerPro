@@ -193,9 +193,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             {periodFilter === 'month'
               ? (() => {
                   const now = new Date();
-                  const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+                  const prevMonth =
+                    now.getMonth() === 0 ? 11 : now.getMonth() - 1;
                   const prevMonthYear =
-                    now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+                    now.getMonth() === 0
+                      ? now.getFullYear() - 1
+                      : now.getFullYear();
                   const prevMonthDate = new Date(prevMonthYear, prevMonth, 1);
                   return `Dati del mese precedente: ${prevMonthDate.toLocaleDateString(
                     'it-IT',
