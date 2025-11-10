@@ -2642,52 +2642,52 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         return 0;
       };
 
-      // Calculate totals for each month (YTD)
-      for (let monthIndex = 0; monthIndex < monthsToInclude; monthIndex++) {
-        // Calculate Incassato (macroId: 1)
-        causaliCatalog.forEach(group => {
-          if (group.macroId === 1) {
-            // Incassato
-            group.categories.forEach(category => {
-              category.items.forEach(item => {
-                incassatoYTD += getConsuntivoValue(
-                  group.macroCategory,
-                  category.name,
-                  item,
-                  currentYear,
-                  monthIndex
-                );
+        // Calculate totals for each month (YTD)
+        for (let monthIndex = 0; monthIndex < monthsToInclude; monthIndex++) {
+          // Calculate Incassato (macroId: 1)
+          causaliCatalog.forEach(group => {
+            if (group.macroId === 1) {
+              // Incassato
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  incassatoYTD += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    currentYear,
+                    monthIndex
+                  );
+                });
               });
-            });
-          } else if (group.macroId === 2) {
-            // Costi Fissi
-            group.categories.forEach(category => {
-              category.items.forEach(item => {
-                costiFissiYTD += getConsuntivoValue(
-                  group.macroCategory,
-                  category.name,
-                  item,
-                  currentYear,
-                  monthIndex
-                );
+            } else if (group.macroId === 2) {
+              // Costi Fissi
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  costiFissiYTD += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    currentYear,
+                    monthIndex
+                  );
+                });
               });
-            });
-          } else if (group.macroId === 3) {
-            // Costi Variabili
-            group.categories.forEach(category => {
-              category.items.forEach(item => {
-                costiVariabiliYTD += getConsuntivoValue(
-                  group.macroCategory,
-                  category.name,
-                  item,
-                  currentYear,
-                  monthIndex
-                );
+            } else if (group.macroId === 3) {
+              // Costi Variabili
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  costiVariabiliYTD += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    currentYear,
+                    monthIndex
+                  );
+                });
               });
-            });
-          }
-        });
-      }
+            }
+          });
+        }
 
         // Utile = Incassato - Costi Fissi - Costi Variabili
         utileYTD = incassatoYTD - costiFissiYTD - costiVariabiliYTD;
