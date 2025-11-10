@@ -12,6 +12,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
 } from 'recharts';
 import { formatCurrency } from '../utils/formatters';
 import type { SalesAnalysisData } from '../types/dashboard.types';
