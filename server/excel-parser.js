@@ -36,13 +36,13 @@ function parseNumericValue(value) {
   if (typeof value === 'string') {
     // Remove currency symbols and spaces
     let cleaned = value.replace(/[€\s]/g, '').trim();
-    
+
     if (!cleaned || cleaned === '') return 0;
-    
+
     // Count commas and dots to determine format
     const commaCount = (cleaned.match(/,/g) || []).length;
     const dotCount = (cleaned.match(/\./g) || []).length;
-    
+
     // Determine format based on pattern
     if (commaCount === 1 && dotCount === 0) {
       // Italian format: 1234,56 (comma as decimal separator)
@@ -65,39 +65,47 @@ function parseNumericValue(value) {
     } else if (commaCount === 0 && dotCount > 1) {
       // International format with thousands: 1.234.56 - remove all dots except last
       const lastDotIndex = cleaned.lastIndexOf('.');
-      cleaned = cleaned.substring(0, lastDotIndex).replace(/\./g, '') + 
-                cleaned.substring(lastDotIndex);
+      cleaned =
+        cleaned.substring(0, lastDotIndex).replace(/\./g, '') +
+        cleaned.substring(lastDotIndex);
     } else if (commaCount > 1 && dotCount === 0) {
       // Unlikely but possible: 1,234,56 - treat last comma as decimal
       const lastCommaIndex = cleaned.lastIndexOf(',');
-      cleaned = cleaned.substring(0, lastCommaIndex).replace(/,/g, '') + 
-                '.' + cleaned.substring(lastCommaIndex + 1);
+      cleaned =
+        cleaned.substring(0, lastCommaIndex).replace(/,/g, '') +
+        '.' +
+        cleaned.substring(lastCommaIndex + 1);
     } else {
       // Default: remove all separators except last comma or dot
       // Try to preserve the last separator as decimal
       const lastCommaIndex = cleaned.lastIndexOf(',');
       const lastDotIndex = cleaned.lastIndexOf('.');
-      
+
       if (lastCommaIndex > lastDotIndex) {
         // Last separator is comma - Italian format
-        cleaned = cleaned.substring(0, lastCommaIndex).replace(/[.,]/g, '') + 
-                  '.' + cleaned.substring(lastCommaIndex + 1);
+        cleaned =
+          cleaned.substring(0, lastCommaIndex).replace(/[.,]/g, '') +
+          '.' +
+          cleaned.substring(lastCommaIndex + 1);
       } else if (lastDotIndex > lastCommaIndex) {
         // Last separator is dot - International format
-        cleaned = cleaned.substring(0, lastDotIndex).replace(/[.,]/g, '') + 
-                  cleaned.substring(lastDotIndex);
+        cleaned =
+          cleaned.substring(0, lastDotIndex).replace(/[.,]/g, '') +
+          cleaned.substring(lastDotIndex);
       } else {
         // No separators or only one type - remove all
         cleaned = cleaned.replace(/[.,]/g, '');
       }
     }
-    
+
     const parsed = parseFloat(cleaned);
     if (isNaN(parsed)) {
-      console.warn(`[EXCEL PARSER] Failed to parse numeric value: "${value}" -> "${cleaned}"`);
+      console.warn(
+        `[EXCEL PARSER] Failed to parse numeric value: "${value}" -> "${cleaned}"`
+      );
       return 0;
     }
-    
+
     return parsed;
   }
   return 0;
@@ -113,7 +121,9 @@ function detectHeaderRow(sheet, maxRows = 50) {
   const maxSheetRows = sheetRange ? sheetRange.e.r + 1 : maxRows;
   const actualMaxRows = Math.min(maxRows, maxSheetRows);
 
-  console.log(`[EXCEL PARSER] Searching for header row in first ${actualMaxRows} rows`);
+  console.log(
+    `[EXCEL PARSER] Searching for header row in first ${actualMaxRows} rows`
+  );
 
   for (let row = 0; row < actualMaxRows; row++) {
     const rowData = XLSX.utils.sheet_to_json(sheet, {
@@ -163,7 +173,7 @@ function detectHeaderRow(sheet, maxRows = 50) {
       'unitario',
       'ammontare',
     ];
-    
+
     const hasHeaderKeywords = headers.some(h => {
       const hLower = h.toLowerCase();
       return headerKeywords.some(kw => {
@@ -191,7 +201,7 @@ function findColumnIndex(headers, keywords) {
   for (let i = 0; i < headers.length; i++) {
     const header = (headers[i] || '').toLowerCase().trim();
     if (!header) continue;
-    
+
     // Normalize encoding issues (QuantitÃ -> Quantità)
     // Handle common UTF-8 encoding issues where accented chars are split
     let normalized = header;
@@ -221,11 +231,15 @@ function findColumnIndex(headers, keywords) {
     });
 
     if (found) {
-      console.log(`[EXCEL PARSER] Found column "${headers[i]}" at index ${i} for keywords: ${keywords.join(', ')}`);
+      console.log(
+        `[EXCEL PARSER] Found column "${headers[i]}" at index ${i} for keywords: ${keywords.join(', ')}`
+      );
       return i;
     }
   }
-  console.log(`[EXCEL PARSER] Column not found for keywords: ${keywords.join(', ')}`);
+  console.log(
+    `[EXCEL PARSER] Column not found for keywords: ${keywords.join(', ')}`
+  );
   return -1;
 }
 
@@ -292,16 +306,19 @@ function parseSummaryTable(sheet) {
  */
 function parseDetailTable(sheet) {
   // Check if this is a detail table that starts at a specific row (from detectTables)
-  const detailStartRow = sheet._detailStartRow !== undefined ? sheet._detailStartRow : null;
-  
+  const detailStartRow =
+    sheet._detailStartRow !== undefined ? sheet._detailStartRow : null;
+
   let headerRow = 1;
   let dataStartRow = 0;
   let maxRows = null; // No limit - read all rows
-  
+
   if (detailStartRow !== null) {
     // This is a detail table that starts at a specific row in the original sheet
     // We need to read from that row, treating it as row 0 in our parsing
-    console.log(`[EXCEL PARSER] Detail table starts at original row ${detailStartRow + 1}, treating as header row`);
+    console.log(
+      `[EXCEL PARSER] Detail table starts at original row ${detailStartRow + 1}, treating as header row`
+    );
     headerRow = detailStartRow; // Use the original row index
     dataStartRow = detailStartRow; // Start reading from this row
     const sheetRange = sheet['!ref']
@@ -325,7 +342,7 @@ function parseDetailTable(sheet) {
     s: { r: dataStartRow, c: 0 },
     e: maxRows !== null ? { r: maxRows - 1, c: 20 } : undefined, // If maxRows is null, don't set end row
   };
-  
+
   // Remove undefined properties
   if (range.e === undefined) {
     delete range.e;
@@ -389,18 +406,25 @@ function parseDetailTable(sheet) {
       '[EXCEL PARSER] No name column found (Prodotto/Nome/Piatto), this might be a summary table, not a detail table'
     );
     console.log('[EXCEL PARSER] Available headers:', headers);
-    
+
     // CRITICAL: If we don't have a "Prodotto" column, this is likely a SUMMARY table, not a detail table
     // Don't try to parse it as dishes - return empty array
-    if (headers.includes('categoria') && !headers.some(h => 
-      h.includes('prodotto') || h.includes('nome') || h.includes('piatto') || h.includes('articolo')
-    )) {
+    if (
+      headers.includes('categoria') &&
+      !headers.some(
+        h =>
+          h.includes('prodotto') ||
+          h.includes('nome') ||
+          h.includes('piatto') ||
+          h.includes('articolo')
+      )
+    ) {
       console.log(
         '[EXCEL PARSER] This appears to be a summary table (has Categoria but no Prodotto), skipping detail parsing'
       );
       return [];
     }
-    
+
     // Try to use first column as name if no name column found, but only if it's not "categoria"
     for (let i = 0; i < headers.length; i++) {
       if (
@@ -452,7 +476,9 @@ function parseDetailTable(sheet) {
             });
           }
         }
-        console.log(`[EXCEL PARSER] Parsed ${dishes.length} dishes using fallback method`);
+        console.log(
+          `[EXCEL PARSER] Parsed ${dishes.length} dishes using fallback method`
+        );
         return dishes;
       }
     }
@@ -519,15 +545,17 @@ function findDetailTableStart(sheet) {
 
   const maxRows = Math.min(sheetRange.e.r + 1, 1000); // Search more rows
 
-  console.log(`[EXCEL PARSER] Searching for detail table start in first ${maxRows} rows`);
+  console.log(
+    `[EXCEL PARSER] Searching for detail table start in first ${maxRows} rows`
+  );
 
   // Strategy: Scan all rows looking for header patterns
   // Summary table: "Categoria", "Quantità", "Totale" (3 columns, no "Prodotto")
   // Detail table: "Categoria", "Prodotto", "Quantità", "Totale" (4+ columns, has "Prodotto")
-  
+
   let summaryHeaderRow = -1;
   let detailHeaderRow = -1;
-  
+
   for (let row = 0; row < maxRows; row++) {
     const rowData = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
@@ -544,7 +572,7 @@ function findDetailTableStart(sheet) {
     const rowValues = firstRow
       .filter(h => h !== null && h !== undefined && String(h).trim().length > 0)
       .map(h => String(h).trim());
-    
+
     if (rowValues.length < 2) continue; // Skip rows with less than 2 values
 
     // Normalize headers for comparison
@@ -559,35 +587,59 @@ function findDetailTableStart(sheet) {
 
     // Check for summary table header pattern: "Categoria", "Quantità", "Totale" (3 columns, no "Prodotto")
     const hasCategoria = headers.some(h => h.includes('categoria'));
-    const hasProdotto = headers.some(h => 
-      h.includes('prodotto') || h.includes('nome') || h.includes('piatto') || h.includes('articolo')
+    const hasProdotto = headers.some(
+      h =>
+        h.includes('prodotto') ||
+        h.includes('nome') ||
+        h.includes('piatto') ||
+        h.includes('articolo')
     );
-    const hasQuantita = headers.some(h => 
-      h.includes('quantit') || h.includes('qty') || h.includes('qtà')
+    const hasQuantita = headers.some(
+      h => h.includes('quantit') || h.includes('qty') || h.includes('qtà')
     );
-    const hasTotale = headers.some(h => 
-      h.includes('totale') || h.includes('valore') || h.includes('importo')
+    const hasTotale = headers.some(
+      h => h.includes('totale') || h.includes('valore') || h.includes('importo')
     );
-    
+
     // Summary table: has Categoria, Quantità, Totale, but NO Prodotto, and exactly 3 columns
-    if (hasCategoria && hasQuantita && hasTotale && !hasProdotto && rowValues.length === 3) {
+    if (
+      hasCategoria &&
+      hasQuantita &&
+      hasTotale &&
+      !hasProdotto &&
+      rowValues.length === 3
+    ) {
       if (summaryHeaderRow === -1) {
         summaryHeaderRow = row;
-        console.log(`[EXCEL PARSER] Found summary table header at row ${row + 1}:`, rowValues);
+        console.log(
+          `[EXCEL PARSER] Found summary table header at row ${row + 1}:`,
+          rowValues
+        );
       }
     }
-    
+
     // Detail table: has Categoria AND Prodotto, plus Quantità/Totale, and 4+ columns
-    if (hasCategoria && hasProdotto && (hasQuantita || hasTotale) && rowValues.length >= 4) {
+    if (
+      hasCategoria &&
+      hasProdotto &&
+      (hasQuantita || hasTotale) &&
+      rowValues.length >= 4
+    ) {
       // Make sure this comes AFTER the summary table
       if (summaryHeaderRow >= 0 && row > summaryHeaderRow) {
         detailHeaderRow = row;
-        console.log(`[EXCEL PARSER] Found detail table header at row ${row + 1}:`, rowValues);
+        console.log(
+          `[EXCEL PARSER] Found detail table header at row ${row + 1}:`,
+          rowValues
+        );
         break; // Found it, stop searching
       } else if (summaryHeaderRow === -1) {
         // No summary table found, but we found a detail table header
         detailHeaderRow = row;
-        console.log(`[EXCEL PARSER] Found detail table header at row ${row + 1} (no summary table):`, rowValues);
+        console.log(
+          `[EXCEL PARSER] Found detail table header at row ${row + 1} (no summary table):`,
+          rowValues
+        );
         break;
       }
     }
@@ -598,7 +650,9 @@ function findDetailTableStart(sheet) {
     return detailHeaderRow + 1;
   }
 
-  console.log(`[EXCEL PARSER] No separate detail table found, using single table mode`);
+  console.log(
+    `[EXCEL PARSER] No separate detail table found, using single table mode`
+  );
   return -1;
 }
 
@@ -648,7 +702,9 @@ function detectTables(workbook) {
         ? XLSX.utils.decode_range(sheet['!ref'])
         : null;
       if (detailRange) {
-        console.log(`[EXCEL PARSER] Parsing detail table from row ${detailStartRow} to ${detailRange.e.r + 1}`);
+        console.log(
+          `[EXCEL PARSER] Parsing detail table from row ${detailStartRow} to ${detailRange.e.r + 1}`
+        );
         // Create a new sheet object with modified range for parsing
         const detailSheet = { ...sheet };
         // Store the start row offset for parseDetailTable to use
@@ -659,11 +715,15 @@ function detectTables(workbook) {
           console.log(`[EXCEL PARSER] Parsed ${detail.length} detail dishes`);
         } else {
           // Fallback: try parsing the full sheet as detail table
-          console.log(`[EXCEL PARSER] No dishes found in limited range, trying full sheet as detail table`);
+          console.log(
+            `[EXCEL PARSER] No dishes found in limited range, trying full sheet as detail table`
+          );
           const fullDetail = parseDetailTable(sheet);
           if (fullDetail.length > 0) {
             detailTable.push(...fullDetail);
-            console.log(`[EXCEL PARSER] Parsed ${fullDetail.length} detail dishes from full sheet`);
+            console.log(
+              `[EXCEL PARSER] Parsed ${fullDetail.length} detail dishes from full sheet`
+            );
           }
         }
       }
@@ -675,28 +735,34 @@ function detectTables(workbook) {
         range: { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
         defval: null,
       });
-      
+
       if (testHeaders.length > 0) {
-        const firstRowHeaders = (testHeaders[0] || []).map(h => 
+        const firstRowHeaders = (testHeaders[0] || []).map(h =>
           (h || '').toString().toLowerCase().trim()
         );
-        const hasProdotto = firstRowHeaders.some(h => 
-          h.includes('prodotto') || h.includes('nome') || h.includes('piatto')
+        const hasProdotto = firstRowHeaders.some(
+          h =>
+            h.includes('prodotto') || h.includes('nome') || h.includes('piatto')
         );
-        const hasOnlyCategoria = firstRowHeaders.includes('categoria') && 
-                                 !hasProdotto && 
-                                 firstRowHeaders.length <= 3;
-        
+        const hasOnlyCategoria =
+          firstRowHeaders.includes('categoria') &&
+          !hasProdotto &&
+          firstRowHeaders.length <= 3;
+
         // If it has "Prodotto" column, it's a detail table, not summary
         if (hasProdotto) {
-          console.log('[EXCEL PARSER] Single table detected as detail table (has Prodotto column)');
+          console.log(
+            '[EXCEL PARSER] Single table detected as detail table (has Prodotto column)'
+          );
           const detail = parseDetailTable(sheet);
           if (detail.length > 0) {
             detailTable.push(...detail);
           }
         } else if (hasOnlyCategoria) {
           // If it only has Categoria (and Quantità, Totale), it's a summary table
-          console.log('[EXCEL PARSER] Single table detected as summary table (only Categoria)');
+          console.log(
+            '[EXCEL PARSER] Single table detected as summary table (only Categoria)'
+          );
           const summary = parseSummaryTable(sheet);
           if (summary.length > 0) {
             summaryTable.push(...summary);
@@ -705,12 +771,16 @@ function detectTables(workbook) {
           // Try both, but prefer detail if it has more rows
           const summary = parseSummaryTable(sheet);
           const detail = parseDetailTable(sheet);
-          
+
           // Only use summary if it's clearly a summary (few rows, no prodotto column)
-          if (summary.length > 0 && summary.length < 50 && detail.length === 0) {
+          if (
+            summary.length > 0 &&
+            summary.length < 50 &&
+            detail.length === 0
+          ) {
             summaryTable.push(...summary);
           }
-          
+
           // Prefer detail table if it has data
           if (detail.length > 0) {
             detailTable.push(...detail);
@@ -724,14 +794,22 @@ function detectTables(workbook) {
   }
 
   // If we found summary but no detail table, try to parse the full sheet as detail
-  if (summaryTable.length > 0 && detailTable.length === 0 && workbook.SheetNames.length > 0) {
-    console.log('[EXCEL PARSER] Found summary but no detail table, trying to parse full sheet as detail');
+  if (
+    summaryTable.length > 0 &&
+    detailTable.length === 0 &&
+    workbook.SheetNames.length > 0
+  ) {
+    console.log(
+      '[EXCEL PARSER] Found summary but no detail table, trying to parse full sheet as detail'
+    );
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
       // Try parsing the full sheet, but skip rows that look like summary
       const detail = parseDetailTable(sheet);
       if (detail.length > 0) {
-        console.log(`[EXCEL PARSER] Found ${detail.length} dishes in full sheet "${sheetName}"`);
+        console.log(
+          `[EXCEL PARSER] Found ${detail.length} dishes in full sheet "${sheetName}"`
+        );
         detailTable.push(...detail);
         break; // Use first sheet with data
       }
@@ -740,7 +818,9 @@ function detectTables(workbook) {
 
   // Final fallback: if still no detail table, try first sheet as detail table
   if (detailTable.length === 0 && workbook.SheetNames.length > 0) {
-    console.log('[EXCEL PARSER] Final fallback: trying first sheet as detail table');
+    console.log(
+      '[EXCEL PARSER] Final fallback: trying first sheet as detail table'
+    );
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const detail = parseDetailTable(sheet);
     if (detail.length > 0) {
@@ -786,7 +866,9 @@ function parseExcelFile(buffer, fileName) {
     } catch (firstError) {
       // If first attempt fails for .xlt, try alternative options
       if (fileName.toLowerCase().endsWith('.xlt')) {
-        console.log('[EXCEL PARSER] First attempt failed, trying alternative options');
+        console.log(
+          '[EXCEL PARSER] First attempt failed, trying alternative options'
+        );
         readOptions = {
           type: 'buffer',
           cellDates: false,
@@ -800,7 +882,9 @@ function parseExcelFile(buffer, fileName) {
           console.log('[EXCEL PARSER] Alternative options succeeded');
         } catch (secondError) {
           // Last resort: try with minimal options
-          console.log('[EXCEL PARSER] Second attempt failed, trying minimal options');
+          console.log(
+            '[EXCEL PARSER] Second attempt failed, trying minimal options'
+          );
           workbook = XLSX.read(buffer, { type: 'buffer' });
           console.log('[EXCEL PARSER] Minimal options succeeded');
         }
@@ -841,14 +925,18 @@ function parseExcelFile(buffer, fileName) {
 
     // If no data found, try to parse all sheets more aggressively
     if (tables.summaryTable.length === 0 && tables.detailTable.length === 0) {
-      console.log('[EXCEL PARSER] No data found with standard parsing, trying aggressive parsing');
-      
+      console.log(
+        '[EXCEL PARSER] No data found with standard parsing, trying aggressive parsing'
+      );
+
       // Try to parse first sheet as detail table without summary
       if (workbook.SheetNames.length > 0) {
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const detail = parseDetailTable(firstSheet);
         if (detail.length > 0) {
-          console.log(`[EXCEL PARSER] Found ${detail.length} dishes in first sheet`);
+          console.log(
+            `[EXCEL PARSER] Found ${detail.length} dishes in first sheet`
+          );
           tables.detailTable = detail;
         }
       }
@@ -874,7 +962,9 @@ function parseExcelFile(buffer, fileName) {
       fileHash,
     };
 
-    console.log(`[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes`);
+    console.log(
+      `[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes`
+    );
     return result;
   } catch (error) {
     console.error('[EXCEL PARSER] Error parsing file:', error);
@@ -897,13 +987,15 @@ function validateParsedData(parseResult) {
   ) {
     errors.push({
       type: 'no_data',
-      message: 'Nessun dato trovato nel file Excel. Verifica che il file contenga una tabella con colonne: Nome/Piatto, Categoria, Quantità, Valore/Totale. Le intestazioni devono essere nella prima riga o nelle prime righe del foglio.',
+      message:
+        'Nessun dato trovato nel file Excel. Verifica che il file contenga una tabella con colonne: Nome/Piatto, Categoria, Quantità, Valore/Totale. Le intestazioni devono essere nella prima riga o nelle prime righe del foglio.',
       severity: 'error',
     });
   } else if (parseResult.detailTable.length === 0) {
     errors.push({
       type: 'no_detail_data',
-      message: 'Nessun piatto trovato nel file. Verifica che il file contenga una tabella dettaglio con colonne: Nome/Piatto, Quantità, Valore/Totale.',
+      message:
+        'Nessun piatto trovato nel file. Verifica che il file contenga una tabella dettaglio con colonne: Nome/Piatto, Quantità, Valore/Totale.',
       severity: 'error',
     });
   }

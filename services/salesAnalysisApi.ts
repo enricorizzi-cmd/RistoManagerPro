@@ -399,10 +399,7 @@ export interface ExclusionWord {
 export const getExclusionWords = (
   locationId: string
 ): Promise<ExclusionWord[]> => {
-  return apiCall<ExclusionWord[]>(
-    '/api/sales-analysis/exclusions',
-    locationId
-  );
+  return apiCall<ExclusionWord[]>('/api/sales-analysis/exclusions', locationId);
 };
 
 // Add exclusion word

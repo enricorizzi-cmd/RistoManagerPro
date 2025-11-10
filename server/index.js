@@ -3771,14 +3771,15 @@ app.post(
       console.error('Failed to parse Excel file:', error);
       console.error('Error stack:', error.stack);
       const errorMessage = error.message || 'Failed to parse Excel file';
-      const isValidationError = errorMessage.includes('Nessun dato trovato') || 
-                                errorMessage.includes('Nessun piatto trovato');
-      res
-        .status(isValidationError ? 400 : 500)
-        .json({ 
-          error: errorMessage,
-          details: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : undefined
-        });
+      const isValidationError =
+        errorMessage.includes('Nessun dato trovato') ||
+        errorMessage.includes('Nessun piatto trovato');
+      res.status(isValidationError ? 400 : 500).json({
+        error: errorMessage,
+        details: error.stack
+          ? error.stack.split('\n').slice(0, 3).join('\n')
+          : undefined,
+      });
     }
   }
 );
@@ -3836,15 +3837,13 @@ app.post(
       // Parse Excel file
       let parseResult;
       try {
-        parseResult = parseExcelFile(
-          req.file.buffer,
-          req.file.originalname
-        );
+        parseResult = parseExcelFile(req.file.buffer, req.file.originalname);
       } catch (parseError) {
         console.error('Excel parsing error:', parseError);
         return res.status(400).json({
           error: `Errore nel parsing del file: ${parseError.message}`,
-          suggestion: 'Verifica che il file sia un file Excel valido (.xls, .xlsx, .xlt) e che contenga dati nelle colonne corrette.',
+          suggestion:
+            'Verifica che il file sia un file Excel valido (.xls, .xlsx, .xlt) e che contenga dati nelle colonne corrette.',
         });
       }
 
@@ -3854,9 +3853,10 @@ app.post(
         return res.status(400).json({
           error: 'File contiene errori',
           validation,
-          suggestion: validation.errors.length > 0 && validation.errors[0].message 
-            ? validation.errors[0].message 
-            : 'Verifica che il file contenga le colonne richieste: Nome/Piatto, Categoria, Quantità, Valore/Totale',
+          suggestion:
+            validation.errors.length > 0 && validation.errors[0].message
+              ? validation.errors[0].message
+              : 'Verifica che il file contenga le colonne richieste: Nome/Piatto, Categoria, Quantità, Valore/Totale',
         });
       }
 
@@ -3865,19 +3865,24 @@ app.post(
         'SELECT exclusion_word FROM sales_import_exclusions WHERE location_id = ?',
         [locationId]
       );
-      const exclusionWordsList = exclusionWords.map(e => e.exclusion_word.toLowerCase());
+      const exclusionWordsList = exclusionWords.map(e =>
+        e.exclusion_word.toLowerCase()
+      );
 
       // Filter dishes that contain exclusion words
       const filteredDishes = parseResult.detailTable.filter(dish => {
         const dishNameLower = dish.dishName.toLowerCase();
-        return !exclusionWordsList.some(exclusionWord => 
+        return !exclusionWordsList.some(exclusionWord =>
           dishNameLower.includes(exclusionWord)
         );
       });
 
-      const excludedCount = parseResult.detailTable.length - filteredDishes.length;
+      const excludedCount =
+        parseResult.detailTable.length - filteredDishes.length;
       if (excludedCount > 0) {
-        console.log(`[IMPORT] Excluded ${excludedCount} dishes containing exclusion words`);
+        console.log(
+          `[IMPORT] Excluded ${excludedCount} dishes containing exclusion words`
+        );
       }
 
       // Delete existing import if overwriting
@@ -4156,12 +4161,7 @@ app.post(
               `UPDATE sales_dish_data 
                SET quantity = quantity + ?, total_value = total_value + ?
                WHERE import_id = ? AND dish_id = ?`,
-              [
-                dishData.quantity,
-                dishData.totalValue,
-                importId,
-                dish.id,
-              ]
+              [dishData.quantity, dishData.totalValue, importId, dish.id]
             );
           } else {
             throw error;
@@ -4180,7 +4180,7 @@ app.post(
                WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
               [locationId, dish.recipe_id, saleDate]
             );
-            
+
             if (existing) {
               // Sum quantities if record already exists
               await db.run(
@@ -4241,29 +4241,33 @@ app.post(
     } catch (error) {
       console.error('Failed to import sales data:', error);
       console.error('Error stack:', error.stack);
-      
+
       // Check if error is about missing tables
       const errorMessage = error.message || '';
-      const isTableMissing = errorMessage.includes('does not exist') || 
-                            errorMessage.includes('Table') && errorMessage.includes('not exist') ||
-                            errorMessage.includes('relation') && errorMessage.includes('does not exist');
-      
+      const isTableMissing =
+        errorMessage.includes('does not exist') ||
+        (errorMessage.includes('Table') &&
+          errorMessage.includes('not exist')) ||
+        (errorMessage.includes('relation') &&
+          errorMessage.includes('does not exist'));
+
       if (isTableMissing) {
-        return res.status(500).json({ 
-          error: 'Le tabelle per l\'analisi vendite non esistono in Supabase',
+        return res.status(500).json({
+          error: "Le tabelle per l'analisi vendite non esistono in Supabase",
           details: errorMessage,
-          solution: 'Esegui lo script di migrazione nel SQL Editor di Supabase Dashboard',
+          solution:
+            'Esegui lo script di migrazione nel SQL Editor di Supabase Dashboard',
           migrationScript: 'server/migrations/create_sales_analysis_tables.sql',
           instructions: [
             '1. Apri il Supabase Dashboard',
             '2. Vai al SQL Editor',
             '3. Copia e incolla il contenuto del file server/migrations/create_sales_analysis_tables.sql',
             '4. Esegui lo script',
-            '5. Riprova l\'import'
-          ]
+            "5. Riprova l'import",
+          ],
         });
       }
-      
+
       res
         .status(500)
         .json({ error: error.message || 'Failed to import sales data' });
@@ -4454,7 +4458,7 @@ app.put(
                WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
               [locationId, recipeId, saleDate]
             );
-            
+
             if (existing) {
               // Sum quantities if record already exists
               await db.run(
@@ -4553,7 +4557,7 @@ app.post(
                    WHERE location_id = ? AND recipe_id = ? AND sale_date = ?`,
                   [locationId, link.recipeId, saleDate]
                 );
-                
+
                 if (existing) {
                   // Sum quantities if record already exists
                   await db.run(
@@ -4609,80 +4613,72 @@ app.post(
 // =====================================================
 
 // Get exclusion words
-app.get(
-  '/api/sales-analysis/exclusions',
-  requireAuth,
-  async (req, res) => {
-    try {
-      const locationId = req.headers['x-location-id'];
-      if (!locationId || locationId === 'all') {
-        return res.status(400).json({ error: 'Location ID valido richiesto' });
-      }
-
-      const db = getLocationDb(locationId);
-      const exclusions = await db.query(
-        'SELECT * FROM sales_import_exclusions WHERE location_id = ? ORDER BY exclusion_word ASC',
-        [locationId]
-      );
-
-      res.json(exclusions);
-    } catch (error) {
-      console.error('Failed to get exclusion words:', error);
-      res.status(500).json({ error: 'Failed to get exclusion words' });
+app.get('/api/sales-analysis/exclusions', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'];
+    if (!locationId || locationId === 'all') {
+      return res.status(400).json({ error: 'Location ID valido richiesto' });
     }
+
+    const db = getLocationDb(locationId);
+    const exclusions = await db.query(
+      'SELECT * FROM sales_import_exclusions WHERE location_id = ? ORDER BY exclusion_word ASC',
+      [locationId]
+    );
+
+    res.json(exclusions);
+  } catch (error) {
+    console.error('Failed to get exclusion words:', error);
+    res.status(500).json({ error: 'Failed to get exclusion words' });
   }
-);
+});
 
 // Add exclusion word
-app.post(
-  '/api/sales-analysis/exclusions',
-  requireAuth,
-  async (req, res) => {
-    try {
-      const locationId = req.headers['x-location-id'];
-      if (!locationId || locationId === 'all') {
-        return res.status(400).json({ error: 'Location ID valido richiesto' });
-      }
-
-      const { exclusion_word } = req.body;
-      if (!exclusion_word || !exclusion_word.trim()) {
-        return res.status(400).json({ error: 'Parola da escludere richiesta' });
-      }
-
-      const db = getLocationDb(locationId);
-      const word = exclusion_word.trim().toLowerCase();
-
-      // Check if already exists
-      const existing = await db.get(
-        'SELECT * FROM sales_import_exclusions WHERE location_id = ? AND exclusion_word = ?',
-        [locationId, word]
-      );
-
-      if (existing) {
-        return res.status(409).json({ error: 'Parola già presente nella lista' });
-      }
-
-      const id = crypto.randomUUID();
-      await db.run(
-        'INSERT INTO sales_import_exclusions (id, location_id, exclusion_word, created_by) VALUES (?, ?, ?, ?)',
-        [id, locationId, word, req.user.id]
-      );
-
-      const exclusion = await db.get(
-        'SELECT * FROM sales_import_exclusions WHERE id = ?',
-        [id]
-      );
-
-      res.status(201).json(exclusion);
-    } catch (error) {
-      console.error('Failed to add exclusion word:', error);
-      if (error.message && error.message.includes('UNIQUE constraint')) {
-        return res.status(409).json({ error: 'Parola già presente nella lista' });
-      }
-      res.status(500).json({ error: 'Failed to add exclusion word' });
+app.post('/api/sales-analysis/exclusions', requireAuth, async (req, res) => {
+  try {
+    const locationId = req.headers['x-location-id'];
+    if (!locationId || locationId === 'all') {
+      return res.status(400).json({ error: 'Location ID valido richiesto' });
     }
+
+    const { exclusion_word } = req.body;
+    if (!exclusion_word || !exclusion_word.trim()) {
+      return res.status(400).json({ error: 'Parola da escludere richiesta' });
+    }
+
+    const db = getLocationDb(locationId);
+    const word = exclusion_word.trim().toLowerCase();
+
+    // Check if already exists
+    const existing = await db.get(
+      'SELECT * FROM sales_import_exclusions WHERE location_id = ? AND exclusion_word = ?',
+      [locationId, word]
+    );
+
+    if (existing) {
+      return res.status(409).json({ error: 'Parola già presente nella lista' });
+    }
+
+    const id = crypto.randomUUID();
+    await db.run(
+      'INSERT INTO sales_import_exclusions (id, location_id, exclusion_word, created_by) VALUES (?, ?, ?, ?)',
+      [id, locationId, word, req.user.id]
+    );
+
+    const exclusion = await db.get(
+      'SELECT * FROM sales_import_exclusions WHERE id = ?',
+      [id]
+    );
+
+    res.status(201).json(exclusion);
+  } catch (error) {
+    console.error('Failed to add exclusion word:', error);
+    if (error.message && error.message.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Parola già presente nella lista' });
+    }
+    res.status(500).json({ error: 'Failed to add exclusion word' });
   }
-);
+});
 
 // Delete exclusion word
 app.delete(

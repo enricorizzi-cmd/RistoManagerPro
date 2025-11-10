@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
 import {
   getExclusionWords,
@@ -23,11 +23,7 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    loadExclusionWords();
-  }, [locationId]);
-
-  const loadExclusionWords = async () => {
+  const loadExclusionWords = useCallback(async () => {
     setLoading(true);
     try {
       const words = await getExclusionWords(locationId);
@@ -42,7 +38,11 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId, showNotification]);
+
+  useEffect(() => {
+    loadExclusionWords();
+  }, [loadExclusionWords]);
 
   const handleAddWord = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +52,11 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
     }
 
     const wordToAdd = newWord.trim().toLowerCase();
-    
+
     // Check if word already exists
-    if (exclusionWords.some(w => w.exclusion_word.toLowerCase() === wordToAdd)) {
+    if (
+      exclusionWords.some(w => w.exclusion_word.toLowerCase() === wordToAdd)
+    ) {
       showNotification('Questa parola è già presente nella lista', 'error');
       return;
     }
@@ -69,7 +71,7 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
       showNotification(
         error instanceof Error
           ? error.message
-          : 'Errore nell\'aggiunta della parola',
+          : 'Errore nell&apos;aggiunta della parola',
         'error'
       );
     } finally {
@@ -102,9 +104,9 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
       <div>
         <h2 className="text-xl font-bold text-gray-900">Impostazioni Import</h2>
         <p className="mt-1 text-sm text-gray-600">
-          Gestisci le parole da escludere durante l'import dei dati. I piatti che
-          contengono una di queste parole nel nome verranno automaticamente esclusi
-          dall'import.
+          Gestisci le parole da escludere durante l&apos;import dei dati. I
+          piatti che contengono una di queste parole nel nome verranno
+          automaticamente esclusi dall&apos;import.
         </p>
       </div>
 
@@ -142,14 +144,13 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
             Parole Escluse ({exclusionWords.length})
           </h3>
           <p className="mt-1 text-sm text-gray-600">
-            Elenco delle parole che causano l'esclusione dei piatti dall'import
+            Elenco delle parole che causano l&apos;esclusione dei piatti
+            dall&apos;import
           </p>
         </div>
 
         {loading ? (
-          <div className="p-6 text-center text-gray-500">
-            Caricamento...
-          </div>
+          <div className="p-6 text-center text-gray-500">Caricamento...</div>
         ) : exclusionWords.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
             <p>Nessuna parola esclusa. Aggiungi una parola per iniziare.</p>
@@ -162,7 +163,9 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
                 className="p-4 flex items-center justify-between hover:bg-gray-50 transition"
               >
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{word.exclusion_word}</p>
+                  <p className="font-medium text-gray-900">
+                    {word.exclusion_word}
+                  </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Aggiunta il{' '}
                     {new Date(word.created_at).toLocaleDateString('it-IT', {
@@ -204,16 +207,17 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
           </div>
           <div className="ml-3">
             <h3 className="text-sm font-medium text-blue-800">
-              Come funziona l'esclusione
+              Come funziona l&apos;esclusione
             </h3>
             <div className="mt-2 text-sm text-blue-700">
               <p>
-                Se un piatto contiene una delle parole nella lista (anche come parte
-                di una parola più lunga), verrà escluso dall'import.
+                Se un piatto contiene una delle parole nella lista (anche come
+                parte di una parola più lunga), verrà escluso dall&apos;import.
               </p>
               <p className="mt-2">
-                <strong>Esempio:</strong> Se aggiungi "sospes", verranno esclusi
-                piatti come "Piatto SOSPESO", "Sospes temporaneo", ecc.
+                <strong>Esempio:</strong> Se aggiungi &quot;sospes&quot;,
+                verranno esclusi piatti come &quot;Piatto SOSPESO&quot;,
+                &quot;Sospes temporaneo&quot;, ecc.
               </p>
             </div>
           </div>
@@ -224,4 +228,3 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
 };
 
 export default ImpostazioniTab;
-

@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for RistoManagerPro/server/fix-all-database.cjs</title>
+    <title>Code coverage report for RistoManagerPro/scripts/generate-icons-simple.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,13 +19,13 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">RistoManagerPro/server</a> fix-all-database.cjs</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">RistoManagerPro/scripts</a> generate-icons-simple.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/54</span>
+                <span class='fraction'>0/43</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/54</span>
+                <span class='fraction'>0/43</span>
             </div>
         
             
@@ -115,22 +115,16 @@
 <a name='L50'></a><a href='#L50'>50</a>
 <a name='L51'></a><a href='#L51'>51</a>
 <a name='L52'></a><a href='#L52'>52</a>
-<a name='L53'></a><a href='#L53'>53</a>
-<a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a>
-<a name='L56'></a><a href='#L56'>56</a>
-<a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a>
-<a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L53'></a><a href='#L53'>53</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -138,22 +132,11 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -170,11 +153,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -185,67 +164,61 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >// Script per creare e inizializzare il database "all"</span></span></span>
-<span class="cstat-no" title="statement not covered" >const sqlite3 = require('sqlite3').verbose();</span>
-<span class="cstat-no" title="statement not covered" >const path = require('path');</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import fs from 'fs';</span></span></span>
+<span class="cstat-no" title="statement not covered" >import path from 'path';</span>
+<span class="cstat-no" title="statement not covered" >import { fileURLToPath } from 'url';</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >console.log('=== INIZIALIZZAZIONE DATABASE "ALL" ===\n');</span>
+<span class="cstat-no" title="statement not covered" >const __filename = fileURLToPath(import.meta.url);</span>
+<span class="cstat-no" title="statement not covered" >const __dirname = path.dirname(__filename);</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >// Connessione al database "all"</span>
-<span class="cstat-no" title="statement not covered" >const dbPath = path.join(__dirname, 'data', 'ristomanager_all.db');</span>
-<span class="cstat-no" title="statement not covered" >const db = new sqlite3.Database(dbPath);</span>
+<span class="cstat-no" title="statement not covered" >// Script semplice per copiare il logo con nomi diversi</span>
+<span class="cstat-no" title="statement not covered" >// Le immagini verranno ridimensionate manualmente o con uno strumento esterno</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >// Crea la tabella financial_plan_state se non esiste</span>
-<span class="cstat-no" title="statement not covered" >db.run(</span>
-<span class="cstat-no" title="statement not covered" >  `</span>
-<span class="cstat-no" title="statement not covered" >  CREATE TABLE IF NOT EXISTS financial_plan_state (</span>
-<span class="cstat-no" title="statement not covered" >    id TEXT PRIMARY KEY,</span>
-<span class="cstat-no" title="statement not covered" >    data TEXT,</span>
-<span class="cstat-no" title="statement not covered" >    updated_at TEXT</span>
-<span class="cstat-no" title="statement not covered" >  )</span>
-<span class="cstat-no" title="statement not covered" >`,</span>
-<span class="cstat-no" title="statement not covered" >  function (err) {</span>
-<span class="cstat-no" title="statement not covered" >    if (err) {</span>
-<span class="cstat-no" title="statement not covered" >      console.error('❌ Errore nella creazione della tabella:', err);</span>
-<span class="cstat-no" title="statement not covered" >      db.close();</span>
-<span class="cstat-no" title="statement not covered" >      return;</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >const logoPath = 'logo_light.png';</span>
+<span class="cstat-no" title="statement not covered" >const publicDir = 'public';</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    console.log('✅ Tabella financial_plan_state creata/verificata');</span>
+<span class="cstat-no" title="statement not covered" >// Assicurati che la cartella public esista</span>
+<span class="cstat-no" title="statement not covered" >if (!fs.existsSync(publicDir)) {</span>
+<span class="cstat-no" title="statement not covered" >  fs.mkdirSync(publicDir, { recursive: true });</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    // Inizializza con dati vuoti</span>
-<span class="cstat-no" title="statement not covered" >    const now = new Date().toISOString();</span>
-<span class="cstat-no" title="statement not covered" >    const emptyData = JSON.stringify({</span>
-<span class="cstat-no" title="statement not covered" >      preventivoOverrides: {},</span>
-<span class="cstat-no" title="statement not covered" >      consuntivoOverrides: {},</span>
-<span class="cstat-no" title="statement not covered" >      manualLog: [],</span>
-<span class="cstat-no" title="statement not covered" >      monthlyMetrics: [],</span>
-<span class="cstat-no" title="statement not covered" >      statsOverrides: {},</span>
-<span class="cstat-no" title="statement not covered" >      causaliCatalog: [],</span>
-<span class="cstat-no" title="statement not covered" >      causaliVersion: null,</span>
-<span class="cstat-no" title="statement not covered" >    });</span>
+<span class="cstat-no" title="statement not covered" >// Copia il logo con nomi diversi</span>
+<span class="cstat-no" title="statement not covered" >// Nota: questi file avranno le stesse dimensioni del logo originale</span>
+<span class="cstat-no" title="statement not covered" >// Dovranno essere ridimensionati manualmente o con uno strumento esterno</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    db.run(</span>
-<span class="cstat-no" title="statement not covered" >      `INSERT INTO financial_plan_state (id, data, updated_at)</span>
-<span class="cstat-no" title="statement not covered" >     VALUES (?, ?, ?)</span>
-<span class="cstat-no" title="statement not covered" >     ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,</span>
-<span class="cstat-no" title="statement not covered" >      ['financial-plan-all', emptyData, now],</span>
-<span class="cstat-no" title="statement not covered" >      function (err) {</span>
-<span class="cstat-no" title="statement not covered" >        if (err) {</span>
-<span class="cstat-no" title="statement not covered" >          console.error("❌ Errore nell'inizializzazione:", err);</span>
-<span class="cstat-no" title="statement not covered" >        } else {</span>
-<span class="cstat-no" title="statement not covered" >          console.log('✅ Database "all" inizializzato con successo');</span>
-<span class="cstat-no" title="statement not covered" >          console.log(`   - ID: financial-plan-all`);</span>
-<span class="cstat-no" title="statement not covered" >          console.log(`   - Dati: ${emptyData.length} caratteri`);</span>
-<span class="cstat-no" title="statement not covered" >          console.log(`   - Aggiornato: ${now}`);</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
+<span class="cstat-no" title="statement not covered" >const filesToCreate = [</span>
+<span class="cstat-no" title="statement not covered" >  'favicon-16x16.png',</span>
+<span class="cstat-no" title="statement not covered" >  'favicon-32x32.png',</span>
+<span class="cstat-no" title="statement not covered" >  'apple-touch-icon.png',</span>
+<span class="cstat-no" title="statement not covered" >  'icon-192x192.png',</span>
+<span class="cstat-no" title="statement not covered" >  'icon-512x512.png',</span>
+<span class="cstat-no" title="statement not covered" >  'android-chrome-192x192.png',</span>
+<span class="cstat-no" title="statement not covered" >  'android-chrome-512x512.png',</span>
+<span class="cstat-no" title="statement not covered" >];</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        db.close();</span>
-<span class="cstat-no" title="statement not covered" >        console.log('\n=== INIZIALIZZAZIONE COMPLETATA ===');</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
-<span class="cstat-no" title="statement not covered" >    );</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >);</span>
+<span class="cstat-no" title="statement not covered" >if (fs.existsSync(logoPath)) {</span>
+<span class="cstat-no" title="statement not covered" >  filesToCreate.forEach(file =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const destPath = path.join(publicDir, file);</span>
+<span class="cstat-no" title="statement not covered" >    fs.copyFileSync(logoPath, destPath);</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`Creato: ${destPath}`);</span>
+<span class="cstat-no" title="statement not covered" >  });</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  // Crea anche favicon.ico (copia del PNG per ora)</span>
+<span class="cstat-no" title="statement not covered" >  fs.copyFileSync(logoPath, path.join(publicDir, 'favicon.ico'));</span>
+<span class="cstat-no" title="statement not covered" >  console.log('Creato: public/favicon.ico');</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  console.log('\nTutti i file sono stati creati!');</span>
+<span class="cstat-no" title="statement not covered" >  console.log(</span>
+<span class="cstat-no" title="statement not covered" >    'NOTA: Le immagini hanno le stesse dimensioni del logo originale.'</span>
+<span class="cstat-no" title="statement not covered" >  );</span>
+<span class="cstat-no" title="statement not covered" >  console.log('Dovranno essere ridimensionate alle dimensioni corrette.');</span>
+<span class="cstat-no" title="statement not covered" >} else {</span>
+<span class="cstat-no" title="statement not covered" >  console.error(`Errore: ${logoPath} non trovato!`);</span>
+<span class="cstat-no" title="statement not covered" >  process.exit(1);</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
