@@ -2776,10 +2776,18 @@ app.get(
         res.json(values.map(v => v.value));
       } catch (error) {
         // If table doesn't exist yet, return empty array
-        const errorMessage = error?.message || String(error) || '';
+        // Get error message from multiple possible sources
+        const errorMessage =
+          error?.message ||
+          (error?.toString && error.toString()) ||
+          String(error) ||
+          '';
         const errorString = errorMessage.toLowerCase();
+        const errorStack = error?.stack || '';
+        const errorStackLower = errorStack.toLowerCase();
 
         // Check for table not found errors (multiple patterns)
+        // Also check error stack for additional context
         const isTableNotFound =
           error?.table === 'menu_dropdown_values' ||
           error?.statusCode === 404 ||
@@ -2792,23 +2800,35 @@ app.get(
           errorString.includes('undefined table') ||
           errorString.includes('menu_dropdown_values') ||
           errorString.includes('pgrst205') ||
-          errorString.includes('schema cache');
+          errorString.includes('schema cache') ||
+          errorStackLower.includes('menu_dropdown_values') ||
+          errorStackLower.includes('pgrst205') ||
+          errorStackLower.includes('schema cache');
 
         if (isTableNotFound) {
           console.log(
-            `Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
+            `[DROPDOWN] Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
           );
           return res.json([]);
         } else {
+          // Re-throw to outer catch for additional handling
           throw error;
         }
       }
     } catch (error) {
       // Check again in outer catch for table not found errors
-      const errorMessage = error?.message || String(error) || '';
+      // Get error message from multiple possible sources
+      const errorMessage =
+        error?.message ||
+        (error?.toString && error.toString()) ||
+        String(error) ||
+        '';
       const errorString = errorMessage.toLowerCase();
+      const errorStack = error?.stack || '';
+      const errorStackLower = errorStack.toLowerCase();
 
       // Check if error is from Supabase wrapper indicating table doesn't exist
+      // Also check error stack for additional context
       const isTableNotFound =
         error?.table === 'menu_dropdown_values' ||
         error?.statusCode === 404 ||
@@ -2821,21 +2841,26 @@ app.get(
         errorString.includes('undefined table') ||
         errorString.includes('menu_dropdown_values') ||
         errorString.includes('pgrst205') ||
-        errorString.includes('schema cache');
+        errorString.includes('schema cache') ||
+        errorStackLower.includes('menu_dropdown_values') ||
+        errorStackLower.includes('pgrst205') ||
+        errorStackLower.includes('schema cache');
 
       if (isTableNotFound) {
         console.log(
-          `Table menu_dropdown_values doesn't exist yet, returning empty array`
+          `[DROPDOWN] Table menu_dropdown_values doesn't exist yet (outer catch), returning empty array`
         );
         return res.json([]);
       }
 
-      console.error('Failed to get dropdown values:', error);
-      console.error('Error details:', {
+      // Log full error details for debugging
+      console.error('[DROPDOWN] Failed to get dropdown values:', error);
+      console.error('[DROPDOWN] Error details:', {
         message: error?.message,
         table: error?.table,
         statusCode: error?.statusCode,
         stack: error?.stack,
+        errorString: errorString.substring(0, 200),
       });
       res.status(500).json({ error: 'Failed to get dropdown values' });
     }
