@@ -191,13 +191,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             {periodFilter === 'month'
-              ? `Dati del mese corrente: ${new Date().toLocaleDateString(
-                  'it-IT',
-                  {
-                    month: 'long',
-                    year: 'numeric',
-                  }
-                )}`
+              ? (() => {
+                  const now = new Date();
+                  const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+                  const prevMonthYear =
+                    now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+                  const prevMonthDate = new Date(prevMonthYear, prevMonth, 1);
+                  return `Dati del mese precedente: ${prevMonthDate.toLocaleDateString(
+                    'it-IT',
+                    {
+                      month: 'long',
+                      year: 'numeric',
+                    }
+                  )}`;
+                })()
               : periodFilter === 'year'
                 ? `Dati dell'anno corrente: ${new Date().getFullYear()}`
                 : 'Dati del periodo selezionato'}
