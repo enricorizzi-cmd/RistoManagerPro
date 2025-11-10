@@ -2604,43 +2604,46 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       }
       const causaliCatalog =
         financialPlanState.causaliCatalog &&
+        Array.isArray(financialPlanState.causaliCatalog) &&
         financialPlanState.causaliCatalog.length > 0
           ? financialPlanState.causaliCatalog
-          : defaultCausali;
+          : [];
 
-      // Helper to get consuntivo value for a causale
-      const getConsuntivoValue = (
-        macro,
-        category,
-        detail,
-        year,
-        monthIndex
-      ) => {
-        const yearKey = year.toString();
-        const monthKey = monthIndex.toString();
-        const macroKey = macro;
-        const categoryKey = category;
-        const detailKey = detail;
+      // Only calculate if we have causali catalog
+      if (causaliCatalog.length > 0) {
+        // Helper to get consuntivo value for a causale
+        const getConsuntivoValue = (
+          macro,
+          category,
+          detail,
+          year,
+          monthIndex
+        ) => {
+          const yearKey = year.toString();
+          const monthKey = monthIndex.toString();
+          const macroKey = macro;
+          const categoryKey = category;
+          const detailKey = detail;
 
-        if (
-          financialPlanState.consuntivoOverrides[yearKey] &&
-          financialPlanState.consuntivoOverrides[yearKey][monthKey] &&
-          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey] &&
-          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
-            categoryKey
-          ] &&
-          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
-            categoryKey
-          ][detailKey] !== undefined
-        ) {
-          return (
+          if (
+            financialPlanState.consuntivoOverrides[yearKey] &&
+            financialPlanState.consuntivoOverrides[yearKey][monthKey] &&
+            financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey] &&
             financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
               categoryKey
-            ][detailKey] || 0
-          );
-        }
-        return 0;
-      };
+            ] &&
+            financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
+              categoryKey
+            ][detailKey] !== undefined
+          ) {
+            return (
+              financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
+                categoryKey
+              ][detailKey] || 0
+            );
+          }
+          return 0;
+        };
 
         // Calculate totals for each month (YTD)
         for (let monthIndex = 0; monthIndex < monthsToInclude; monthIndex++) {
