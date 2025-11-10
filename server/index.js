@@ -2792,10 +2792,10 @@ app.get(
           error?.table === 'menu_dropdown_values' ||
           error?.code === 'PGRST205' ||
           error?.statusCode === 404 ||
-          (error?.statusCode === 500 && 
-           (errorString.includes('does not exist') ||
-            errorString.includes('pgrst205') ||
-            errorString.includes('menu_dropdown_values'))) ||
+          (error?.statusCode === 500 &&
+            (errorString.includes('does not exist') ||
+              errorString.includes('pgrst205') ||
+              errorString.includes('menu_dropdown_values'))) ||
           errorString.includes('does not exist') ||
           errorString.includes('could not find') ||
           errorString.includes('relation') ||
@@ -2815,7 +2815,7 @@ app.get(
           );
           return res.json([]);
         }
-        
+
         // For any other error, log it but still return empty array to prevent 500 errors
         console.warn(
           `[DROPDOWN] Error getting dropdown values for type ${type}:`,
@@ -2841,10 +2841,10 @@ app.get(
         error?.table === 'menu_dropdown_values' ||
         error?.code === 'PGRST205' ||
         error?.statusCode === 404 ||
-        (error?.statusCode === 500 && 
-         (errorString.includes('does not exist') ||
-          errorString.includes('pgrst205') ||
-          errorString.includes('menu_dropdown_values'))) ||
+        (error?.statusCode === 500 &&
+          (errorString.includes('does not exist') ||
+            errorString.includes('pgrst205') ||
+            errorString.includes('menu_dropdown_values'))) ||
         errorString.includes('does not exist') ||
         errorString.includes('could not find') ||
         errorString.includes('relation') ||
@@ -2875,7 +2875,7 @@ app.get(
         stack: error?.stack?.substring(0, 500),
         errorString: errorString.substring(0, 200),
       });
-      
+
       // Return empty array instead of 500 error to prevent frontend crashes
       // The table might not exist yet, which is a valid state
       console.warn('[DROPDOWN] Returning empty array due to error');
@@ -4610,7 +4610,7 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
 
     // Build filters for Supabase query
     const filters = { location_id: locationId };
-    
+
     // By default, exclude archived dishes unless explicitly requested
     const includeArchived = req.query.archived === 'true';
     if (!includeArchived) {
@@ -4639,7 +4639,7 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     while (hasMore) {
       // Build filters for this batch
       const batchFilters = { ...filters };
-      
+
       // Use supabaseCall directly with range headers for pagination
       const { supabaseCall } = require('./supabase-wrapper');
       const batch = await supabaseCall('GET', 'sales_dishes', {
@@ -4650,12 +4650,12 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
       });
 
       const batchArray = Array.isArray(batch) ? batch : [];
-      
+
       if (batchArray.length === 0) {
         hasMore = false;
       } else {
         allDishes.push(...batchArray);
-        
+
         // If we got less than batchSize, we've reached the end
         if (batchArray.length < batchSize) {
           hasMore = false;
