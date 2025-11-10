@@ -2558,6 +2558,200 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       salesCategories = [];
     }
 
+    // Get financial plan state to calculate Incassato, Costi Fissi, Costi Variabili, Utile
+    // Same logic as FinancialOverview component
+    let financialPlanState = null;
+    try {
+      financialPlanState = await getState(locationId);
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching financial plan state:`,
+        error.message || error
+      );
+      // Continue without financial plan state - will use financial_stats only
+    }
+
+    // Calculate financial metrics from financial plan (same as FinancialOverview)
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth(); // 0-based (0 = January, 11 = December)
+    const monthsToInclude = Math.max(0, currentMonth); // YTD: up to previous month
+
+    let incassatoYTD = 0;
+    let costiFissiYTD = 0;
+    let costiVariabiliYTD = 0;
+    let utileYTD = 0;
+
+    if (financialPlanState && financialPlanState.consuntivoOverrides) {
+      // Get causali catalog (default if not in state)
+      // Try to load from data file, but handle if it doesn't exist
+      let defaultCausali = [];
+      try {
+        // Path is relative to server directory
+        const dataPath = path.join(
+          __dirname,
+          '..',
+          'data',
+          'financialPlanData.ts'
+        );
+        // For now, use empty array if file doesn't exist or can't be loaded
+        // The causaliCatalog should be in the state anyway
+        defaultCausali = [];
+      } catch (error) {
+        console.warn(
+          `[Dashboard API] Could not load default causali catalog:`,
+          error.message
+        );
+      }
+      const causaliCatalog =
+        financialPlanState.causaliCatalog &&
+        financialPlanState.causaliCatalog.length > 0
+          ? financialPlanState.causaliCatalog
+          : defaultCausali;
+
+      // Helper to get consuntivo value for a causale
+      const getConsuntivoValue = (
+        macro,
+        category,
+        detail,
+        year,
+        monthIndex
+      ) => {
+        const yearKey = year.toString();
+        const monthKey = monthIndex.toString();
+        const macroKey = macro;
+        const categoryKey = category;
+        const detailKey = detail;
+
+        if (
+          financialPlanState.consuntivoOverrides[yearKey] &&
+          financialPlanState.consuntivoOverrides[yearKey][monthKey] &&
+          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey] &&
+          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
+            categoryKey
+          ] &&
+          financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
+            categoryKey
+          ][detailKey] !== undefined
+        ) {
+          return (
+            financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
+              categoryKey
+            ][detailKey] || 0
+          );
+        }
+        return 0;
+      };
+
+      // Calculate totals for each month (YTD)
+      for (let monthIndex = 0; monthIndex < monthsToInclude; monthIndex++) {
+        // Calculate Incassato (macroId: 1)
+        causaliCatalog.forEach(group => {
+          if (group.macroId === 1) {
+            // Incassato
+            group.categories.forEach(category => {
+              category.items.forEach(item => {
+                incassatoYTD += getConsuntivoValue(
+                  group.macroCategory,
+                  category.name,
+                  item,
+                  currentYear,
+                  monthIndex
+                );
+              });
+            });
+          } else if (group.macroId === 2) {
+            // Costi Fissi
+            group.categories.forEach(category => {
+              category.items.forEach(item => {
+                costiFissiYTD += getConsuntivoValue(
+                  group.macroCategory,
+                  category.name,
+                  item,
+                  currentYear,
+                  monthIndex
+                );
+              });
+            });
+          } else if (group.macroId === 3) {
+            // Costi Variabili
+            group.categories.forEach(category => {
+              category.items.forEach(item => {
+                costiVariabiliYTD += getConsuntivoValue(
+                  group.macroCategory,
+                  category.name,
+                  item,
+                  currentYear,
+                  monthIndex
+                );
+              });
+            });
+          }
+        });
+      }
+
+      // Utile = Incassato - Costi Fissi - Costi Variabili
+      utileYTD = incassatoYTD - costiFissiYTD - costiVariabiliYTD;
+    }
+
+    // Helper function to parse month label (e.g., "Gen. 24" -> {year: 2024, monthIndex: 0})
+    const parsePlanMonthLabel = label => {
+      if (!label) return null;
+      const monthNames = [
+        'gen',
+        'feb',
+        'mar',
+        'apr',
+        'mag',
+        'giu',
+        'lug',
+        'ago',
+        'set',
+        'ott',
+        'nov',
+        'dic',
+      ];
+      const normalized = label
+        .replace(/\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      for (let i = 0; i < monthNames.length; i++) {
+        if (normalized.startsWith(monthNames[i])) {
+          const yearPart = normalized.substring(monthNames[i].length).trim();
+          const year = parseInt(yearPart);
+          if (!isNaN(year)) {
+            // Convert 2-digit year to 4-digit (assume 2000-2099)
+            const fullYear = year < 100 ? 2000 + year : year;
+            return { year: fullYear, monthIndex: i };
+          }
+        }
+      }
+      return null;
+    };
+
+    // If financial plan data is not available, try to use financial_stats
+    // But financial_stats might not have costiFissi and costiVariabili
+    // So we prefer financial plan data
+    if (incassatoYTD === 0 && financialStats.length > 0) {
+      // Fallback: sum incassato from financial_stats for YTD
+      const currentYearStats = financialStats.filter(stat => {
+        const parsed = parsePlanMonthLabel(stat.month);
+        if (parsed && parsed.year === currentYear) {
+          return parsed.monthIndex < monthsToInclude;
+        }
+        return false;
+      });
+      incassatoYTD = currentYearStats.reduce(
+        (sum, stat) => sum + (parseFloat(stat.incassato || 0) || 0),
+        0
+      );
+    }
+
+    // Log calculated values for debugging
+    console.log(
+      `[Dashboard API] Financial Plan YTD - Incassato: ${incassatoYTD}, Costi Fissi: ${costiFissiYTD}, Costi Variabili: ${costiVariabiliYTD}, Utile: ${utileYTD}`
+    );
+
     const totalSalesValue = salesDishes.reduce(
       (sum, d) => sum + parseFloat(d.total_value || 0),
       0
@@ -2788,7 +2982,41 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     };
 
     res.json({
-      kpis,
+      kpis: {
+        ...kpis,
+        // Add YTD values from financial plan (same as FinancialOverview)
+        incassato: {
+          current: incassatoYTD,
+          previous: 0, // TODO: calculate previous year YTD for comparison
+          change: incassatoYTD,
+          changePercent: 0,
+          sparkline: [],
+        },
+        costiFissi: {
+          current: costiFissiYTD,
+          previous: 0,
+          change: costiFissiYTD,
+          changePercent: 0,
+          sparkline: [],
+        },
+        costiVariabili: {
+          current: costiVariabiliYTD,
+          previous: 0,
+          change: costiVariabiliYTD,
+          changePercent: 0,
+          sparkline: [],
+        },
+        // Update utile with YTD value if calculated from financial plan
+        utile: utileYTD > 0
+          ? {
+              current: utileYTD,
+              previous: utilePrevious,
+              change: utileYTD - utilePrevious,
+              changePercent: calculateChangePercent(utileYTD, utilePrevious),
+              sparkline: calculateSparkline(financialData, 'utile', 7),
+            }
+          : kpis.utile,
+      },
       financialData: financialData.reverse(), // Reverse to show oldest first
       bcgMatrix: recipesWithPopolarita,
       salesAnalysis: {
