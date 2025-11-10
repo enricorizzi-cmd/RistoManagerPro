@@ -2780,12 +2780,16 @@ app.get(
         const errorString = errorMessage.toLowerCase();
 
         if (
+          error?.table === 'menu_dropdown_values' ||
+          error?.statusCode === 404 ||
+          error?.statusCode === 500 ||
           errorString.includes('does not exist') ||
           errorString.includes('could not find') ||
           errorString.includes('relation') ||
           errorString.includes('table') ||
           errorString.includes('no such table') ||
-          errorString.includes('undefined table')
+          errorString.includes('undefined table') ||
+          errorString.includes('menu_dropdown_values')
         ) {
           console.log(
             `Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
@@ -2803,6 +2807,8 @@ app.get(
       // Check if error is from Supabase wrapper indicating table doesn't exist
       if (
         error?.table === 'menu_dropdown_values' ||
+        error?.statusCode === 404 ||
+        error?.statusCode === 500 ||
         errorString.includes('does not exist') ||
         errorString.includes('could not find') ||
         errorString.includes('relation') ||
@@ -2818,6 +2824,12 @@ app.get(
       }
 
       console.error('Failed to get dropdown values:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        table: error?.table,
+        statusCode: error?.statusCode,
+        stack: error?.stack,
+      });
       res.status(500).json({ error: 'Failed to get dropdown values' });
     }
   }
@@ -4033,93 +4045,141 @@ app.post(
         let matchResult = null;
 
         if (!dish) {
-          // New dish
-          dishesNew++;
-          const dishId = crypto.randomUUID();
-          dish = {
-            id: dishId,
-            location_id: locationId,
-            dish_name: normalizedName,
-            dish_name_original: dishData.dishName,
-            category_gestionale: dishData.category,
-            recipe_id: null,
-            is_linked: false,
-          };
-
-          // Try to match with recipes
-          let bestMatch = null;
-          let bestConfidence = 0;
-
-          for (const recipe of recipes) {
-            const recipeNormalized = normalizeDishName(recipe.nome_piatto);
-
-            // Exact match
-            if (normalizedName === recipeNormalized) {
-              bestMatch = recipe;
-              bestConfidence = 1.0;
-              matchResult = {
-                method: 'exact',
-                reasons: ['Nome identico dopo normalizzazione'],
-              };
-              break;
-            }
-
-            // Fuzzy match
-            const similarity = calculateSimilarity(
-              normalizedName,
-              recipeNormalized
-            );
-            if (similarity > bestConfidence && similarity > 0.8) {
-              bestMatch = recipe;
-              bestConfidence = similarity;
-              matchResult = {
-                method: 'fuzzy',
-                reasons: [`Similarità ${(similarity * 100).toFixed(0)}%`],
-              };
-            }
-          }
-
-          if (bestMatch) {
-            dish.recipe_id = bestMatch.id;
-            dish.is_linked = true;
-            dishesMatched++;
-            matches.push({
-              dishId: dishId,
-              dishName: dishData.dishName,
-              recipeId: bestMatch.id,
-              recipeName: bestMatch.nome_piatto,
-              confidence: bestConfidence,
-              method: matchResult.method,
-              reasons: matchResult.reasons,
-            });
-          } else {
-            dishesUnmatched++;
-            matches.push({
-              dishId: dishId,
-              dishName: dishData.dishName,
-              recipeId: null,
-              recipeName: null,
-              confidence: 0,
-              method: null,
-              reasons: ['Nessun match trovato'],
-            });
-          }
-
-          await db.run(
-            `INSERT INTO sales_dishes (
-              id, location_id, dish_name, dish_name_original, category_gestionale,
-              recipe_id, is_linked
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              dish.id,
-              dish.location_id,
-              dish.dish_name,
-              dish.dish_name_original,
-              dish.category_gestionale,
-              dish.recipe_id,
-              dish.is_linked,
-            ]
+          // Check if dish already exists in database (from previous import)
+          const existingDish = await db.get(
+            'SELECT * FROM sales_dishes WHERE location_id = ? AND dish_name = ?',
+            [locationId, normalizedName]
           );
+
+          if (existingDish) {
+            // Use existing dish
+            dish = existingDish;
+            dishesExisting++;
+            if (dish.recipe_id) {
+              dishesMatched++;
+            } else {
+              dishesUnmatched++;
+            }
+            dishesMap.set(normalizedName, dish);
+          } else {
+            // New dish
+            dishesNew++;
+            const dishId = crypto.randomUUID();
+            dish = {
+              id: dishId,
+              location_id: locationId,
+              dish_name: normalizedName,
+              dish_name_original: dishData.dishName,
+              category_gestionale: dishData.category,
+              recipe_id: null,
+              is_linked: false,
+            };
+
+            // Try to match with recipes
+            let bestMatch = null;
+            let bestConfidence = 0;
+
+            for (const recipe of recipes) {
+              const recipeNormalized = normalizeDishName(recipe.nome_piatto);
+
+              // Exact match
+              if (normalizedName === recipeNormalized) {
+                bestMatch = recipe;
+                bestConfidence = 1.0;
+                matchResult = {
+                  method: 'exact',
+                  reasons: ['Nome identico dopo normalizzazione'],
+                };
+                break;
+              }
+
+              // Fuzzy match
+              const similarity = calculateSimilarity(
+                normalizedName,
+                recipeNormalized
+              );
+              if (similarity > bestConfidence && similarity > 0.8) {
+                bestMatch = recipe;
+                bestConfidence = similarity;
+                matchResult = {
+                  method: 'fuzzy',
+                  reasons: [`Similarità ${(similarity * 100).toFixed(0)}%`],
+                };
+              }
+            }
+
+            if (bestMatch) {
+              dish.recipe_id = bestMatch.id;
+              dish.is_linked = true;
+              dishesMatched++;
+              matches.push({
+                dishId: dish.id,
+                dishName: dishData.dishName,
+                recipeId: bestMatch.id,
+                recipeName: bestMatch.nome_piatto,
+                confidence: bestConfidence,
+                method: matchResult.method,
+                reasons: matchResult.reasons,
+              });
+            } else {
+              dishesUnmatched++;
+              matches.push({
+                dishId: dish.id,
+                dishName: dishData.dishName,
+                recipeId: null,
+                recipeName: null,
+                confidence: 0,
+                method: null,
+                reasons: ['Nessun match trovato'],
+              });
+            }
+
+          try {
+            await db.run(
+              `INSERT INTO sales_dishes (
+                id, location_id, dish_name, dish_name_original, category_gestionale,
+                recipe_id, is_linked
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                dish.id,
+                dish.location_id,
+                dish.dish_name,
+                dish.dish_name_original,
+                dish.category_gestionale,
+                dish.recipe_id,
+                dish.is_linked,
+              ]
+            );
+          } catch (error) {
+            // If duplicate key error, fetch existing dish and use it
+            if (
+              error.message &&
+              (error.message.includes('duplicate key') ||
+                error.message.includes('UNIQUE constraint') ||
+                error.message.includes('23505'))
+            ) {
+              console.warn(
+                `[IMPORT] Duplicate dish detected: ${dish.dish_name}, fetching existing`
+              );
+              const existingDish = await db.get(
+                'SELECT * FROM sales_dishes WHERE location_id = ? AND dish_name = ?',
+                [dish.location_id, dish.dish_name]
+              );
+              if (existingDish) {
+                dish = existingDish;
+                dishesExisting++;
+                if (dish.recipe_id) {
+                  dishesMatched++;
+                } else {
+                  dishesUnmatched++;
+                }
+              } else {
+                throw error;
+              }
+            } else {
+              throw error;
+            }
+          }
 
           dishesMap.set(normalizedName, dish);
         } else {
