@@ -75,20 +75,24 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
       setHasMore(result.pagination?.hasMore || false);
 
       // Load totals for stats (only on first page and when not searching)
+      // Use the total from the API response instead of loading all dishes
       if (currentPage === 1 && !searchTerm) {
-        const allResult = await getDishes(locationId, {
-          linked: undefined,
+        // Get total linked count
+        const linkedResult = await getDishes(locationId, {
+          linked: true,
           archived: false,
-          limit: 10000, // Get all for counting
+          limit: 1, // We only need the total count
           offset: 0,
         });
-        const allDishes = allResult.dishes;
-        setTotalLinked(
-          allDishes.filter(d => d.is_linked && !d.is_archived).length
-        );
-        setTotalUnlinked(
-          allDishes.filter(d => !d.is_linked && !d.is_archived).length
-        );
+        // Get total unlinked count
+        const unlinkedResult = await getDishes(locationId, {
+          linked: false,
+          archived: false,
+          limit: 1, // We only need the total count
+          offset: 0,
+        });
+        setTotalLinked(linkedResult.total || 0);
+        setTotalUnlinked(unlinkedResult.total || 0);
       }
     } catch (error) {
       showNotification(
