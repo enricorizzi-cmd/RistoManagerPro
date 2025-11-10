@@ -385,3 +385,47 @@ export const getDashboardData = (
     locationId
   );
 };
+
+// Exclusion words management
+export interface ExclusionWord {
+  id: string;
+  location_id: string;
+  exclusion_word: string;
+  created_at: string;
+  created_by?: string | null;
+}
+
+// Get exclusion words
+export const getExclusionWords = (
+  locationId: string
+): Promise<ExclusionWord[]> => {
+  return apiCall<ExclusionWord[]>(
+    '/api/sales-analysis/exclusions',
+    locationId
+  );
+};
+
+// Add exclusion word
+export const addExclusionWord = (
+  locationId: string,
+  word: string
+): Promise<ExclusionWord> => {
+  return apiCall<ExclusionWord>('/api/sales-analysis/exclusions', locationId, {
+    method: 'POST',
+    body: JSON.stringify({ exclusion_word: word }),
+  });
+};
+
+// Delete exclusion word
+export const deleteExclusionWord = (
+  locationId: string,
+  exclusionId: string
+): Promise<{ success: boolean }> => {
+  return apiCall<{ success: boolean }>(
+    `/api/sales-analysis/exclusions/${exclusionId}`,
+    locationId,
+    {
+      method: 'DELETE',
+    }
+  );
+};

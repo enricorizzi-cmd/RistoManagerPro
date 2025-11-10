@@ -414,3 +414,5 @@ A: No. `ref.current` è `null` durante il rendering. Usalo solo in `useEffect` o
 A: Usa optional chaining: `ref.current?.method()`. Se `ref.current` è `null`, l'espressione ritorna `undefined` senza errori.
 
 
+
+

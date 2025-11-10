@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../contexts/AppContext';
-import { ChartLineIcon, LinkIcon, UploadIcon } from '../icons/Icons';
+import { ChartLineIcon, LinkIcon, UploadIcon, CogIcon } from '../icons/Icons';
 import ImportTab from './ImportTab';
 import LinksTab from './LinksTab';
 import DashboardTab from './DashboardTab';
+import ImpostazioniTab from './ImpostazioniTab';
 
-type SalesAnalysisTab = 'import' | 'links' | 'dashboard';
+type SalesAnalysisTab = 'import' | 'links' | 'dashboard' | 'impostazioni';
 
 const SalesAnalysis: React.FC = () => {
   const { currentLocation } = useAppContext();
@@ -35,6 +36,11 @@ const SalesAnalysis: React.FC = () => {
       key: 'dashboard' as SalesAnalysisTab,
       label: 'Dashboard Analisi',
       icon: ChartLineIcon,
+    },
+    {
+      key: 'impostazioni' as SalesAnalysisTab,
+      label: 'Impostazioni',
+      icon: CogIcon,
     },
   ];
 
@@ -94,6 +100,10 @@ const SalesAnalysis: React.FC = () => {
 
       {activeTab === 'dashboard' && currentLocation?.id && (
         <DashboardTab locationId={currentLocation.id} />
+      )}
+
+      {activeTab === 'impostazioni' && currentLocation?.id && (
+        <ImpostazioniTab locationId={currentLocation.id} />
       )}
     </div>
   );

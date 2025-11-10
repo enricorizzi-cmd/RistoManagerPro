@@ -3860,6 +3860,26 @@ app.post(
         });
       }
 
+      // Get exclusion words for this location (before creating import record)
+      const exclusionWords = await db.query(
+        'SELECT exclusion_word FROM sales_import_exclusions WHERE location_id = ?',
+        [locationId]
+      );
+      const exclusionWordsList = exclusionWords.map(e => e.exclusion_word.toLowerCase());
+
+      // Filter dishes that contain exclusion words
+      const filteredDishes = parseResult.detailTable.filter(dish => {
+        const dishNameLower = dish.dishName.toLowerCase();
+        return !exclusionWordsList.some(exclusionWord => 
+          dishNameLower.includes(exclusionWord)
+        );
+      });
+
+      const excludedCount = parseResult.detailTable.length - filteredDishes.length;
+      if (excludedCount > 0) {
+        console.log(`[IMPORT] Excluded ${excludedCount} dishes containing exclusion words`);
+      }
+
       // Delete existing import if overwriting
       if (existingImport && overwriteExisting) {
         await db.run('DELETE FROM sales_imports WHERE id = ?', [
@@ -3882,9 +3902,9 @@ app.post(
           periodYear,
           parseResult.metadata.fileName,
           parseResult.summaryTable.length,
-          parseResult.detailTable.length,
-          parseResult.detailTable.reduce((sum, d) => sum + d.quantity, 0),
-          parseResult.detailTable.reduce((sum, d) => sum + d.totalValue, 0),
+          filteredDishes.length, // Use filtered dishes count
+          filteredDishes.reduce((sum, d) => sum + d.quantity, 0),
+          filteredDishes.reduce((sum, d) => sum + d.totalValue, 0),
           'processing',
         ]
       );
@@ -3977,8 +3997,9 @@ app.post(
       }
 
       // Process dishes - group duplicates by normalized name first
+      // (filteredDishes already filtered above)
       const dishesDataMap = new Map();
-      for (const dishData of parseResult.detailTable) {
+      for (const dishData of filteredDishes) {
         const normalizedName = normalizeDishName(dishData.dishName);
         if (dishesDataMap.has(normalizedName)) {
           // Merge duplicate dishes (sum quantities and values)
@@ -4579,6 +4600,120 @@ app.post(
     } catch (error) {
       console.error('Failed to batch link:', error);
       res.status(500).json({ error: 'Failed to batch link' });
+    }
+  }
+);
+
+// =====================================================
+// EXCLUSION WORDS API ENDPOINTS
+// =====================================================
+
+// Get exclusion words
+app.get(
+  '/api/sales-analysis/exclusions',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'];
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      const db = getLocationDb(locationId);
+      const exclusions = await db.query(
+        'SELECT * FROM sales_import_exclusions WHERE location_id = ? ORDER BY exclusion_word ASC',
+        [locationId]
+      );
+
+      res.json(exclusions);
+    } catch (error) {
+      console.error('Failed to get exclusion words:', error);
+      res.status(500).json({ error: 'Failed to get exclusion words' });
+    }
+  }
+);
+
+// Add exclusion word
+app.post(
+  '/api/sales-analysis/exclusions',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'];
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      const { exclusion_word } = req.body;
+      if (!exclusion_word || !exclusion_word.trim()) {
+        return res.status(400).json({ error: 'Parola da escludere richiesta' });
+      }
+
+      const db = getLocationDb(locationId);
+      const word = exclusion_word.trim().toLowerCase();
+
+      // Check if already exists
+      const existing = await db.get(
+        'SELECT * FROM sales_import_exclusions WHERE location_id = ? AND exclusion_word = ?',
+        [locationId, word]
+      );
+
+      if (existing) {
+        return res.status(409).json({ error: 'Parola già presente nella lista' });
+      }
+
+      const id = crypto.randomUUID();
+      await db.run(
+        'INSERT INTO sales_import_exclusions (id, location_id, exclusion_word, created_by) VALUES (?, ?, ?, ?)',
+        [id, locationId, word, req.user.id]
+      );
+
+      const exclusion = await db.get(
+        'SELECT * FROM sales_import_exclusions WHERE id = ?',
+        [id]
+      );
+
+      res.status(201).json(exclusion);
+    } catch (error) {
+      console.error('Failed to add exclusion word:', error);
+      if (error.message && error.message.includes('UNIQUE constraint')) {
+        return res.status(409).json({ error: 'Parola già presente nella lista' });
+      }
+      res.status(500).json({ error: 'Failed to add exclusion word' });
+    }
+  }
+);
+
+// Delete exclusion word
+app.delete(
+  '/api/sales-analysis/exclusions/:id',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const locationId = req.headers['x-location-id'];
+      if (!locationId || locationId === 'all') {
+        return res.status(400).json({ error: 'Location ID valido richiesto' });
+      }
+
+      const { id } = req.params;
+      const db = getLocationDb(locationId);
+
+      // Verify the exclusion belongs to this location
+      const exclusion = await db.get(
+        'SELECT * FROM sales_import_exclusions WHERE id = ? AND location_id = ?',
+        [id, locationId]
+      );
+
+      if (!exclusion) {
+        return res.status(404).json({ error: 'Parola non trovata' });
+      }
+
+      await db.run('DELETE FROM sales_import_exclusions WHERE id = ?', [id]);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete exclusion word:', error);
+      res.status(500).json({ error: 'Failed to delete exclusion word' });
     }
   }
 );

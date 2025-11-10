@@ -94,7 +94,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
 
   const linkedCount = dishes.filter(d => d.is_linked && !d.is_archived).length;
   const unlinkedCount = dishes.filter(d => !d.is_linked && !d.is_archived).length;
-  const archivedCount = dishes.filter(d => d.is_archived).length;
+  // const archivedCount = dishes.filter(d => d.is_archived).length; // Reserved for future use
 
   return (
     <div className="space-y-6">
