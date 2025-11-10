@@ -90,6 +90,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             }}
             domain={[0, 100]}
             tick={{ fontSize: 11 }}
+            allowDataOverflow={false}
           />
           <YAxis
             type="number"
@@ -103,6 +104,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             }}
             domain={[-100, 100]}
             tick={{ fontSize: 11 }}
+            allowDataOverflow={false}
           />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
@@ -126,7 +128,45 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
               return null;
             }}
           />
-          {/* Reference lines for meta (50% thresholds) */}
+          {/* Quadrant areas - MUST be before Scatter to render behind points */}
+          {/* Full chart coverage: X [0-100], Y [-100 to 100] */}
+          <ReferenceArea
+            x1={0}
+            x2={50}
+            y1={-100}
+            y2={50}
+            fill="#EF4444"
+            fillOpacity={0.2}
+            stroke="none"
+          />
+          <ReferenceArea
+            x1={50}
+            x2={100}
+            y1={-100}
+            y2={50}
+            fill="#6366F1"
+            fillOpacity={0.2}
+            stroke="none"
+          />
+          <ReferenceArea
+            x1={0}
+            x2={50}
+            y1={50}
+            y2={100}
+            fill="#FBBF24"
+            fillOpacity={0.2}
+            stroke="none"
+          />
+          <ReferenceArea
+            x1={50}
+            x2={100}
+            y1={50}
+            y2={100}
+            fill="#10B981"
+            fillOpacity={0.2}
+            stroke="none"
+          />
+          {/* Reference lines for meta (50% thresholds) - on top of areas */}
           <ReferenceLine
             x={50}
             stroke="#9CA3AF"
@@ -150,43 +190,6 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
               fontSize: 10,
               fill: '#6B7280',
             }}
-          />
-          {/* Quadrant areas - full chart coverage with higher opacity */}
-          <ReferenceArea
-            x1={50}
-            x2={100}
-            y1={50}
-            y2={100}
-            fill="#10B981"
-            fillOpacity={0.15}
-            stroke="none"
-          />
-          <ReferenceArea
-            x1={0}
-            x2={50}
-            y1={50}
-            y2={100}
-            fill="#FBBF24"
-            fillOpacity={0.15}
-            stroke="none"
-          />
-          <ReferenceArea
-            x1={50}
-            x2={100}
-            y1={-100}
-            y2={50}
-            fill="#6366F1"
-            fillOpacity={0.15}
-            stroke="none"
-          />
-          <ReferenceArea
-            x1={0}
-            x2={50}
-            y1={-100}
-            y2={50}
-            fill="#EF4444"
-            fillOpacity={0.15}
-            stroke="none"
           />
           <Scatter dataKey="y" fill="#8884d8">
             {data.map((entry, index) => (
