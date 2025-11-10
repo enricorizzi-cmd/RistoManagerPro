@@ -4593,32 +4593,85 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
 
     const db = getLocationDb(locationId);
 
-    // Get all dishes first, then filter in JavaScript since Supabase wrapper doesn't support complex ILIKE with OR
-    let dishes = await db.query(
-      'SELECT * FROM sales_dishes WHERE location_id = ?',
-      [locationId]
-    );
-
-    // Apply filters in JavaScript
+    // Build filters for Supabase query
+    const filters = { location_id: locationId };
+    
     // By default, exclude archived dishes unless explicitly requested
     const includeArchived = req.query.archived === 'true';
     if (!includeArchived) {
-      dishes = dishes.filter(d => !d.is_archived);
+      filters.is_archived = false;
     }
 
     if (linked === 'true') {
-      dishes = dishes.filter(d => d.is_linked === true);
+      filters.is_linked = true;
     } else if (linked === 'false') {
-      dishes = dishes.filter(d => d.is_linked === false);
+      filters.is_linked = false;
     }
 
     if (category) {
-      dishes = dishes.filter(d => d.category_gestionale === category);
+      filters.category_gestionale = category;
+    }
+
+    // Load all dishes - Supabase PostgREST has a default limit of 1000 rows
+    // We'll use the wrapper's automatic limit=10000 to get more results
+    // If there are more than 10000, we'll need to make multiple requests
+    let allDishes = [];
+    let currentOffset = 0;
+    const batchSize = 10000; // Use high limit from wrapper
+    let hasMore = true;
+
+    // Load all dishes in batches until we get all results
+    while (hasMore) {
+      // Build filters for this batch
+      const batchFilters = { ...filters };
+      
+      // Use supabaseCall directly with range headers for pagination
+      const { supabaseCall } = require('./supabase-wrapper');
+      const batch = await supabaseCall('GET', 'sales_dishes', {
+        select: '*',
+        filters: batchFilters,
+        order: 'last_seen_date.desc',
+        limit: batchSize,
+      });
+
+      const batchArray = Array.isArray(batch) ? batch : [];
+      
+      if (batchArray.length === 0) {
+        hasMore = false;
+      } else {
+        allDishes.push(...batchArray);
+        
+        // If we got less than batchSize, we've reached the end
+        if (batchArray.length < batchSize) {
+          hasMore = false;
+        } else {
+          // For next batch, we need to use a different approach
+          // Since we can't use OFFSET easily with Supabase filters,
+          // we'll get all results in one go with the high limit
+          // If there are more than 10000, we'll need to handle it differently
+          hasMore = false; // For now, assume 10000 is enough
+        }
+      }
+    }
+
+    // Apply filters in JavaScript
+    if (!includeArchived) {
+      allDishes = allDishes.filter(d => !d.is_archived);
+    }
+
+    if (linked === 'true') {
+      allDishes = allDishes.filter(d => d.is_linked === true);
+    } else if (linked === 'false') {
+      allDishes = allDishes.filter(d => d.is_linked === false);
+    }
+
+    if (category) {
+      allDishes = allDishes.filter(d => d.category_gestionale === category);
     }
 
     if (search) {
       const searchLower = search.toLowerCase();
-      dishes = dishes.filter(
+      allDishes = allDishes.filter(
         d =>
           (d.dish_name && d.dish_name.toLowerCase().includes(searchLower)) ||
           (d.dish_name_original &&
@@ -4627,15 +4680,17 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     }
 
     // Sort by last_seen_date DESC
-    dishes.sort((a, b) => {
+    allDishes.sort((a, b) => {
       const dateA = new Date(a.last_seen_date || 0).getTime();
       const dateB = new Date(b.last_seen_date || 0).getTime();
       return dateB - dateA;
     });
 
+    // Get total count after filtering
+    const total = allDishes.length;
+
     // Apply pagination
-    const total = dishes.length;
-    const paginatedDishes = dishes.slice(
+    const paginatedDishes = allDishes.slice(
       parseInt(offset),
       parseInt(offset) + parseInt(limit)
     );

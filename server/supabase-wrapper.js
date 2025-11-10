@@ -38,6 +38,10 @@ async function supabaseCall(method, table, options = {}) {
   }
   if (limit) {
     queryParams.push(`limit=${limit.toString()}`);
+  } else if (!single) {
+    // If no limit specified and not a single result, use a high limit to get all results
+    // Supabase default is 1000, but we want to get all results
+    queryParams.push('limit=10000');
   }
 
   // For single results, limit to 1 if no limit specified
