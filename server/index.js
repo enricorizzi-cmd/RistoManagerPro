@@ -4449,7 +4449,10 @@ app.delete(
           
           const key = `${dishData.recipe_id}_${saleDate}`;
           if (recipeSalesUpdates.has(key)) {
-            recipeSalesUpdates.get(key)!.quantity += dishData.quantity || 0;
+            const existing = recipeSalesUpdates.get(key);
+            if (existing) {
+              existing.quantity += dishData.quantity || 0;
+            }
           } else {
             recipeSalesUpdates.set(key, {
               recipeId: dishData.recipe_id,
