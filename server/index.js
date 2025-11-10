@@ -2689,8 +2689,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         });
       }
 
-      // Utile = Incassato - Costi Fissi - Costi Variabili
-      utileYTD = incassatoYTD - costiFissiYTD - costiVariabiliYTD;
+        // Utile = Incassato - Costi Fissi - Costi Variabili
+        utileYTD = incassatoYTD - costiFissiYTD - costiVariabiliYTD;
+      } else {
+        console.log(
+          `[Dashboard API] No causali catalog available, skipping financial plan calculations`
+        );
+      }
     }
 
     // Helper function to parse month label (e.g., "Gen. 24" -> {year: 2024, monthIndex: 0})
@@ -2903,11 +2908,26 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     // prevMonthData is already set above
 
     // Ensure we have valid data before calculating KPIs
+    // If no financial stats data, use zeros but continue (financial plan data might be available)
     if (!currentMonthData) {
-      console.log(`[Dashboard API] ERROR: currentMonthData is null`);
-      return res.status(500).json({
-        error: 'No financial data available for dashboard',
-      });
+      console.log(
+        `[Dashboard API] WARNING: currentMonthData is null, using zeros for KPIs`
+      );
+      // Set defaults to avoid errors
+      currentMonthData = {
+        fatturato: 0,
+        utile: 0,
+        incassato: 0,
+        costiFissi: null,
+        costiVariabili: null,
+      };
+      prevMonthData = {
+        fatturato: 0,
+        utile: 0,
+        incassato: 0,
+        costiFissi: null,
+        costiVariabili: null,
+      };
     }
 
     const fatturatoCurrent =
