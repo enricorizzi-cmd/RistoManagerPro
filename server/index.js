@@ -4134,8 +4134,9 @@ app.post(
               });
             }
 
-          try {
-            await db.run(
+            // Insert new dish into database
+            try {
+              await db.run(
               `INSERT INTO sales_dishes (
                 id, location_id, dish_name, dish_name_original, category_gestionale,
                 recipe_id, is_linked
@@ -4149,39 +4150,43 @@ app.post(
                 dish.recipe_id,
                 dish.is_linked,
               ]
-            );
-          } catch (error) {
-            // If duplicate key error, fetch existing dish and use it
-            if (
-              error.message &&
-              (error.message.includes('duplicate key') ||
-                error.message.includes('UNIQUE constraint') ||
-                error.message.includes('23505'))
-            ) {
-              console.warn(
-                `[IMPORT] Duplicate dish detected: ${dish.dish_name}, fetching existing`
               );
-              const existingDish = await db.get(
-                'SELECT * FROM sales_dishes WHERE location_id = ? AND dish_name = ?',
-                [dish.location_id, dish.dish_name]
-              );
-              if (existingDish) {
-                dish = existingDish;
-                dishesExisting++;
-                if (dish.recipe_id) {
-                  dishesMatched++;
+            } catch (error) {
+              // If duplicate key error (race condition), fetch existing dish and use it
+              if (
+                error.message &&
+                (error.message.includes('duplicate key') ||
+                  error.message.includes('UNIQUE constraint') ||
+                  error.message.includes('23505'))
+              ) {
+                console.warn(
+                  `[IMPORT] Duplicate dish detected (race condition): ${dish.dish_name}, fetching existing`
+                );
+                const existingDish = await db.get(
+                  'SELECT * FROM sales_dishes WHERE location_id = ? AND dish_name = ?',
+                  [dish.location_id, dish.dish_name]
+                );
+                if (existingDish) {
+                  dish = existingDish;
+                  dishesExisting++;
+                  dishesNew--; // Adjust counter
+                  if (dish.recipe_id) {
+                    dishesMatched++;
+                    if (dishesUnmatched > 0) dishesUnmatched--; // Adjust if was unmatched
+                  } else {
+                    dishesUnmatched++;
+                    if (dishesMatched > 0) dishesMatched--; // Adjust if was matched
+                  }
                 } else {
-                  dishesUnmatched++;
+                  throw error;
                 }
               } else {
                 throw error;
               }
-            } else {
-              throw error;
             }
-          }
 
-          dishesMap.set(normalizedName, dish);
+            dishesMap.set(normalizedName, dish);
+          }
         } else {
           // Existing dish
           dishesExisting++;
