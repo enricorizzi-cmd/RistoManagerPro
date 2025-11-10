@@ -1,6 +1,7 @@
 // Dashboard Component - Main dashboard component integrating all sections
 import React, { Suspense } from 'react';
 import { useDashboardData } from './hooks/useDashboardData';
+import { useAIInsights } from './hooks/useAIInsights';
 import { HeroSection } from './components/HeroSection';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { GlassCard } from './components/GlassCard';
@@ -26,6 +27,14 @@ export const Dashboard: React.FC = () => {
   const { currentLocation } = useAppContext();
   const { dashboardData, loading, error, periodFilter, setPeriodFilter } =
     useDashboardData();
+
+  // Generate AI insights from dashboard data
+  const { insights, predictions } = useAIInsights(
+    dashboardData?.financialData || [],
+    dashboardData?.salesAnalysis || null,
+    dashboardData?.bcgMatrix || [],
+    !loading && !!dashboardData // Enable only when data is loaded
+  );
 
   if (!currentLocation?.id) {
     return (
@@ -123,10 +132,7 @@ export const Dashboard: React.FC = () => {
             </GlassCard>
           }
         >
-          <AIInsights
-            insights={dashboardData.aiInsights}
-            predictions={dashboardData.aiPredictions}
-          />
+          <AIInsights insights={insights} predictions={predictions} />
         </Suspense>
       </div>
     </div>
