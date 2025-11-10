@@ -2779,7 +2779,8 @@ app.get(
         const errorMessage = error?.message || String(error) || '';
         const errorString = errorMessage.toLowerCase();
 
-        if (
+        // Check for table not found errors (multiple patterns)
+        const isTableNotFound =
           error?.table === 'menu_dropdown_values' ||
           error?.statusCode === 404 ||
           error?.statusCode === 500 ||
@@ -2789,8 +2790,11 @@ app.get(
           errorString.includes('table') ||
           errorString.includes('no such table') ||
           errorString.includes('undefined table') ||
-          errorString.includes('menu_dropdown_values')
-        ) {
+          errorString.includes('menu_dropdown_values') ||
+          errorString.includes('pgrst205') ||
+          errorString.includes('schema cache');
+
+        if (isTableNotFound) {
           console.log(
             `Table menu_dropdown_values doesn't exist yet for type ${type}, returning empty array`
           );
@@ -2805,7 +2809,7 @@ app.get(
       const errorString = errorMessage.toLowerCase();
 
       // Check if error is from Supabase wrapper indicating table doesn't exist
-      if (
+      const isTableNotFound =
         error?.table === 'menu_dropdown_values' ||
         error?.statusCode === 404 ||
         error?.statusCode === 500 ||
@@ -2815,8 +2819,11 @@ app.get(
         errorString.includes('table') ||
         errorString.includes('no such table') ||
         errorString.includes('undefined table') ||
-        errorString.includes('menu_dropdown_values')
-      ) {
+        errorString.includes('menu_dropdown_values') ||
+        errorString.includes('pgrst205') ||
+        errorString.includes('schema cache');
+
+      if (isTableNotFound) {
         console.log(
           `Table menu_dropdown_values doesn't exist yet, returning empty array`
         );
