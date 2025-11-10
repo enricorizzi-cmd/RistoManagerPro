@@ -4485,61 +4485,82 @@ app.delete(
         }
       }
 
+      // Update sales_dishes: decrement total_imports and update last_seen_date
+      // IMPORTANT: Get remaining imports BEFORE deleting the import (CASCADE will delete them)
+      // Optimize: get all remaining imports in one query instead of per dish
+      let allRemainingImports = [];
+      if (affectedDishIds.length > 0) {
+        // Get all remaining imports for affected dishes in one query (BEFORE deletion)
+        const dishIdsPlaceholder = affectedDishIds.map(() => '?').join(',');
+        allRemainingImports = await db.query(
+          `SELECT dish_id, period_year, period_month 
+           FROM sales_dish_data 
+           WHERE dish_id IN (${dishIdsPlaceholder}) AND import_id != ?`,
+          [...affectedDishIds, importId]
+        );
+
+        // Group by dish_id
+        const importsByDish = new Map();
+        for (const imp of allRemainingImports) {
+          if (!importsByDish.has(imp.dish_id)) {
+            importsByDish.set(imp.dish_id, []);
+          }
+          importsByDish.get(imp.dish_id).push(imp);
+        }
+
+        // Get all dishes info in one query
+        const allDishes = await db.query(
+          `SELECT id, total_imports, last_seen_date 
+           FROM sales_dishes 
+           WHERE id IN (${dishIdsPlaceholder})`,
+          affectedDishIds
+        );
+
+        // Process updates
+        for (const dish of allDishes) {
+          const remainingImports = importsByDish.get(dish.id) || [];
+          const remainingCount = remainingImports.length;
+
+          // Calculate new total_imports (ensure it doesn't go below 0)
+          const newTotalImports = Math.max(0, (dish.total_imports || 1) - 1);
+
+          if (remainingCount === 0) {
+            // No more imports for this dish, just update the counts
+            await db.run(
+              'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
+              [newTotalImports, dish.id]
+            );
+          } else {
+            // Find the most recent remaining import date
+            let latestDate = null;
+            for (const imp of remainingImports) {
+              const importDate = new Date(imp.period_year, imp.period_month - 1, 1);
+              if (!latestDate || importDate > latestDate) {
+                latestDate = importDate;
+              }
+            }
+
+            if (latestDate) {
+              await db.run(
+                'UPDATE sales_dishes SET total_imports = ?, last_seen_date = ?, updated_at = NOW() WHERE id = ?',
+                [newTotalImports, latestDate.toISOString(), dish.id]
+              );
+            } else {
+              await db.run(
+                'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
+                [newTotalImports, dish.id]
+              );
+            }
+          }
+        }
+      }
+
       // Delete the import (CASCADE will delete sales_categories and sales_dish_data)
+      // This must be done AFTER we've collected all the data we need
       await db.run('DELETE FROM sales_imports WHERE id = ? AND location_id = ?', [
         importId,
         locationId,
       ]);
-
-      // Update sales_dishes: decrement total_imports and update last_seen_date
-      for (const dishId of affectedDishIds) {
-        // Get current dish info
-        const dish = await db.get(
-          'SELECT total_imports, last_seen_date FROM sales_dishes WHERE id = ?',
-          [dishId]
-        );
-
-        if (!dish) continue;
-
-        // Check if dish still has other imports
-        const remainingImports = await db.query(
-          'SELECT period_year, period_month FROM sales_dish_data WHERE dish_id = ?',
-          [dishId]
-        );
-        const remainingCount = remainingImports.length;
-
-        // Calculate new total_imports (ensure it doesn't go below 0)
-        const newTotalImports = Math.max(0, (dish.total_imports || 1) - 1);
-
-        if (remainingCount === 0) {
-          // No more imports for this dish, just update the counts
-          await db.run(
-            'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
-            [newTotalImports, dishId]
-          );
-        } else {
-          // Find the most recent remaining import date
-          let latestDate = null;
-          for (const imp of remainingImports) {
-            const importDate = new Date(imp.period_year, imp.period_month - 1, 1);
-            if (!latestDate || importDate > latestDate) {
-              latestDate = importDate;
-            }
-          }
-
-          if (latestDate) {
-            await db.run(
-              'UPDATE sales_dishes SET total_imports = ?, last_seen_date = ?, updated_at = NOW() WHERE id = ?',
-              [newTotalImports, latestDate.toISOString(), dishId]
-            );
-          } else {
-            await db.run(
-              'UPDATE sales_dishes SET total_imports = ?, updated_at = NOW() WHERE id = ?',
-              [newTotalImports, dishId]
-            );
-          }
-        }
-      }
 
       res.json({
         success: true,
