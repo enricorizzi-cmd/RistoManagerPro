@@ -142,27 +142,52 @@ async function supabaseCall(method, table, options = {}) {
       const errorText = await response.text();
       console.error(`[SUPABASE] Error ${response.status}:`, errorText);
 
+      // Try to parse error as JSON (Supabase returns JSON errors)
+      let errorJson = null;
+      let errorMessage = errorText;
+      let errorCode = null;
+      
+      try {
+        errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorText;
+        errorCode = errorJson.code || null;
+      } catch (e) {
+        // Not JSON, use errorText as is
+      }
+
       // Check if error is due to table not existing
       const errorTextLower = errorText.toLowerCase();
-      if (
+      const errorMessageLower = errorMessage.toLowerCase();
+      const isPGRST205 = errorCode === 'PGRST205';
+      const isTableNotFound =
         response.status === 404 ||
         response.status === 500 ||
+        isPGRST205 ||
         errorTextLower.includes('relation') ||
         errorTextLower.includes('does not exist') ||
         errorTextLower.includes('could not find') ||
         errorTextLower.includes('no such table') ||
-        errorTextLower.includes('undefined table')
-      ) {
+        errorTextLower.includes('undefined table') ||
+        errorTextLower.includes('schema cache') ||
+        errorMessageLower.includes('relation') ||
+        errorMessageLower.includes('does not exist') ||
+        errorMessageLower.includes('could not find') ||
+        errorMessageLower.includes('no such table') ||
+        errorMessageLower.includes('undefined table') ||
+        errorMessageLower.includes('schema cache');
+
+      if (isTableNotFound) {
         const tableNotFoundError = new Error(
           `Table ${table} does not exist in Supabase`
         );
         tableNotFoundError.statusCode = response.status;
         tableNotFoundError.table = table;
+        tableNotFoundError.code = errorCode;
         throw tableNotFoundError;
       }
 
       throw new Error(
-        `Supabase API error (${method} ${table}): ${response.status} - ${errorText}`
+        `Supabase API error (${method} ${table}): ${response.status} - ${errorMessage}`
       );
     }
 
@@ -711,14 +736,18 @@ function getLocationDb(locationId) {
         // If this is a table not found error for menu_dropdown_values, 
         // preserve the error properties for proper handling upstream
         if (error?.table === 'menu_dropdown_values' || 
+            error?.code === 'PGRST205' ||
             (error?.message && error.message.includes('menu_dropdown_values') && 
              (error.message.includes('does not exist') || error.message.includes('PGRST205')))) {
           // Ensure error has table property for upstream handling
-          if (!error.table) {
+          if (!error.table && normalizedSql.includes('menu_dropdown_values')) {
             error.table = 'menu_dropdown_values';
           }
-          if (!error.statusCode && error.message.includes('404')) {
+          if (!error.statusCode && (error.message?.includes('404') || error.code === 'PGRST205')) {
             error.statusCode = 404;
+          }
+          if (!error.code && error.message?.includes('PGRST205')) {
+            error.code = 'PGRST205';
           }
         }
         

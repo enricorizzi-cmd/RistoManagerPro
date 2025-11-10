@@ -2790,6 +2790,7 @@ app.get(
         // Also check error stack for additional context
         const isTableNotFound =
           error?.table === 'menu_dropdown_values' ||
+          error?.code === 'PGRST205' ||
           error?.statusCode === 404 ||
           error?.statusCode === 500 ||
           errorString.includes('does not exist') ||
@@ -2831,6 +2832,7 @@ app.get(
       // Also check error stack for additional context
       const isTableNotFound =
         error?.table === 'menu_dropdown_values' ||
+        error?.code === 'PGRST205' ||
         error?.statusCode === 404 ||
         error?.statusCode === 500 ||
         errorString.includes('does not exist') ||
