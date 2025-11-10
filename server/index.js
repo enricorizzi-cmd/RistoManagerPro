@@ -2348,6 +2348,25 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       [locationId]
     );
 
+    // Debug: Log what we actually got from database
+    console.log(
+      `[Dashboard API] Location: ${locationId}, Financial stats count: ${financialStats.length}`
+    );
+    if (financialStats.length > 0) {
+      console.log(
+        `[Dashboard API] Sample months from DB:`,
+        financialStats.slice(0, 5).map(s => ({
+          month: s.month,
+          fatturato: s.fatturatoImponibile || s.fatturatoTotale,
+          utile: s.utile,
+        }))
+      );
+    } else {
+      console.log(
+        `[Dashboard API] WARNING: No financial stats found for location ${locationId}`
+      );
+    }
+
     // Get recipes for BCG matrix
     const recipes = await dbQuery(
       locationId,
@@ -2466,17 +2485,56 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     }));
 
     // Transform financial stats to dashboard format
-    const financialData = financialStats.map(stat => ({
-      month: stat.month,
-      fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
-      fatturatoPrevisionale: stat.fatturatoPrevisionale || null,
-      incassato: stat.incassato || null,
-      incassatoPrevisionale: stat.incassatoPrevisionale || null,
-      costiFissi: null,
-      costiVariabili: null,
-      utile: stat.utile || null,
-      utilePrevisionale: stat.utilePrevisionale || null,
-    }));
+    const financialData = financialStats.map(stat => {
+      const fatturato =
+        stat.fatturatoImponibile !== null &&
+        stat.fatturatoImponibile !== undefined
+          ? stat.fatturatoImponibile
+          : stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined
+            ? stat.fatturatoTotale
+            : null;
+      const utile =
+        stat.utile !== null && stat.utile !== undefined ? stat.utile : null;
+
+      return {
+        month: stat.month,
+        fatturato: fatturato,
+        fatturatoPrevisionale:
+          stat.fatturatoPrevisionale !== null &&
+          stat.fatturatoPrevisionale !== undefined
+            ? stat.fatturatoPrevisionale
+            : null,
+        incassato:
+          stat.incassato !== null && stat.incassato !== undefined
+            ? stat.incassato
+            : null,
+        incassatoPrevisionale:
+          stat.incassatoPrevisionale !== null &&
+          stat.incassatoPrevisionale !== undefined
+            ? stat.incassatoPrevisionale
+            : null,
+        costiFissi: null,
+        costiVariabili: null,
+        utile: utile,
+        utilePrevisionale:
+          stat.utilePrevisionale !== null &&
+          stat.utilePrevisionale !== undefined
+            ? stat.utilePrevisionale
+            : null,
+      };
+    });
+
+    // Debug: Log transformed data
+    if (financialData.length > 0) {
+      console.log(
+        `[Dashboard API] Transformed financial data sample:`,
+        financialData.slice(0, 3).map(d => ({
+          month: d.month,
+          fatturato: d.fatturato,
+          utile: d.utile,
+        }))
+      );
+    }
 
     // Debug logging
     console.log(`[Dashboard API] Location: ${locationId}, Period: ${period}`);
@@ -2497,6 +2555,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     const normalizeMonthLabel = label => {
       if (!label) return '';
       // Remove dots, normalize spaces, convert to lowercase
+      // Handle formats like "Gen. 24", "Gen 24", "Gennaio 2024", etc.
       return label.replace(/\./g, '').replace(/\s+/g, ' ').trim().toLowerCase();
     };
 
@@ -2529,12 +2588,15 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       'Dic',
     ];
 
-    // Try multiple formats for current month
+    // Try multiple formats for current month (including with dot)
     const currentMonthFormats = [
       `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
       `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
       `${monthNames[currentMonth]} ${currentYear}`,
       `${monthNames[currentMonth]}. ${currentYear}`,
+      // Also try full month names
+      `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
+      `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
     ];
 
     // Find current month data (try different formats)
@@ -2550,12 +2612,22 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       console.log(
         `[Dashboard API] Current month not found, using most recent: ${currentMonthData.month}`
       );
+      console.log(
+        `[Dashboard API] Available months:`,
+        financialData.slice(-5).map(d => d.month)
+      );
     } else if (currentMonthData) {
       console.log(
         `[Dashboard API] Current month data found: ${currentMonthData.month}`
       );
+      console.log(
+        `[Dashboard API] Current month values - Fatturato: ${currentMonthData.fatturato}, Utile: ${currentMonthData.utile}`
+      );
     } else {
       console.log(`[Dashboard API] No financial data available`);
+      console.log(
+        `[Dashboard API] Financial data array length: ${financialData.length}`
+      );
     }
 
     // Find previous month data
@@ -2585,6 +2657,11 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     const fatturatoPrevious = prevMonthData?.fatturato || 0;
     const utileCurrent = currentMonthData?.utile || 0;
     const utilePrevious = prevMonthData?.utile || 0;
+
+    // Debug: Log calculated KPIs
+    console.log(
+      `[Dashboard API] Calculated KPIs - Fatturato: ${fatturatoCurrent}, Utile: ${utileCurrent}, Previous Fatturato: ${fatturatoPrevious}, Previous Utile: ${utilePrevious}`
+    );
     const margineCurrent =
       fatturatoCurrent > 0 ? (utileCurrent / fatturatoCurrent) * 100 : 0;
     const marginePrevious =
