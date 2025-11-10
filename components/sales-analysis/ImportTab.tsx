@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UploadIcon, CheckCircleIcon } from '../icons/Icons';
 import {
   uploadPreview,
@@ -57,11 +57,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
     }
   };
 
-  useEffect(() => {
-    loadImports();
-  }, [locationId]);
-
-  const loadImports = async () => {
+  const loadImports = useCallback(async () => {
     setLoadingImports(true);
     try {
       const result = await getImports(locationId);
@@ -71,7 +67,11 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
     } finally {
       setLoadingImports(false);
     }
-  };
+  }, [locationId]);
+
+  useEffect(() => {
+    loadImports();
+  }, [locationId, loadImports]);
 
   const handleImport = async () => {
     if (!file || !preview) return;
@@ -420,7 +420,8 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                 {imports.map(importItem => (
                   <tr key={importItem.id}>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {getMonthName(importItem.period_month)} {importItem.period_year}
+                      {getMonthName(importItem.period_month)}{' '}
+                      {importItem.period_year}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {importItem.file_name}
@@ -435,7 +436,9 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                       € {importItem.total_value.toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(importItem.import_date).toLocaleDateString('it-IT')}
+                      {new Date(importItem.import_date).toLocaleDateString(
+                        'it-IT'
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <button

@@ -146,7 +146,7 @@ async function supabaseCall(method, table, options = {}) {
       let errorJson = null;
       let errorMessage = errorText;
       let errorCode = null;
-      
+
       try {
         errorJson = JSON.parse(errorText);
         errorMessage = errorJson.message || errorText;
@@ -732,25 +732,32 @@ function getLocationDb(locationId) {
       } catch (error) {
         console.error(`[SUPABASE] Query error:`, error);
         console.error(`[SUPABASE] SQL:`, normalizedSql.substring(0, 200));
-        
-        // If this is a table not found error for menu_dropdown_values, 
+
+        // If this is a table not found error for menu_dropdown_values,
         // preserve the error properties for proper handling upstream
-        if (error?.table === 'menu_dropdown_values' || 
-            error?.code === 'PGRST205' ||
-            (error?.message && error.message.includes('menu_dropdown_values') && 
-             (error.message.includes('does not exist') || error.message.includes('PGRST205')))) {
+        if (
+          error?.table === 'menu_dropdown_values' ||
+          error?.code === 'PGRST205' ||
+          (error?.message &&
+            error.message.includes('menu_dropdown_values') &&
+            (error.message.includes('does not exist') ||
+              error.message.includes('PGRST205')))
+        ) {
           // Ensure error has table property for upstream handling
           if (!error.table && normalizedSql.includes('menu_dropdown_values')) {
             error.table = 'menu_dropdown_values';
           }
-          if (!error.statusCode && (error.message?.includes('404') || error.code === 'PGRST205')) {
+          if (
+            !error.statusCode &&
+            (error.message?.includes('404') || error.code === 'PGRST205')
+          ) {
             error.statusCode = 404;
           }
           if (!error.code && error.message?.includes('PGRST205')) {
             error.code = 'PGRST205';
           }
         }
-        
+
         throw error;
       }
     },

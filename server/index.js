@@ -4171,19 +4171,19 @@ app.post(
             // Insert new dish into database
             try {
               await db.run(
-              `INSERT INTO sales_dishes (
+                `INSERT INTO sales_dishes (
                 id, location_id, dish_name, dish_name_original, category_gestionale,
                 recipe_id, is_linked
               ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [
-                dish.id,
-                dish.location_id,
-                dish.dish_name,
-                dish.dish_name_original,
-                dish.category_gestionale,
-                dish.recipe_id,
-                dish.is_linked,
-              ]
+                [
+                  dish.id,
+                  dish.location_id,
+                  dish.dish_name,
+                  dish.dish_name_original,
+                  dish.category_gestionale,
+                  dish.recipe_id,
+                  dish.is_linked,
+                ]
               );
             } catch (error) {
               // If duplicate key error (race condition), fetch existing dish and use it
@@ -4436,7 +4436,7 @@ app.delete(
 
       // Group dish_data by recipe_id and date for efficient recipe_sales updates
       const recipeSalesUpdates = new Map();
-      
+
       for (const dishData of dishDataRecords) {
         if (dishData.recipe_id) {
           const saleDate = new Date(
@@ -4446,7 +4446,7 @@ app.delete(
           )
             .toISOString()
             .split('T')[0];
-          
+
           const key = `${dishData.recipe_id}_${saleDate}`;
           if (recipeSalesUpdates.has(key)) {
             const existing = recipeSalesUpdates.get(key);
@@ -4537,7 +4537,11 @@ app.delete(
             // Find the most recent remaining import date
             let latestDate = null;
             for (const imp of remainingImports) {
-              const importDate = new Date(imp.period_year, imp.period_month - 1, 1);
+              const importDate = new Date(
+                imp.period_year,
+                imp.period_month - 1,
+                1
+              );
               if (!latestDate || importDate > latestDate) {
                 latestDate = importDate;
               }
@@ -4560,10 +4564,10 @@ app.delete(
 
       // Delete the import (CASCADE will delete sales_categories and sales_dish_data)
       // This must be done AFTER we've collected all the data we need
-      await db.run('DELETE FROM sales_imports WHERE id = ? AND location_id = ?', [
-        importId,
-        locationId,
-      ]);
+      await db.run(
+        'DELETE FROM sales_imports WHERE id = ? AND location_id = ?',
+        [importId, locationId]
+      );
 
       res.json({
         success: true,
@@ -4572,7 +4576,9 @@ app.delete(
     } catch (error) {
       console.error('Failed to delete import:', error);
       res.status(500).json({
-        error: 'Errore durante l\'eliminazione dell\'import: ' + (error.message || 'Unknown error'),
+        error:
+          "Errore durante l'eliminazione dell'import: " +
+          (error.message || 'Unknown error'),
       });
     }
   }
