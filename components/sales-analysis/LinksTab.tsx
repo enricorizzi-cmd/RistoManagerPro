@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
 import {
   getDishes,
@@ -12,6 +12,8 @@ interface LinksTabProps {
   locationId: string;
 }
 
+const ITEMS_PER_PAGE = 50;
+
 const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const { showNotification } = useAppContext();
   const [dishes, setDishes] = useState<any[]>([]);
@@ -23,18 +25,37 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDish, setEditingDish] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalDishes, setTotalDishes] = useState(0);
+  const [totalLinked, setTotalLinked] = useState(0);
+  const [totalUnlinked, setTotalUnlinked] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filter changes
+  }, [filter]);
+
+  // Debounce search - reset to page 1 when search changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     loadDishes();
     loadRecipes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, filter]);
+  }, [locationId, filter, currentPage, searchTerm]);
 
-  const loadDishes = async () => {
+  const loadDishes = useCallback(async () => {
     setLoading(true);
     try {
       // Archiviati sono sempre non collegati
       const isArchivedView = filter === 'archived';
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
       const result = await getDishes(locationId, {
         linked:
           filter === 'all'
@@ -46,10 +67,25 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                 : undefined,
         archived: isArchivedView ? true : undefined,
         search: searchTerm || undefined,
-        limit: 100,
-        offset: 0,
+        limit: ITEMS_PER_PAGE,
+        offset: offset,
       });
       setDishes(result.dishes);
+      setTotalDishes(result.total || 0);
+      setHasMore(result.pagination?.hasMore || false);
+      
+      // Load totals for stats (only on first page and when not searching)
+      if (currentPage === 1 && !searchTerm) {
+        const allResult = await getDishes(locationId, {
+          linked: undefined,
+          archived: false,
+          limit: 10000, // Get all for counting
+          offset: 0,
+        });
+        const allDishes = allResult.dishes;
+        setTotalLinked(allDishes.filter(d => d.is_linked && !d.is_archived).length);
+        setTotalUnlinked(allDishes.filter(d => !d.is_linked && !d.is_archived).length);
+      }
     } catch (error) {
       showNotification(
         error instanceof Error
@@ -60,7 +96,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId, filter, currentPage, searchTerm, showNotification]);
 
   const loadRecipes = async () => {
     try {
@@ -107,11 +143,13 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     }
   };
 
-  const linkedCount = dishes.filter(d => d.is_linked && !d.is_archived).length;
-  const unlinkedCount = dishes.filter(
+  // Use total counts from API when available, otherwise fallback to current page
+  const linkedCount = currentPage === 1 ? totalLinked : dishes.filter(d => d.is_linked && !d.is_archived).length;
+  const unlinkedCount = currentPage === 1 ? totalUnlinked : dishes.filter(
     d => !d.is_linked && !d.is_archived
   ).length;
-  // const archivedCount = dishes.filter(d => d.is_archived).length; // Reserved for future use
+  
+  const totalPages = Math.ceil(totalDishes / ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -120,17 +158,17 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Totale Piatti</div>
           <div className="text-2xl font-bold text-gray-900">
-            {dishes.length}
+            {totalDishes}
           </div>
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4">
           <div className="text-sm text-green-600">Collegati</div>
-          <div className="text-2xl font-bold text-green-700">{linkedCount}</div>
+          <div className="text-2xl font-bold text-green-700">{totalLinked}</div>
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4">
           <div className="text-sm text-yellow-600">Non Collegati</div>
           <div className="text-2xl font-bold text-yellow-700">
-            {unlinkedCount}
+            {totalUnlinked}
           </div>
         </div>
       </div>
@@ -191,9 +229,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
             placeholder="Cerca piatto..."
             value={searchTerm}
             onChange={e => {
-              setSearchTerm(e.target.value);
-              // Debounce search
-              setTimeout(() => loadDishes(), 500);
+              const value = e.target.value;
+              setSearchTerm(value);
+              setCurrentPage(1); // Reset to first page on search
             }}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
@@ -368,6 +406,89 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || loading}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Precedente
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages || loading || !hasMore}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Successivo
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Mostrando <span className="font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> a{' '}
+                  <span className="font-medium">
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalDishes)}
+                  </span>{' '}
+                  di <span className="font-medium">{totalDishes}</span> risultati
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1 || loading}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Precedente</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        disabled={loading}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages || loading || !hasMore}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Successivo</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
           </div>
         )}
       </div>
