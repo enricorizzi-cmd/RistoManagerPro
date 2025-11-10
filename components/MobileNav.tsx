@@ -22,7 +22,7 @@ const NavLink: React.FC<{
   return (
     <a
       href={href}
-      className={`flex flex-col items-center justify-center flex-1 pt-2 pb-1 text-xs transition-colors duration-200 ${
+      className={`flex flex-col items-center justify-center flex-1 pt-3 pb-2 text-xs transition-colors duration-200 ${
         isActive ? 'text-primary' : 'text-gray-500 hover:text-primary-600'
       }`}
       aria-current={isActive ? 'page' : undefined}
@@ -37,7 +37,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentPage }) => {
   const { user } = useAuth();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg flex z-40">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg flex z-50 pb-2">
       <NavLink
         href="#dashboard"
         icon={<DashboardIcon className="h-6 w-6" />}

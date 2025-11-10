@@ -203,7 +203,7 @@ const Chatbot: React.FC = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 bg-primary-600 hover:bg-primary-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center gap-2"
+        className="fixed bottom-20 md:bottom-4 right-4 bg-primary-600 hover:bg-primary-700 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center gap-2"
         aria-label="Apri chatbot"
       >
         <svg
@@ -225,7 +225,7 @@ const Chatbot: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 h-[500px] bg-white rounded-xl shadow-xl flex flex-col z-40 border border-gray-200">
+    <div className="fixed bottom-20 md:bottom-4 right-4 w-80 h-[500px] bg-white rounded-xl shadow-xl flex flex-col z-40 border border-gray-200">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-3 rounded-t-xl flex items-center justify-between">
         <div className="flex items-center gap-3">
