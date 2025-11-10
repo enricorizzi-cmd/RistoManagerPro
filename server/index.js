@@ -4435,7 +4435,7 @@ app.delete(
       const affectedDishIds = [...new Set(dishDataRecords.map(d => d.dish_id))];
 
       // Group dish_data by recipe_id and date for efficient recipe_sales updates
-      const recipeSalesUpdates = new Map<string, { recipeId: string; saleDate: string; quantity: number }>();
+      const recipeSalesUpdates = new Map();
       
       for (const dishData of dishDataRecords) {
         if (dishData.recipe_id) {
