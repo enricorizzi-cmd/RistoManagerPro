@@ -412,5 +412,3 @@ A: No. `ref.current` è `null` durante il rendering. Usalo solo in `useEffect` o
 
 **Q: Come faccio a sapere se un ref è ancora valido?**  
 A: Usa optional chaining: `ref.current?.method()`. Se `ref.current` è `null`, l'espressione ritorna `undefined` senza errori.
-
-

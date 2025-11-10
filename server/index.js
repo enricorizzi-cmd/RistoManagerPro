@@ -2667,7 +2667,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           if (
             financialPlanState.consuntivoOverrides[yearKey] &&
             financialPlanState.consuntivoOverrides[yearKey][monthKey] &&
-            financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey] &&
+            financialPlanState.consuntivoOverrides[yearKey][monthKey][
+              macroKey
+            ] &&
             financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
               categoryKey
             ] &&
@@ -2676,9 +2678,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             ][detailKey] !== undefined
           ) {
             return (
-              financialPlanState.consuntivoOverrides[yearKey][monthKey][macroKey][
-                categoryKey
-              ][detailKey] || 0
+              financialPlanState.consuntivoOverrides[yearKey][monthKey][
+                macroKey
+              ][categoryKey][detailKey] || 0
             );
           }
           return 0;
@@ -2695,50 +2697,54 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           const monthStart = year === startYear ? startMonthIndex : 0;
           const monthEnd = year === endYear ? endMonthIndex : 11;
 
-          for (let monthIndex = monthStart; monthIndex <= monthEnd; monthIndex++) {
-          // Calculate Incassato (macroId: 1)
-          causaliCatalog.forEach(group => {
-            if (group.macroId === 1) {
-              // Incassato
-              group.categories.forEach(category => {
-                category.items.forEach(item => {
-                  incassatoPeriod += getConsuntivoValue(
-                    group.macroCategory,
-                    category.name,
-                    item,
-                    year,
-                    monthIndex
-                  );
+          for (
+            let monthIndex = monthStart;
+            monthIndex <= monthEnd;
+            monthIndex++
+          ) {
+            // Calculate Incassato (macroId: 1)
+            causaliCatalog.forEach(group => {
+              if (group.macroId === 1) {
+                // Incassato
+                group.categories.forEach(category => {
+                  category.items.forEach(item => {
+                    incassatoPeriod += getConsuntivoValue(
+                      group.macroCategory,
+                      category.name,
+                      item,
+                      year,
+                      monthIndex
+                    );
+                  });
                 });
-              });
-            } else if (group.macroId === 2) {
-              // Costi Fissi
-              group.categories.forEach(category => {
-                category.items.forEach(item => {
-                  costiFissiPeriod += getConsuntivoValue(
-                    group.macroCategory,
-                    category.name,
-                    item,
-                    year,
-                    monthIndex
-                  );
+              } else if (group.macroId === 2) {
+                // Costi Fissi
+                group.categories.forEach(category => {
+                  category.items.forEach(item => {
+                    costiFissiPeriod += getConsuntivoValue(
+                      group.macroCategory,
+                      category.name,
+                      item,
+                      year,
+                      monthIndex
+                    );
+                  });
                 });
-              });
-            } else if (group.macroId === 3) {
-              // Costi Variabili
-              group.categories.forEach(category => {
-                category.items.forEach(item => {
-                  costiVariabiliPeriod += getConsuntivoValue(
-                    group.macroCategory,
-                    category.name,
-                    item,
-                    year,
-                    monthIndex
-                  );
+              } else if (group.macroId === 3) {
+                // Costi Variabili
+                group.categories.forEach(category => {
+                  category.items.forEach(item => {
+                    costiVariabiliPeriod += getConsuntivoValue(
+                      group.macroCategory,
+                      category.name,
+                      item,
+                      year,
+                      monthIndex
+                    );
+                  });
                 });
-              });
-            }
-          });
+              }
+            });
           }
         }
 
@@ -2846,20 +2852,16 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       const endYear = endDate.getFullYear();
       const endMonth = endDate.getMonth() + 1; // 1-based for DB
 
-      const salesPeriodData = await dbQuery(
+      const salesPeriodData = await dbQuery(locationId, salesDataQuery, [
         locationId,
-        salesDataQuery,
-        [
-          locationId,
-          startYear,
-          startMonth,
-          endMonth,
-          startYear,
-          endYear,
-          endYear,
-          endMonth,
-        ]
-      );
+        startYear,
+        startMonth,
+        endMonth,
+        startYear,
+        endYear,
+        endYear,
+        endMonth,
+      ]);
 
       if (salesPeriodData && salesPeriodData.length > 0) {
         totalSalesValue = parseFloat(salesPeriodData[0].total_value || 0);
@@ -3046,56 +3048,71 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     }
 
     // Use period totals instead of single month
-    const fatturatoCurrent = fatturatoPeriod > 0 ? fatturatoPeriod : 
-      (currentMonthData?.fatturato !== null &&
-      currentMonthData?.fatturato !== undefined
-        ? currentMonthData.fatturato
-        : 0);
-    const utileCurrent = utilePeriod > 0 ? utilePeriod :
-      (currentMonthData?.utile !== null && currentMonthData?.utile !== undefined
-        ? currentMonthData.utile
-        : 0);
-    
+    const fatturatoCurrent =
+      fatturatoPeriod > 0
+        ? fatturatoPeriod
+        : currentMonthData?.fatturato !== null &&
+            currentMonthData?.fatturato !== undefined
+          ? currentMonthData.fatturato
+          : 0;
+    const utileCurrent =
+      utilePeriod > 0
+        ? utilePeriod
+        : currentMonthData?.utile !== null &&
+            currentMonthData?.utile !== undefined
+          ? currentMonthData.utile
+          : 0;
+
     // For previous period comparison, calculate previous period totals
     let fatturatoPrevious = 0;
     let utilePrevious = 0;
-    
+
     // Calculate previous period based on current period
     if (period === 'month') {
       // Previous month
       const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
       const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-      
+
       if (financialStats.length > 0) {
         const prevMonthStats = financialStats.filter(stat => {
           const parsed = parsePlanMonthLabel(stat.month);
-          if (parsed && parsed.year === prevYear && parsed.monthIndex === prevMonth) {
+          if (
+            parsed &&
+            parsed.year === prevYear &&
+            parsed.monthIndex === prevMonth
+          ) {
             return true;
           }
           return false;
         });
-        
+
         if (prevMonthStats.length > 0) {
           const prevStat = prevMonthStats[0];
-          fatturatoPrevious = prevStat.fatturatoTotale !== null && prevStat.fatturatoTotale !== undefined
-            ? prevStat.fatturatoTotale
-            : prevStat.fatturatoImponibile !== null && prevStat.fatturatoImponibile !== undefined
-              ? prevStat.fatturatoImponibile
+          fatturatoPrevious =
+            prevStat.fatturatoTotale !== null &&
+            prevStat.fatturatoTotale !== undefined
+              ? prevStat.fatturatoTotale
+              : prevStat.fatturatoImponibile !== null &&
+                  prevStat.fatturatoImponibile !== undefined
+                ? prevStat.fatturatoImponibile
+                : 0;
+          utilePrevious =
+            prevStat.utile !== null && prevStat.utile !== undefined
+              ? prevStat.utile
               : 0;
-          utilePrevious = prevStat.utile !== null && prevStat.utile !== undefined
-            ? prevStat.utile
-            : 0;
         }
       }
     } else {
       // For other periods, use previous period data
-      fatturatoPrevious = prevMonthData?.fatturato !== null &&
+      fatturatoPrevious =
+        prevMonthData?.fatturato !== null &&
         prevMonthData?.fatturato !== undefined
           ? prevMonthData.fatturato
           : 0;
-      utilePrevious = prevMonthData?.utile !== null && prevMonthData?.utile !== undefined
-        ? prevMonthData.utile
-        : 0;
+      utilePrevious =
+        prevMonthData?.utile !== null && prevMonthData?.utile !== undefined
+          ? prevMonthData.utile
+          : 0;
     }
 
     // Debug: Log calculated KPIs
@@ -3176,25 +3193,33 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           sparkline: [],
         },
         // Update utile with period value if calculated from financial plan
-        utile: utilePeriod > 0
-          ? {
-              current: utilePeriod,
-              previous: utilePrevious,
-              change: utilePeriod - utilePrevious,
-              changePercent: calculateChangePercent(utilePeriod, utilePrevious),
-              sparkline: calculateSparkline(financialData, 'utile', 7),
-            }
-          : kpis.utile,
+        utile:
+          utilePeriod > 0
+            ? {
+                current: utilePeriod,
+                previous: utilePrevious,
+                change: utilePeriod - utilePrevious,
+                changePercent: calculateChangePercent(
+                  utilePeriod,
+                  utilePrevious
+                ),
+                sparkline: calculateSparkline(financialData, 'utile', 7),
+              }
+            : kpis.utile,
         // Update fatturato with period value
-        fatturato: fatturatoPeriod > 0
-          ? {
-              current: fatturatoPeriod,
-              previous: fatturatoPrevious,
-              change: fatturatoPeriod - fatturatoPrevious,
-              changePercent: calculateChangePercent(fatturatoPeriod, fatturatoPrevious),
-              sparkline: calculateSparkline(financialData, 'fatturato', 7),
-            }
-          : kpis.fatturato,
+        fatturato:
+          fatturatoPeriod > 0
+            ? {
+                current: fatturatoPeriod,
+                previous: fatturatoPrevious,
+                change: fatturatoPeriod - fatturatoPrevious,
+                changePercent: calculateChangePercent(
+                  fatturatoPeriod,
+                  fatturatoPrevious
+                ),
+                sparkline: calculateSparkline(financialData, 'fatturato', 7),
+              }
+            : kpis.fatturato,
       },
       financialData: financialData.reverse(), // Reverse to show oldest first
       bcgMatrix: recipesWithPopolarita,
