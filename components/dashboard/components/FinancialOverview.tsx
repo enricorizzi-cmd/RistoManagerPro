@@ -22,7 +22,30 @@ interface FinancialOverviewProps {
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   data,
 }) => {
-  const chartData = data.slice(-12); // Last 12 months
+  // Filter out null values and get last 12 months with data
+  const chartData = data
+    .filter(
+      d =>
+        d.fatturato !== null ||
+        d.fatturatoPrevisionale !== null ||
+        d.incassato !== null ||
+        d.utile !== null
+    )
+    .slice(-12);
+
+  // If no data, show message
+  if (chartData.length === 0) {
+    return (
+      <GlassCard>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">
+          Fatturato & Previsioni
+        </h2>
+        <div className="flex h-[300px] items-center justify-center text-gray-500">
+          <p>Nessun dato finanziario disponibile</p>
+        </div>
+      </GlassCard>
+    );
+  }
 
   return (
     <GlassCard>

@@ -2625,9 +2625,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         monthsToInclude = 0;
         break;
       case 'month':
-        // Current month
-        startDate = new Date(currentYear, currentMonth, 1);
-        monthsToInclude = currentMonth + 1; // Include current month
+        // Previous month (since data is loaded on the 1st of the month)
+        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const prevMonthYear =
+          currentMonth === 0 ? currentYear - 1 : currentYear;
+        startDate = new Date(prevMonthYear, prevMonth, 1);
+        endDate = new Date(prevMonthYear, prevMonth + 1, 0); // Last day of previous month
+        monthsToInclude = 1; // Only previous month
         daysToInclude = 0;
         break;
       case 'year':
@@ -2637,9 +2641,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         daysToInclude = 0;
         break;
       default:
-        // Default to month
-        startDate = new Date(currentYear, currentMonth, 1);
-        monthsToInclude = currentMonth + 1;
+        // Default to previous month
+        const defaultPrevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const defaultPrevMonthYear =
+          currentMonth === 0 ? currentYear - 1 : currentYear;
+        startDate = new Date(defaultPrevMonthYear, defaultPrevMonth, 1);
+        endDate = new Date(defaultPrevMonthYear, defaultPrevMonth + 1, 0);
+        monthsToInclude = 1;
         daysToInclude = 0;
     }
 

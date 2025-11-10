@@ -69,6 +69,23 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
     ...r,
   }));
 
+  // Calculate dynamic Y domain based on actual data
+  const marginalitaValues = data
+    .map(d => d.y)
+    .filter(v => !isNaN(v) && isFinite(v));
+  const minMarginalita =
+    marginalitaValues.length > 0 ? Math.min(...marginalitaValues) : -100;
+  const maxMarginalita =
+    marginalitaValues.length > 0 ? Math.max(...marginalitaValues) : 100;
+
+  // Add padding to domain (10% on each side)
+  const yDomainPadding = Math.max(
+    Math.abs(maxMarginalita - minMarginalita) * 0.1,
+    10
+  );
+  const yDomainMin = Math.min(minMarginalita - yDomainPadding, -100);
+  const yDomainMax = Math.max(maxMarginalita + yDomainPadding, 100);
+
   return (
     <GlassCard>
       <h2 className="text-xl font-bold text-gray-900 mb-6">Matrice BCG</h2>
@@ -102,7 +119,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
               position: 'insideLeft',
               style: { textAnchor: 'middle', fontSize: 12 },
             }}
-            domain={[-100, 100]}
+            domain={[yDomainMin, yDomainMax]}
             tick={{ fontSize: 11 }}
             allowDataOverflow={false}
           />
@@ -129,12 +146,13 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             }}
           />
           {/* Quadrant areas - MUST be before Scatter to render behind points */}
-          {/* Full chart coverage: X [0-100], Y [-100 to 100] */}
+          {/* Full chart coverage: X [0-100], Y [yDomainMin to yDomainMax] */}
+          {/* Meta line is at 50% of Y domain, not fixed at 50 */}
           <ReferenceArea
             x1={0}
             x2={50}
-            y1={-100}
-            y2={50}
+            y1={yDomainMin}
+            y2={(yDomainMin + yDomainMax) / 2}
             fill="#EF4444"
             fillOpacity={0.2}
             stroke="none"
@@ -142,8 +160,8 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
           <ReferenceArea
             x1={50}
             x2={100}
-            y1={-100}
-            y2={50}
+            y1={yDomainMin}
+            y2={(yDomainMin + yDomainMax) / 2}
             fill="#6366F1"
             fillOpacity={0.2}
             stroke="none"
@@ -151,8 +169,8 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
           <ReferenceArea
             x1={0}
             x2={50}
-            y1={50}
-            y2={100}
+            y1={(yDomainMin + yDomainMax) / 2}
+            y2={yDomainMax}
             fill="#FBBF24"
             fillOpacity={0.2}
             stroke="none"
@@ -160,8 +178,8 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
           <ReferenceArea
             x1={50}
             x2={100}
-            y1={50}
-            y2={100}
+            y1={(yDomainMin + yDomainMax) / 2}
+            y2={yDomainMax}
             fill="#10B981"
             fillOpacity={0.2}
             stroke="none"
@@ -180,7 +198,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             }}
           />
           <ReferenceLine
-            y={50}
+            y={(yDomainMin + yDomainMax) / 2}
             stroke="#9CA3AF"
             strokeWidth={2}
             strokeDasharray="5 5"
