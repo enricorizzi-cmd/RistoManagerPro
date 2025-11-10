@@ -2577,7 +2577,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     let prevMonthData = null;
 
     if (financialData.length > 0) {
-      // Sort by month (most recent first) - financialData is already sorted DESC
+      // financialData is already sorted DESC from the query (ORDER BY month DESC)
       // Use the first (most recent) month as current
       currentMonthData = financialData[0];
 
@@ -2604,10 +2604,32 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     // prevMonthData is already set above
 
-    const fatturatoCurrent = currentMonthData?.fatturato || 0;
-    const fatturatoPrevious = prevMonthData?.fatturato || 0;
-    const utileCurrent = currentMonthData?.utile || 0;
-    const utilePrevious = prevMonthData?.utile || 0;
+    // Ensure we have valid data before calculating KPIs
+    if (!currentMonthData) {
+      console.log(`[Dashboard API] ERROR: currentMonthData is null`);
+      return res.status(500).json({
+        error: 'No financial data available for dashboard',
+      });
+    }
+
+    const fatturatoCurrent =
+      currentMonthData?.fatturato !== null &&
+      currentMonthData?.fatturato !== undefined
+        ? currentMonthData.fatturato
+        : 0;
+    const fatturatoPrevious =
+      prevMonthData?.fatturato !== null &&
+      prevMonthData?.fatturato !== undefined
+        ? prevMonthData.fatturato
+        : 0;
+    const utileCurrent =
+      currentMonthData?.utile !== null && currentMonthData?.utile !== undefined
+        ? currentMonthData.utile
+        : 0;
+    const utilePrevious =
+      prevMonthData?.utile !== null && prevMonthData?.utile !== undefined
+        ? prevMonthData.utile
+        : 0;
 
     // Debug: Log calculated KPIs
     console.log(
