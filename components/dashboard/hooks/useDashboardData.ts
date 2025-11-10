@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAppContext } from '../../../contexts/AppContext';
 import { fetchDashboardData } from '../services/dashboardApi';
-import type { DashboardData } from '../types/dashboard.types';
+import type { DashboardData, PeriodFilter } from '../types/dashboard.types';
 
 export function useDashboardData() {
   const { currentLocation } = useAppContext();
@@ -11,6 +11,7 @@ export function useDashboardData() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
 
   useEffect(() => {
     if (!currentLocation?.id) {
@@ -20,7 +21,7 @@ export function useDashboardData() {
 
     loadDashboardData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLocation?.id]);
+  }, [currentLocation?.id, periodFilter]);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -28,7 +29,7 @@ export function useDashboardData() {
 
     try {
       // Fetch dashboard data from API endpoint
-      const data = await fetchDashboardData(currentLocation!.id);
+      const data = await fetchDashboardData(currentLocation!.id, periodFilter);
 
       if (data) {
         setDashboardData(data);
@@ -94,6 +95,8 @@ export function useDashboardData() {
     dashboardData,
     loading,
     error,
+    periodFilter,
+    setPeriodFilter,
     refetch: loadDashboardData,
   };
 }

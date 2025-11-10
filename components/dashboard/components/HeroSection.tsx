@@ -6,16 +6,20 @@ import { AnimatedCounter } from './AnimatedCounter';
 import { SparklineChart } from './SparklineChart';
 import { GlowBadge } from './GlowBadge';
 import { CashIcon, TrendingUpIcon, ChartBarIcon } from '../../icons/Icons';
-import type { DashboardKPIs } from '../types/dashboard.types';
+import type { DashboardKPIs, PeriodFilter } from '../types/dashboard.types';
 
 interface HeroSectionProps {
   kpis: DashboardKPIs;
   loading?: boolean;
+  periodFilter?: PeriodFilter;
+  onPeriodChange?: (period: PeriodFilter) => void;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   kpis,
   loading = false,
+  periodFilter = 'month',
+  onPeriodChange,
 }) => {
   const kpiCards = [
     {
@@ -185,19 +189,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Quick Filters */}
         <div className="mt-6 flex flex-wrap gap-2 justify-center">
-          {['Oggi', 'Settimana', 'Mese', 'Anno'].map((filter, index) => (
-            <motion.button
-              key={filter}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 + index * 0.05 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-sm font-medium text-gray-700 hover:bg-white/20 transition-colors"
-            >
-              {filter}
-            </motion.button>
-          ))}
+          {[
+            { label: 'Oggi', value: 'today' as PeriodFilter },
+            { label: 'Settimana', value: 'week' as PeriodFilter },
+            { label: 'Mese', value: 'month' as PeriodFilter },
+            { label: 'Anno', value: 'year' as PeriodFilter },
+          ].map((filter, index) => {
+            const isActive = periodFilter === filter.value;
+            return (
+              <motion.button
+                key={filter.value}
+                onClick={() => onPeriodChange?.(filter.value)}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 + index * 0.05 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-4 py-2 rounded-lg backdrop-blur-sm border text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary-600 text-white border-primary-600 shadow-lg'
+                    : 'bg-white/10 border-white/20 text-gray-700 hover:bg-white/20'
+                }`}
+              >
+                {filter.label}
+              </motion.button>
+            );
+          })}
         </div>
       </GlassCard>
     </div>

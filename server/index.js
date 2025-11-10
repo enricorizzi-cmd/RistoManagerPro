@@ -1819,6 +1819,7 @@ app.get('/api/financial-stats', requireAuth, async (req, res) => {
 app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
     const locationId = req.query.locationId;
+    const period = req.query.period || 'month';
 
     if (!locationId) {
       return res.status(400).json({ error: 'Location ID is required' });
@@ -1844,6 +1845,486 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       }
     }
 
+    // If locationId is "all", aggregate data from all active locations
+    if (locationId === 'all') {
+      const locations = await masterDbQuery(
+        'SELECT id FROM locations WHERE status = "active" AND id != "all"'
+      );
+
+      const aggregatedFinancialStats = new Map();
+      const aggregatedRecipes = new Map();
+      const aggregatedRecipeSales = new Map();
+      const aggregatedSalesDishes = new Map();
+      const aggregatedSalesCategories = new Map();
+
+      // Aggregate data from all locations
+      for (const location of locations) {
+        try {
+          // Financial stats
+          const locationStats = await dbQuery(
+            location.id,
+            `
+            SELECT 
+              month,
+              fatturato_totale as fatturatoTotale,
+              fatturato_imponibile as fatturatoImponibile,
+              fatturato_previsionale as fatturatoPrevisionale,
+              incassato,
+              incassato_previsionale as incassatoPrevisionale,
+              utile,
+              utile_previsionale as utilePrevisionale
+            FROM financial_stats 
+            WHERE location_id = ? 
+            ORDER BY month DESC
+            LIMIT 48
+          `,
+            [location.id]
+          );
+
+          locationStats.forEach(stat => {
+            const key = stat.month;
+            if (aggregatedFinancialStats.has(key)) {
+              const existing = aggregatedFinancialStats.get(key);
+              existing.fatturatoTotale =
+                (existing.fatturatoTotale || 0) + (stat.fatturatoTotale || 0);
+              existing.fatturatoImponibile =
+                (existing.fatturatoImponibile || 0) +
+                (stat.fatturatoImponibile || 0);
+              existing.fatturatoPrevisionale =
+                (existing.fatturatoPrevisionale || 0) +
+                (stat.fatturatoPrevisionale || 0);
+              existing.incassato =
+                (existing.incassato || 0) + (stat.incassato || 0);
+              existing.incassatoPrevisionale =
+                (existing.incassatoPrevisionale || 0) +
+                (stat.incassatoPrevisionale || 0);
+              existing.utile = (existing.utile || 0) + (stat.utile || 0);
+              existing.utilePrevisionale =
+                (existing.utilePrevisionale || 0) +
+                (stat.utilePrevisionale || 0);
+            } else {
+              aggregatedFinancialStats.set(key, { ...stat });
+            }
+          });
+
+          // Recipes (BCG Matrix) - aggregate by nome
+          const locationRecipes = await dbQuery(
+            location.id,
+            `
+            SELECT 
+              nome_piatto as nome,
+              prezzo_vendita as prezzoVendita,
+              food_cost as foodCost,
+              utile,
+              marginalita,
+              categoria
+            FROM recipes
+            WHERE location_id = ?
+          `,
+            [location.id]
+          );
+
+          locationRecipes.forEach(recipe => {
+            const key = recipe.nome;
+            if (aggregatedRecipes.has(key)) {
+              const existing = aggregatedRecipes.get(key);
+              // Use weighted average for prezzo and marginalita
+              const totalCount = existing.count + 1;
+              existing.prezzoVendita =
+                (existing.prezzoVendita * existing.count +
+                  parseFloat(recipe.prezzoVendita || 0)) /
+                totalCount;
+              existing.marginalita =
+                (existing.marginalita * existing.count +
+                  parseFloat(recipe.marginalita || 0)) /
+                totalCount;
+              existing.count = totalCount;
+            } else {
+              aggregatedRecipes.set(key, {
+                nome: recipe.nome,
+                prezzoVendita: parseFloat(recipe.prezzoVendita || 0),
+                foodCost: parseFloat(recipe.foodCost || 0),
+                utile: parseFloat(recipe.utile || 0),
+                marginalita: parseFloat(recipe.marginalita || 0),
+                categoria: recipe.categoria,
+                count: 1,
+              });
+            }
+          });
+
+          // Recipe sales - aggregate by recipe nome
+          const locationRecipeSales = await dbQuery(
+            location.id,
+            `
+            SELECT 
+              r.nome_piatto as nome,
+              SUM(rs.quantity) as total_quantity
+            FROM recipe_sales rs
+            JOIN recipes r ON rs.recipe_id = r.id
+            WHERE rs.location_id = ?
+            GROUP BY r.nome_piatto
+          `,
+            [location.id]
+          );
+
+          locationRecipeSales.forEach(sale => {
+            const key = sale.nome;
+            if (aggregatedRecipeSales.has(key)) {
+              aggregatedRecipeSales.set(
+                key,
+                aggregatedRecipeSales.get(key) + (sale.total_quantity || 0)
+              );
+            } else {
+              aggregatedRecipeSales.set(key, sale.total_quantity || 0);
+            }
+          });
+
+          // Sales dishes
+          const locationSalesDishes = await dbQuery(
+            location.id,
+            `
+            SELECT 
+              d.dish_name,
+              SUM(sdd.total_value) as total_value,
+              SUM(sdd.quantity) as total_quantity
+            FROM sales_dish_data sdd
+            JOIN sales_dishes d ON sdd.dish_id = d.id
+            WHERE sdd.location_id = ?
+            GROUP BY d.dish_name
+          `,
+            [location.id]
+          );
+
+          locationSalesDishes.forEach(dish => {
+            const key = dish.dish_name;
+            if (aggregatedSalesDishes.has(key)) {
+              const existing = aggregatedSalesDishes.get(key);
+              existing.total_value =
+                (existing.total_value || 0) + parseFloat(dish.total_value || 0);
+              existing.total_quantity =
+                (existing.total_quantity || 0) +
+                parseInt(dish.total_quantity || 0);
+            } else {
+              aggregatedSalesDishes.set(key, {
+                dish_name: dish.dish_name,
+                total_value: parseFloat(dish.total_value || 0),
+                total_quantity: parseInt(dish.total_quantity || 0),
+              });
+            }
+          });
+
+          // Sales categories
+          const locationSalesCategories = await dbQuery(
+            location.id,
+            `
+            SELECT 
+              category_name,
+              SUM(total_value) as total_value,
+              SUM(quantity) as total_quantity
+            FROM sales_categories
+            WHERE location_id = ?
+            GROUP BY category_name
+          `,
+            [location.id]
+          );
+
+          locationSalesCategories.forEach(cat => {
+            const key = cat.category_name;
+            if (aggregatedSalesCategories.has(key)) {
+              const existing = aggregatedSalesCategories.get(key);
+              existing.total_value =
+                (existing.total_value || 0) + parseFloat(cat.total_value || 0);
+              existing.total_quantity =
+                (existing.total_quantity || 0) +
+                parseInt(cat.total_quantity || 0);
+            } else {
+              aggregatedSalesCategories.set(key, {
+                category_name: cat.category_name,
+                total_value: parseFloat(cat.total_value || 0),
+                total_quantity: parseInt(cat.total_quantity || 0),
+              });
+            }
+          });
+        } catch (error) {
+          console.error(
+            `Error aggregating dashboard data for location ${location.id}:`,
+            error
+          );
+        }
+      }
+
+      // Convert aggregated data to arrays
+      const financialStats = Array.from(aggregatedFinancialStats.values())
+        .sort((a, b) => {
+          // Sort by month (most recent first)
+          return b.month.localeCompare(a.month);
+        })
+        .slice(0, 48);
+
+      const recipes = Array.from(aggregatedRecipes.values()).map(recipe => ({
+        id: `all-${recipe.nome}`,
+        nome: recipe.nome,
+        prezzoVendita: recipe.prezzoVendita,
+        foodCost: recipe.foodCost,
+        utile: recipe.utile,
+        marginalita: recipe.marginalita,
+        categoria: recipe.categoria,
+      }));
+
+      const recipeSales = Array.from(aggregatedRecipeSales.entries()).map(
+        ([nome, total_quantity]) => ({
+          recipe_id: `all-${nome}`,
+          nome: nome,
+          total_quantity: total_quantity,
+        })
+      );
+
+      const salesDishes = Array.from(aggregatedSalesDishes.values())
+        .sort((a, b) => b.total_value - a.total_value)
+        .slice(0, 10);
+
+      const salesCategories = Array.from(
+        aggregatedSalesCategories.values()
+      ).sort((a, b) => b.total_value - a.total_value);
+
+      // Continue with calculations using aggregated data
+      const totalSales = recipeSales.reduce(
+        (sum, rs) => sum + (rs.total_quantity || 0),
+        0
+      );
+      const recipesWithPopolarita = recipes.map(recipe => {
+        const sales = recipeSales.find(rs => rs.nome === recipe.nome);
+        const quantity = sales?.total_quantity || 0;
+        const popolarita = totalSales > 0 ? (quantity / totalSales) * 100 : 0;
+
+        return {
+          id: recipe.id,
+          nome: recipe.nome,
+          popolarita: popolarita,
+          marginalita: recipe.marginalita,
+          fatturato: quantity * recipe.prezzoVendita || 0,
+          categoria: recipe.categoria,
+          prezzoVendita: recipe.prezzoVendita,
+          foodCost: recipe.foodCost,
+        };
+      });
+
+      const totalSalesValue = salesDishes.reduce(
+        (sum, d) => sum + parseFloat(d.total_value || 0),
+        0
+      );
+      const totalSalesQuantity = salesDishes.reduce(
+        (sum, d) => sum + parseInt(d.total_quantity || 0),
+        0
+      );
+
+      const topDishes = salesDishes.map(dish => ({
+        dishName: dish.dish_name,
+        value: parseFloat(dish.total_value || 0),
+        quantity: parseInt(dish.total_quantity || 0),
+        percentage:
+          totalSalesValue > 0
+            ? (parseFloat(dish.total_value || 0) / totalSalesValue) * 100
+            : 0,
+      }));
+
+      const categoryDistribution = salesCategories.map(cat => ({
+        category: cat.category_name,
+        value: parseFloat(cat.total_value || 0),
+        quantity: parseInt(cat.total_quantity || 0),
+        percentage:
+          totalSalesValue > 0
+            ? (parseFloat(cat.total_value || 0) / totalSalesValue) * 100
+            : 0,
+      }));
+
+      const financialData = financialStats.map(stat => ({
+        month: stat.month,
+        fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
+        fatturatoPrevisionale: stat.fatturatoPrevisionale || null,
+        incassato: stat.incassato || null,
+        incassatoPrevisionale: stat.incassatoPrevisionale || null,
+        costiFissi: null,
+        costiVariabili: null,
+        utile: stat.utile || null,
+        utilePrevisionale: stat.utilePrevisionale || null,
+      }));
+
+      // Debug logging
+      console.log(
+        `[Dashboard API] Aggregated data from ${locations.length} locations`
+      );
+      console.log(
+        `[Dashboard API] Financial stats found: ${financialStats.length}`
+      );
+      console.log(
+        `[Dashboard API] Financial data points: ${financialData.length}`
+      );
+      if (financialData.length > 0) {
+        console.log(
+          `[Dashboard API] Sample months:`,
+          financialData.slice(0, 3).map(d => d.month)
+        );
+      }
+
+      // Helper functions and KPI calculations (same as single location)
+      const normalizeMonthLabel = label => {
+        if (!label) return '';
+        return label
+          .replace(/\./g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+      };
+
+      const matchMonth = (dataMonth, targetMonth) => {
+        const normalizedData = normalizeMonthLabel(dataMonth);
+        const normalizedTarget = normalizeMonthLabel(targetMonth);
+        return (
+          normalizedData === normalizedTarget ||
+          normalizedData.includes(normalizedTarget) ||
+          normalizedTarget.includes(normalizedData)
+        );
+      };
+
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth();
+      const monthNames = [
+        'Gen',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mag',
+        'Giu',
+        'Lug',
+        'Ago',
+        'Set',
+        'Ott',
+        'Nov',
+        'Dic',
+      ];
+
+      const currentMonthFormats = [
+        `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
+        `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
+        `${monthNames[currentMonth]} ${currentYear}`,
+        `${monthNames[currentMonth]}. ${currentYear}`,
+      ];
+
+      let currentMonthData = null;
+      for (const format of currentMonthFormats) {
+        currentMonthData = financialData.find(d => matchMonth(d.month, format));
+        if (currentMonthData) break;
+      }
+
+      if (!currentMonthData && financialData.length > 0) {
+        currentMonthData = financialData[financialData.length - 1];
+        console.log(
+          `[Dashboard API] Current month not found, using most recent: ${currentMonthData.month}`
+        );
+      } else if (currentMonthData) {
+        console.log(
+          `[Dashboard API] Current month data found: ${currentMonthData.month}`
+        );
+      } else {
+        console.log(`[Dashboard API] No financial data available`);
+      }
+
+      const prevMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const prevMonthFormats = [
+        `${monthNames[prevMonthIndex]} ${prevMonthYear.toString().slice(-2)}`,
+        `${monthNames[prevMonthIndex]}. ${prevMonthYear.toString().slice(-2)}`,
+        `${monthNames[prevMonthIndex]} ${prevMonthYear}`,
+        `${monthNames[prevMonthIndex]}. ${prevMonthYear}`,
+      ];
+
+      let prevMonthData = null;
+      for (const format of prevMonthFormats) {
+        prevMonthData = financialData.find(d => matchMonth(d.month, format));
+        if (prevMonthData) break;
+      }
+
+      if (!prevMonthData && financialData.length > 1) {
+        prevMonthData = financialData[financialData.length - 2];
+      } else if (!prevMonthData && financialData.length > 0) {
+        prevMonthData = financialData[financialData.length - 1];
+      }
+
+      const fatturatoCurrent = currentMonthData?.fatturato || 0;
+      const fatturatoPrevious = prevMonthData?.fatturato || 0;
+      const utileCurrent = currentMonthData?.utile || 0;
+      const utilePrevious = prevMonthData?.utile || 0;
+      const margineCurrent =
+        fatturatoCurrent > 0 ? (utileCurrent / fatturatoCurrent) * 100 : 0;
+      const marginePrevious =
+        fatturatoPrevious > 0 ? (utilePrevious / fatturatoPrevious) * 100 : 0;
+
+      const calculateChangePercent = (current, previous) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return ((current - previous) / previous) * 100;
+      };
+
+      const calculateSparkline = (data, field, periods = 7) => {
+        return data.slice(-periods).map(d => d[field] || 0);
+      };
+
+      const kpis = {
+        fatturato: {
+          current: fatturatoCurrent,
+          previous: fatturatoPrevious,
+          change: fatturatoCurrent - fatturatoPrevious,
+          changePercent: calculateChangePercent(
+            fatturatoCurrent,
+            fatturatoPrevious
+          ),
+          sparkline: calculateSparkline(financialData, 'fatturato', 7),
+        },
+        utile: {
+          current: utileCurrent,
+          previous: utilePrevious,
+          change: utileCurrent - utilePrevious,
+          changePercent: calculateChangePercent(utileCurrent, utilePrevious),
+          sparkline: calculateSparkline(financialData, 'utile', 7),
+        },
+        vendite: {
+          current: totalSalesQuantity,
+          previous: 0,
+          change: 0,
+          changePercent: 0,
+          sparkline: [],
+        },
+        margine: {
+          current: margineCurrent,
+          previous: marginePrevious,
+          change: margineCurrent - marginePrevious,
+          changePercent: calculateChangePercent(
+            margineCurrent,
+            marginePrevious
+          ),
+          sparkline: [],
+        },
+      };
+
+      res.json({
+        kpis,
+        financialData: financialData.reverse(),
+        bcgMatrix: recipesWithPopolarita,
+        salesAnalysis: {
+          topDishes,
+          categoryDistribution,
+          ticketMedio:
+            totalSalesQuantity > 0 ? totalSalesValue / totalSalesQuantity : 0,
+          totalVendite: totalSalesValue,
+          totalQuantity: totalSalesQuantity,
+        },
+        aiInsights: [],
+        aiPredictions: null,
+      });
+      return;
+    }
+
+    // Single location query
     const db = getDatabase(locationId);
 
     // Get financial stats
@@ -1997,52 +2478,108 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       utilePrevisionale: stat.utilePrevisionale || null,
     }));
 
-    // Calculate KPIs
+    // Debug logging
+    console.log(`[Dashboard API] Location: ${locationId}, Period: ${period}`);
+    console.log(
+      `[Dashboard API] Financial stats found: ${financialStats.length}`
+    );
+    console.log(
+      `[Dashboard API] Financial data points: ${financialData.length}`
+    );
+    if (financialData.length > 0) {
+      console.log(
+        `[Dashboard API] Sample months:`,
+        financialData.slice(0, 3).map(d => d.month)
+      );
+    }
+
+    // Helper function to normalize month labels for matching
+    const normalizeMonthLabel = label => {
+      if (!label) return '';
+      // Remove dots, normalize spaces, convert to lowercase
+      return label.replace(/\./g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    };
+
+    // Helper function to match month labels (handles different formats)
+    const matchMonth = (dataMonth, targetMonth) => {
+      const normalizedData = normalizeMonthLabel(dataMonth);
+      const normalizedTarget = normalizeMonthLabel(targetMonth);
+      return (
+        normalizedData === normalizedTarget ||
+        normalizedData.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedData)
+      );
+    };
+
+    // Calculate KPIs based on period filter
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
-    const currentMonthLabel =
-      [
-        'Gen',
-        'Feb',
-        'Mar',
-        'Apr',
-        'Mag',
-        'Giu',
-        'Lug',
-        'Ago',
-        'Set',
-        'Ott',
-        'Nov',
-        'Dic',
-      ][currentMonth] +
-      ' ' +
-      currentYear.toString().slice(-2);
+    const monthNames = [
+      'Gen',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mag',
+      'Giu',
+      'Lug',
+      'Ago',
+      'Set',
+      'Ott',
+      'Nov',
+      'Dic',
+    ];
 
-    const currentMonthData = financialData.find(
-      d => d.month === currentMonthLabel
-    );
+    // Try multiple formats for current month
+    const currentMonthFormats = [
+      `${monthNames[currentMonth]} ${currentYear.toString().slice(-2)}`,
+      `${monthNames[currentMonth]}. ${currentYear.toString().slice(-2)}`,
+      `${monthNames[currentMonth]} ${currentYear}`,
+      `${monthNames[currentMonth]}. ${currentYear}`,
+    ];
+
+    // Find current month data (try different formats)
+    let currentMonthData = null;
+    for (const format of currentMonthFormats) {
+      currentMonthData = financialData.find(d => matchMonth(d.month, format));
+      if (currentMonthData) break;
+    }
+
+    // If current month not found, use the most recent month
+    if (!currentMonthData && financialData.length > 0) {
+      currentMonthData = financialData[financialData.length - 1];
+      console.log(
+        `[Dashboard API] Current month not found, using most recent: ${currentMonthData.month}`
+      );
+    } else if (currentMonthData) {
+      console.log(
+        `[Dashboard API] Current month data found: ${currentMonthData.month}`
+      );
+    } else {
+      console.log(`[Dashboard API] No financial data available`);
+    }
+
+    // Find previous month data
     const prevMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const prevMonthLabel =
-      [
-        'Gen',
-        'Feb',
-        'Mar',
-        'Apr',
-        'Mag',
-        'Giu',
-        'Lug',
-        'Ago',
-        'Set',
-        'Ott',
-        'Nov',
-        'Dic',
-      ][prevMonthIndex] +
-      ' ' +
-      prevMonthYear.toString().slice(-2);
-    const prevMonthData =
-      financialData.find(d => d.month === prevMonthLabel) ||
-      financialData[financialData.length - 1];
+    const prevMonthFormats = [
+      `${monthNames[prevMonthIndex]} ${prevMonthYear.toString().slice(-2)}`,
+      `${monthNames[prevMonthIndex]}. ${prevMonthYear.toString().slice(-2)}`,
+      `${monthNames[prevMonthIndex]} ${prevMonthYear}`,
+      `${monthNames[prevMonthIndex]}. ${prevMonthYear}`,
+    ];
+
+    let prevMonthData = null;
+    for (const format of prevMonthFormats) {
+      prevMonthData = financialData.find(d => matchMonth(d.month, format));
+      if (prevMonthData) break;
+    }
+
+    // If previous month not found, use second to last month or last month
+    if (!prevMonthData && financialData.length > 1) {
+      prevMonthData = financialData[financialData.length - 2];
+    } else if (!prevMonthData && financialData.length > 0) {
+      prevMonthData = financialData[financialData.length - 1];
+    }
 
     const fatturatoCurrent = currentMonthData?.fatturato || 0;
     const fatturatoPrevious = prevMonthData?.fatturato || 0;

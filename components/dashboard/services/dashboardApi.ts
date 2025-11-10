@@ -22,11 +22,12 @@ function getAuthHeaders(): globalThis.HeadersInit {
 }
 
 export async function fetchDashboardData(
-  locationId: string
+  locationId: string,
+  period: 'today' | 'week' | 'month' | 'year' | 'custom' = 'month'
 ): Promise<DashboardData | null> {
   try {
     const response = await fetch(
-      buildUrl(`/api/dashboard?locationId=${locationId}`),
+      buildUrl(`/api/dashboard?locationId=${locationId}&period=${period}`),
       {
         headers: getAuthHeaders(),
       }

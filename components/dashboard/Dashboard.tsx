@@ -29,7 +29,8 @@ const Timeline48Months = React.lazy(() =>
 
 export const Dashboard: React.FC = () => {
   const { currentLocation } = useAppContext();
-  const { dashboardData, loading, error } = useDashboardData();
+  const { dashboardData, loading, error, periodFilter, setPeriodFilter } =
+    useDashboardData();
 
   if (!currentLocation?.id) {
     return (
@@ -77,7 +78,12 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Hero Section */}
-      <HeroSection kpis={dashboardData.kpis} loading={loading} />
+      <HeroSection
+        kpis={dashboardData.kpis}
+        loading={loading}
+        periodFilter={periodFilter}
+        onPeriodChange={setPeriodFilter}
+      />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
