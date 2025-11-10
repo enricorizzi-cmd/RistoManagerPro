@@ -2368,36 +2368,65 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     }
 
     // Get recipes for BCG matrix
-    const recipes = await dbQuery(
-      locationId,
-      `
-      SELECT 
-        id,
-        nome_piatto as nome,
-        prezzo_vendita as prezzoVendita,
-        food_cost as foodCost,
-        utile,
-        marginalita,
-        categoria
-      FROM recipes
-      WHERE location_id = ?
-    `,
-      [locationId]
-    );
+    let recipes = [];
+    try {
+      const { supabaseCall } = require('./supabase-wrapper');
+      const recipesRaw = await supabaseCall('GET', 'recipes', {
+        select: 'id,nome_piatto,prezzo_vendita,food_cost,utile,marginalita,categoria',
+        filters: { location_id: locationId },
+        limit: 10000,
+      });
+
+      recipes = recipesRaw.map(recipe => ({
+        id: recipe.id,
+        nome: recipe.nome_piatto,
+        prezzoVendita: recipe.prezzo_vendita,
+        foodCost: recipe.food_cost,
+        utile: recipe.utile,
+        marginalita: recipe.marginalita,
+        categoria: recipe.categoria,
+      }));
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching recipes:`,
+        error.message || error
+      );
+      // Continue with empty array - don't fail the whole dashboard
+      recipes = [];
+    }
 
     // Get recipe sales for popolarità calculation
-    const recipeSales = await dbQuery(
-      locationId,
-      `
-      SELECT 
-        recipe_id,
-        SUM(quantity) as total_quantity
-      FROM recipe_sales
-      WHERE location_id = ?
-      GROUP BY recipe_id
-    `,
-      [locationId]
-    );
+    let recipeSales = [];
+    try {
+      const { supabaseCall } = require('./supabase-wrapper');
+      const recipeSalesRaw = await supabaseCall('GET', 'recipe_sales', {
+        select: 'recipe_id,quantity',
+        filters: { location_id: locationId },
+        limit: 10000,
+      });
+
+      // Aggregate by recipe_id in JavaScript
+      const recipeSalesMap = new Map();
+      recipeSalesRaw.forEach(row => {
+        const recipeId = row.recipe_id;
+        if (!recipeSalesMap.has(recipeId)) {
+          recipeSalesMap.set(recipeId, {
+            recipe_id: recipeId,
+            total_quantity: 0,
+          });
+        }
+        const existing = recipeSalesMap.get(recipeId);
+        existing.total_quantity += parseInt(row.quantity || 0);
+      });
+      recipeSales = Array.from(recipeSalesMap.values());
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching recipe sales:`,
+        error.message || error
+      );
+      // Continue with empty array - don't fail the whole dashboard
+      recipeSales = [];
+    }
 
     // Calculate popolarità for each recipe
     const totalSales = recipeSales.reduce(
@@ -2422,37 +2451,111 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     });
 
     // Get sales data (top dishes and categories)
-    const salesDishes = await dbQuery(
-      locationId,
-      `
-      SELECT 
-        d.dish_name,
-        SUM(sdd.total_value) as total_value,
-        SUM(sdd.quantity) as total_quantity
-      FROM sales_dish_data sdd
-      JOIN sales_dishes d ON sdd.dish_id = d.id
-      WHERE sdd.location_id = ?
-      GROUP BY d.dish_name
-      ORDER BY total_value DESC
-      LIMIT 10
-    `,
-      [locationId]
-    );
+    // Use separate queries and join in JavaScript to avoid Supabase JOIN issues
+    let salesDishes = [];
+    try {
+      const { supabaseCall } = require('./supabase-wrapper');
 
-    const salesCategories = await dbQuery(
-      locationId,
-      `
-      SELECT 
-        category_name,
-        SUM(total_value) as total_value,
-        SUM(quantity) as total_quantity
-      FROM sales_categories
-      WHERE location_id = ?
-      GROUP BY category_name
-      ORDER BY total_value DESC
-    `,
-      [locationId]
-    );
+      // Get all sales_dish_data for this location
+      const salesDishDataRaw = await supabaseCall('GET', 'sales_dish_data', {
+        select: 'dish_id,total_value,quantity',
+        filters: { location_id: locationId },
+        limit: 10000,
+      });
+
+      // Aggregate by dish_id in JavaScript
+      const dishDataMap = new Map();
+      salesDishDataRaw.forEach(row => {
+        const dishId = row.dish_id;
+        if (!dishDataMap.has(dishId)) {
+          dishDataMap.set(dishId, {
+            dish_id: dishId,
+            total_value: 0,
+            total_quantity: 0,
+          });
+        }
+        const existing = dishDataMap.get(dishId);
+        existing.total_value += parseFloat(row.total_value || 0);
+        existing.total_quantity += parseInt(row.quantity || 0);
+      });
+
+      // Get all sales_dishes to map dish_id to dish_name
+      const allDishes = await supabaseCall('GET', 'sales_dishes', {
+        select: 'id,dish_name',
+        filters: { location_id: locationId },
+        limit: 10000,
+      });
+
+      // Create a map of dish_id to dish_name
+      const dishMap = new Map();
+      allDishes.forEach(dish => {
+        dishMap.set(dish.id, dish.dish_name);
+      });
+
+      // Join the data in JavaScript
+      salesDishes = Array.from(dishDataMap.values())
+        .map(sdd => {
+          const dishName = dishMap.get(sdd.dish_id);
+          if (!dishName) return null;
+          return {
+            dish_name: dishName,
+            total_value: sdd.total_value,
+            total_quantity: sdd.total_quantity,
+          };
+        })
+        .filter(d => d !== null)
+        .sort(
+          (a, b) =>
+            parseFloat(b.total_value || 0) - parseFloat(a.total_value || 0)
+        )
+        .slice(0, 10);
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching sales dishes:`,
+        error.message || error
+      );
+      // Continue with empty array - don't fail the whole dashboard
+      salesDishes = [];
+    }
+
+    // Get sales categories
+    let salesCategories = [];
+    try {
+      const { supabaseCall } = require('./supabase-wrapper');
+      const salesCategoriesRaw = await supabaseCall('GET', 'sales_categories', {
+        select: 'category_name,total_value,quantity',
+        filters: { location_id: locationId },
+        limit: 10000,
+      });
+
+      // Aggregate by category_name in JavaScript
+      const categoryMap = new Map();
+      salesCategoriesRaw.forEach(row => {
+        const categoryName = row.category_name;
+        if (!categoryMap.has(categoryName)) {
+          categoryMap.set(categoryName, {
+            category_name: categoryName,
+            total_value: 0,
+            total_quantity: 0,
+          });
+        }
+        const existing = categoryMap.get(categoryName);
+        existing.total_value += parseFloat(row.total_value || 0);
+        existing.total_quantity += parseInt(row.quantity || 0);
+      });
+
+      salesCategories = Array.from(categoryMap.values()).sort(
+        (a, b) =>
+          parseFloat(b.total_value || 0) - parseFloat(a.total_value || 0)
+      );
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching sales categories:`,
+        error.message || error
+      );
+      // Continue with empty array - don't fail the whole dashboard
+      salesCategories = [];
+    }
 
     const totalSalesValue = salesDishes.reduce(
       (sum, d) => sum + parseFloat(d.total_value || 0),
