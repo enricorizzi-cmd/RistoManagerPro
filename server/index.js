@@ -2934,6 +2934,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     }));
 
     // Transform financial stats to dashboard format
+    // Integrate financial plan data for incassato, costiFissi, costiVariabili, utile
     const financialData = financialStats.map(stat => {
       const fatturato =
         stat.fatturatoImponibile !== null &&
@@ -2942,8 +2943,130 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           : stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined
             ? stat.fatturatoTotale
             : null;
-      const utile =
+
+      // Parse month to get year and monthIndex
+      const parsed = parsePlanMonthLabel(stat.month);
+      let incassatoValue =
+        stat.incassato !== null && stat.incassato !== undefined
+          ? stat.incassato
+          : null;
+      let costiFissiValue = null;
+      let costiVariabiliValue = null;
+      let utileValue =
         stat.utile !== null && stat.utile !== undefined ? stat.utile : null;
+
+      // If we have financial plan state and parsed month, calculate from plan
+      if (
+        financialPlanState &&
+        financialPlanState.consuntivoOverrides &&
+        parsed
+      ) {
+        const causaliCatalog =
+          financialPlanState.causaliCatalog &&
+          Array.isArray(financialPlanState.causaliCatalog) &&
+          financialPlanState.causaliCatalog.length > 0
+            ? financialPlanState.causaliCatalog
+            : [];
+
+        if (causaliCatalog.length > 0) {
+          const getConsuntivoValue = (
+            macro,
+            category,
+            detail,
+            year,
+            monthIndex
+          ) => {
+            const yearKey = year.toString();
+            const monthKey = monthIndex.toString();
+            const macroKey = macro;
+            const categoryKey = category;
+            const detailKey = detail;
+
+            if (
+              financialPlanState.consuntivoOverrides[yearKey] &&
+              financialPlanState.consuntivoOverrides[yearKey][monthKey] &&
+              financialPlanState.consuntivoOverrides[yearKey][monthKey][
+                macroKey
+              ] &&
+              financialPlanState.consuntivoOverrides[yearKey][monthKey][
+                macroKey
+              ][categoryKey] &&
+              financialPlanState.consuntivoOverrides[yearKey][monthKey][
+                macroKey
+              ][categoryKey][detailKey] !== undefined
+            ) {
+              return (
+                financialPlanState.consuntivoOverrides[yearKey][monthKey][
+                  macroKey
+                ][categoryKey][detailKey] || 0
+              );
+            }
+            return 0;
+          };
+
+          // Calculate for this specific month
+          let monthIncassato = 0;
+          let monthCostiFissi = 0;
+          let monthCostiVariabili = 0;
+
+          causaliCatalog.forEach(group => {
+            if (group.macroId === 1) {
+              // Incassato
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  monthIncassato += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    parsed.year,
+                    parsed.monthIndex
+                  );
+                });
+              });
+            } else if (group.macroId === 2) {
+              // Costi Fissi
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  monthCostiFissi += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    parsed.year,
+                    parsed.monthIndex
+                  );
+                });
+              });
+            } else if (group.macroId === 3) {
+              // Costi Variabili
+              group.categories.forEach(category => {
+                category.items.forEach(item => {
+                  monthCostiVariabili += getConsuntivoValue(
+                    group.macroCategory,
+                    category.name,
+                    item,
+                    parsed.year,
+                    parsed.monthIndex
+                  );
+                });
+              });
+            }
+          });
+
+          // Use calculated values if available
+          if (monthIncassato > 0) incassatoValue = monthIncassato;
+          if (monthCostiFissi > 0) costiFissiValue = monthCostiFissi;
+          if (monthCostiVariabili > 0)
+            costiVariabiliValue = monthCostiVariabili;
+          // Utile = Incassato - Costi Fissi - Costi Variabili
+          if (
+            monthIncassato > 0 ||
+            monthCostiFissi > 0 ||
+            monthCostiVariabili > 0
+          ) {
+            utileValue = monthIncassato - monthCostiFissi - monthCostiVariabili;
+          }
+        }
+      }
 
       return {
         month: stat.month,
@@ -2953,18 +3076,15 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           stat.fatturatoPrevisionale !== undefined
             ? stat.fatturatoPrevisionale
             : null,
-        incassato:
-          stat.incassato !== null && stat.incassato !== undefined
-            ? stat.incassato
-            : null,
+        incassato: incassatoValue,
         incassatoPrevisionale:
           stat.incassatoPrevisionale !== null &&
           stat.incassatoPrevisionale !== undefined
             ? stat.incassatoPrevisionale
             : null,
-        costiFissi: null,
-        costiVariabili: null,
-        utile: utile,
+        costiFissi: costiFissiValue,
+        costiVariabili: costiVariabiliValue,
+        utile: utileValue,
         utilePrevisionale:
           stat.utilePrevisionale !== null &&
           stat.utilePrevisionale !== undefined

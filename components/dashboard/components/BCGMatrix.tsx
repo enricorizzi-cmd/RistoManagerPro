@@ -151,14 +151,14 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
               fill: '#6B7280',
             }}
           />
-          {/* Quadrant areas */}
+          {/* Quadrant areas - full chart coverage with higher opacity */}
           <ReferenceArea
             x1={50}
             x2={100}
             y1={50}
             y2={100}
             fill="#10B981"
-            fillOpacity={0.05}
+            fillOpacity={0.15}
             stroke="none"
           />
           <ReferenceArea
@@ -167,7 +167,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             y1={50}
             y2={100}
             fill="#FBBF24"
-            fillOpacity={0.05}
+            fillOpacity={0.15}
             stroke="none"
           />
           <ReferenceArea
@@ -176,7 +176,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             y1={-100}
             y2={50}
             fill="#6366F1"
-            fillOpacity={0.05}
+            fillOpacity={0.15}
             stroke="none"
           />
           <ReferenceArea
@@ -185,7 +185,7 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
             y1={-100}
             y2={50}
             fill="#EF4444"
-            fillOpacity={0.05}
+            fillOpacity={0.15}
             stroke="none"
           />
           <Scatter dataKey="y" fill="#8884d8">
@@ -200,31 +200,6 @@ export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
-
-      {/* Quadrant Legend */}
-      <div className="mt-4 mb-4">
-        <p className="text-xs font-semibold text-gray-600 mb-2 text-center">
-          Quadranti
-        </p>
-        <div className="flex flex-wrap gap-4 justify-center text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span>Stars (Alta Pop. + Alta Marg.)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500" />
-            <span>Plowhorses (Bassa Pop. + Alta Marg.)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span>Puzzles (Alta Pop. + Bassa Marg.)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
-            <span>Dogs (Bassa Pop. + Bassa Marg.)</span>
-          </div>
-        </div>
-      </div>
 
       {/* Category Legend */}
       <div className="mt-4 border-t pt-4">

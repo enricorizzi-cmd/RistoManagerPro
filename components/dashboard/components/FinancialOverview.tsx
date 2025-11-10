@@ -53,9 +53,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             type="monotone"
             dataKey="fatturato"
             stroke="#1E40AF"
-            strokeWidth={2}
+            strokeWidth={3}
             name="Fatturato Reale"
             dot={false}
+            connectNulls={false}
           />
           <Line
             type="monotone"
@@ -65,18 +66,25 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             strokeDasharray="5 5"
             name="Fatturato Previsionale"
             dot={false}
+            connectNulls={false}
           />
-          <Bar
+          <Line
+            type="monotone"
             dataKey="incassato"
-            fill="#10B981"
+            stroke="#10B981"
+            strokeWidth={2}
             name="Incassato"
-            radius={[4, 4, 0, 0]}
+            dot={false}
+            connectNulls={false}
           />
-          <Bar
+          <Line
+            type="monotone"
             dataKey="utile"
-            fill="#EC4899"
+            stroke="#EC4899"
+            strokeWidth={2}
             name="Utile"
-            radius={[4, 4, 0, 0]}
+            dot={false}
+            connectNulls={false}
           />
         </ComposedChart>
       </ResponsiveContainer>

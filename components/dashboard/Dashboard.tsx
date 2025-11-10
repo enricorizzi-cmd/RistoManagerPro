@@ -21,11 +21,6 @@ const SalesAnalysis = React.lazy(() =>
 const AIInsights = React.lazy(() =>
   import('./components/AIInsights').then(m => ({ default: m.AIInsights }))
 );
-const Timeline48Months = React.lazy(() =>
-  import('./components/Timeline48Months').then(m => ({
-    default: m.Timeline48Months,
-  }))
-);
 
 export const Dashboard: React.FC = () => {
   const { currentLocation } = useAppContext();
@@ -134,17 +129,6 @@ export const Dashboard: React.FC = () => {
           />
         </Suspense>
       </div>
-
-      {/* Timeline 48 Months - Full Width */}
-      <Suspense
-        fallback={
-          <GlassCard>
-            <LoadingSkeleton height="400px" />
-          </GlassCard>
-        }
-      >
-        <Timeline48Months data={dashboardData.financialData} />
-      </Suspense>
     </div>
   );
 };

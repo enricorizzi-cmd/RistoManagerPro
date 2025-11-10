@@ -187,11 +187,26 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           })}
         </div>
 
+        {/* Period Info */}
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600">
+            {periodFilter === 'month'
+              ? `Dati del mese corrente: ${new Date().toLocaleDateString(
+                  'it-IT',
+                  {
+                    month: 'long',
+                    year: 'numeric',
+                  }
+                )}`
+              : periodFilter === 'year'
+                ? `Dati dell'anno corrente: ${new Date().getFullYear()}`
+                : 'Dati del periodo selezionato'}
+          </p>
+        </div>
+
         {/* Quick Filters */}
-        <div className="mt-6 flex flex-wrap gap-2 justify-center">
+        <div className="mt-4 flex flex-wrap gap-2 justify-center">
           {[
-            { label: 'Oggi', value: 'today' as PeriodFilter },
-            { label: 'Settimana', value: 'week' as PeriodFilter },
             { label: 'Mese', value: 'month' as PeriodFilter },
             { label: 'Anno', value: 'year' as PeriodFilter },
           ].map((filter, index) => {
