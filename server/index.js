@@ -1195,7 +1195,9 @@ app.delete(
           await supabaseCall('DELETE', tableName, {
             filters: { location_id: locationId },
           });
-          console.log(`[Settings API] Deleted ${tableName} for location ${locationId}`);
+          console.log(
+            `[Settings API] Deleted ${tableName} for location ${locationId}`
+          );
           return true;
         } catch (error) {
           // Ignore table not found errors - table might not exist
