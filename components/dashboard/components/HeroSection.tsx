@@ -22,7 +22,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onPeriodChange,
 }) => {
   const currentYear = new Date().getFullYear();
-  
+
   const kpiCards = [
     {
       key: 'fatturato',

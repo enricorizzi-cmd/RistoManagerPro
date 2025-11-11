@@ -425,9 +425,9 @@ export const addExclusionWord = (
 ): Promise<ExclusionWord> => {
   return apiCall<ExclusionWord>('/api/sales-analysis/exclusions', locationId, {
     method: 'POST',
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       exclusion_word: word,
-      exclusion_type: exclusionType 
+      exclusion_type: exclusionType,
     }),
   });
 };

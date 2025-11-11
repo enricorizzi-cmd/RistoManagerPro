@@ -21,7 +21,9 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
   const { showNotification } = useAppContext();
   const [exclusionWords, setExclusionWords] = useState<ExclusionWord[]>([]);
   const [newWord, setNewWord] = useState('');
-  const [exclusionType, setExclusionType] = useState<'dish' | 'category'>('dish');
+  const [exclusionType, setExclusionType] = useState<'dish' | 'category'>(
+    'dish'
+  );
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
 
@@ -58,18 +60,25 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
     // Check if word already exists (with same type)
     if (
       exclusionWords.some(
-        w => 
-          w.exclusion_word.toLowerCase() === wordToAdd && 
+        w =>
+          w.exclusion_word.toLowerCase() === wordToAdd &&
           (w.exclusion_type || 'dish') === exclusionType
       )
     ) {
-      showNotification('Questa parola è già presente nella lista per questo tipo', 'error');
+      showNotification(
+        'Questa parola è già presente nella lista per questo tipo',
+        'error'
+      );
       return;
     }
 
     setAdding(true);
     try {
-      const added = await addExclusionWord(locationId, wordToAdd, exclusionType);
+      const added = await addExclusionWord(
+        locationId,
+        wordToAdd,
+        exclusionType
+      );
       setExclusionWords([...exclusionWords, added]);
       setNewWord('');
       showNotification('Parola aggiunta con successo', 'success');
@@ -138,7 +147,7 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
               {adding ? 'Aggiunta...' : 'Aggiungi'}
             </button>
           </div>
-          
+
           {/* Exclusion Type Selector */}
           <div className="flex gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -147,7 +156,9 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
                 name="exclusionType"
                 value="dish"
                 checked={exclusionType === 'dish'}
-                onChange={e => setExclusionType(e.target.value as 'dish' | 'category')}
+                onChange={e =>
+                  setExclusionType(e.target.value as 'dish' | 'category')
+                }
                 className="w-4 h-4 text-primary focus:ring-primary"
                 disabled={adding}
               />
@@ -161,7 +172,9 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
                 name="exclusionType"
                 value="category"
                 checked={exclusionType === 'category'}
-                onChange={e => setExclusionType(e.target.value as 'dish' | 'category')}
+                onChange={e =>
+                  setExclusionType(e.target.value as 'dish' | 'category')
+                }
                 className="w-4 h-4 text-primary focus:ring-primary"
                 disabled={adding}
               />
@@ -170,7 +183,7 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
               </span>
             </label>
           </div>
-          
+
           <p className="text-xs text-gray-500">
             La ricerca è case-insensitive (non distingue maiuscole/minuscole)
           </p>
@@ -209,11 +222,13 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
                       <p className="font-medium text-gray-900">
                         {word.exclusion_word}
                       </p>
-                      <span className={`px-2 py-1 text-xs font-medium rounded ${
-                        type === 'category' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded ${
+                          type === 'category'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
                         {type === 'category' ? 'Categoria' : 'Piatto'}
                       </span>
                     </div>
@@ -262,15 +277,17 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
               Come funziona l&apos;esclusione
             </h3>
             <div className="mt-2 text-sm text-blue-700">
-              <p>
-                Puoi escludere piatti in due modi:
-              </p>
+              <p>Puoi escludere piatti in due modi:</p>
               <ul className="mt-2 list-disc list-inside space-y-1">
                 <li>
-                  <strong>Per Nome Piatto:</strong> Se un piatto contiene una delle parole nella lista (anche come parte di una parola più lunga), verrà escluso dall&apos;import.
+                  <strong>Per Nome Piatto:</strong> Se un piatto contiene una
+                  delle parole nella lista (anche come parte di una parola più
+                  lunga), verrà escluso dall&apos;import.
                 </li>
                 <li>
-                  <strong>Per Categoria:</strong> Se la categoria di un piatto contiene una delle parole nella lista, verrà escluso dall&apos;import.
+                  <strong>Per Categoria:</strong> Se la categoria di un piatto
+                  contiene una delle parole nella lista, verrà escluso
+                  dall&apos;import.
                 </li>
               </ul>
               <p className="mt-2">
@@ -278,10 +295,14 @@ const ImpostazioniTab: React.FC<ImpostazioniTabProps> = ({ locationId }) => {
               </p>
               <ul className="mt-1 list-disc list-inside space-y-1">
                 <li>
-                  Se aggiungi &quot;sospes&quot; (tipo: Piatto), verranno esclusi piatti come &quot;Piatto SOSPESO&quot;, &quot;Sospes temporaneo&quot;, ecc.
+                  Se aggiungi &quot;sospes&quot; (tipo: Piatto), verranno
+                  esclusi piatti come &quot;Piatto SOSPESO&quot;, &quot;Sospes
+                  temporaneo&quot;, ecc.
                 </li>
                 <li>
-                  Se aggiungi &quot;lavoro&quot; (tipo: Categoria), verranno esclusi tutti i piatti della categoria &quot;Pranzo di lavoro&quot;, &quot;Lavoro&quot;, ecc.
+                  Se aggiungi &quot;lavoro&quot; (tipo: Categoria), verranno
+                  esclusi tutti i piatti della categoria &quot;Pranzo di
+                  lavoro&quot;, &quot;Lavoro&quot;, ecc.
                 </li>
               </ul>
             </div>

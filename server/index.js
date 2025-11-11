@@ -658,7 +658,14 @@ const initializeTuttiLocation = async () => {
       const now = new Date().toISOString();
       await masterDbRun(
         'INSERT INTO locations (id, name, descrizione, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-        ['all', 'Tutti', 'Location aggregata per tutti i dati', 'active', now, now]
+        [
+          'all',
+          'Tutti',
+          'Location aggregata per tutti i dati',
+          'active',
+          now,
+          now,
+        ]
       );
       console.log('Created "Tutti" location for aggregated data');
     }
@@ -3118,7 +3125,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}, query params:`,
         copertiParams
       );
-      
+
       // Log detailed query info for debugging
       if (copertiPeriod === 0) {
         console.warn(
@@ -5729,12 +5736,12 @@ app.post(
         'SELECT exclusion_word, exclusion_type FROM sales_import_exclusions WHERE location_id = ?',
         [locationId]
       );
-      
+
       // Separate exclusion words by type
       const dishExclusionWords = exclusionWords
         .filter(e => e.exclusion_type === 'dish' || !e.exclusion_type) // Retrocompatibilità
         .map(e => e.exclusion_word.toLowerCase());
-      
+
       const categoryExclusionWords = exclusionWords
         .filter(e => e.exclusion_type === 'category')
         .map(e => e.exclusion_word.toLowerCase());
@@ -5743,17 +5750,17 @@ app.post(
       const filteredDishes = parseResult.detailTable.filter(dish => {
         const dishNameLower = dish.dishName.toLowerCase();
         const categoryLower = (dish.category || '').toLowerCase();
-        
+
         // Check dish name exclusions
         const excludedByDishName = dishExclusionWords.some(exclusionWord =>
           dishNameLower.includes(exclusionWord)
         );
-        
+
         // Check category exclusions
         const excludedByCategory = categoryExclusionWords.some(exclusionWord =>
           categoryLower.includes(exclusionWord)
         );
-        
+
         return !excludedByDishName && !excludedByCategory;
       });
 
@@ -5766,14 +5773,14 @@ app.post(
             dishNameLower.includes(exclusionWord)
           );
         }).length;
-        
+
         const excludedByCategory = parseResult.detailTable.filter(dish => {
           const categoryLower = (dish.category || '').toLowerCase();
           return categoryExclusionWords.some(exclusionWord =>
             categoryLower.includes(exclusionWord)
           );
         }).length;
-        
+
         console.log(
           `[IMPORT] Excluded ${excludedCount} dishes: ${excludedByDish} by dish name, ${excludedByCategory} by category`
         );
@@ -5800,23 +5807,31 @@ app.post(
         console.warn(
           `[IMPORT] ⚠ Suggerimento: Cerca nel file Excel righe con nome "Coperto", "Coperti", "Cop.", ecc. nella colonna prodotto/nome.`
         );
-        
+
         // Mostra alcuni nomi di piatti per aiutare il debug
-        const sampleDishes = parseResult.detailTable.slice(0, 10).map(d => d.dishName);
+        const sampleDishes = parseResult.detailTable
+          .slice(0, 10)
+          .map(d => d.dishName);
         console.warn(
           `[IMPORT] ⚠ DEBUG: Esempi di nomi piatti rilevati:`,
           sampleDishes.join(', ')
         );
-        
+
         // Cerca pattern simili a "coperto" nei piatti
         const copertoLike = parseResult.detailTable.filter(d => {
           const name = d.dishName.toLowerCase();
-          return name.includes('cop') || name.includes('cover') || name.includes('coper');
+          return (
+            name.includes('cop') ||
+            name.includes('cover') ||
+            name.includes('coper')
+          );
         });
         if (copertoLike.length > 0) {
           console.warn(
             `[IMPORT] ⚠ TROVATI ${copertoLike.length} piatti con pattern simile a "coperto":`,
-            copertoLike.map(d => `"${d.dishName}" (qty: ${d.quantity})`).join(', ')
+            copertoLike
+              .map(d => `"${d.dishName}" (qty: ${d.quantity})`)
+              .join(', ')
           );
           console.warn(
             `[IMPORT] ⚠ Questi potrebbero essere i coperti! Verifica il nome esatto nel file Excel.`
@@ -6875,8 +6890,8 @@ app.post('/api/sales-analysis/exclusions', requireAuth, async (req, res) => {
 
     // Validate exclusion_type
     if (exclusion_type !== 'dish' && exclusion_type !== 'category') {
-      return res.status(400).json({ 
-        error: 'exclusion_type deve essere "dish" o "category"' 
+      return res.status(400).json({
+        error: 'exclusion_type deve essere "dish" o "category"',
       });
     }
 
@@ -6890,7 +6905,9 @@ app.post('/api/sales-analysis/exclusions', requireAuth, async (req, res) => {
     );
 
     if (existing) {
-      return res.status(409).json({ error: 'Parola già presente nella lista per questo tipo' });
+      return res
+        .status(409)
+        .json({ error: 'Parola già presente nella lista per questo tipo' });
     }
 
     const id = crypto.randomUUID();

@@ -533,7 +533,8 @@ function parseDetailTable(sheet) {
       );
     } else {
       // Log first few non-matches for debugging
-      if (Math.random() < 0.01) { // Log 1% of non-matches to avoid spam
+      if (Math.random() < 0.01) {
+        // Log 1% of non-matches to avoid spam
         console.log(
           `[EXCEL PARSER] No match for: "${name}" (normalized: "${normalized}", lower: "${lower}")`
         );
@@ -600,7 +601,7 @@ function parseDetailTable(sheet) {
   console.log(
     `[EXCEL PARSER] ✓ Parsed ${dishes.length} dishes from detail table, coperti totali: ${coperti}`
   );
-  
+
   // Log warning if no coperti found but we have dishes
   if (coperti === 0 && dishes.length > 0) {
     console.warn(
@@ -610,13 +611,17 @@ function parseDetailTable(sheet) {
     if (allDishNames.length > 0) {
       console.warn(
         `[EXCEL PARSER] ⚠ DEBUG: Primi ${Math.min(20, allDishNames.length)} nomi piatti rilevati:`,
-        allDishNames.slice(0, 20).map((name, idx) => `${idx + 1}. "${name}"`).join(', ')
+        allDishNames
+          .slice(0, 20)
+          .map((name, idx) => `${idx + 1}. "${name}"`)
+          .join(', ')
       );
       // Cerca pattern simili a "coperto" nei nomi
-      const copertoLike = allDishNames.filter(name => 
-        name.toLowerCase().includes('cop') || 
-        name.toLowerCase().includes('cover') ||
-        name.toLowerCase().includes('coper')
+      const copertoLike = allDishNames.filter(
+        name =>
+          name.toLowerCase().includes('cop') ||
+          name.toLowerCase().includes('cover') ||
+          name.toLowerCase().includes('coper')
       );
       if (copertoLike.length > 0) {
         console.warn(
@@ -626,7 +631,7 @@ function parseDetailTable(sheet) {
       }
     }
   }
-  
+
   return { dishes, coperti };
 }
 
