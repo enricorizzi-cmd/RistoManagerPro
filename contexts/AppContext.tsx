@@ -53,9 +53,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       const virtualLocation: RestaurantLocation = {
         id: locationId,
         name: locationId === 'all' ? 'Tutti' : locationId,
-        capacity: 0,
-        openTime: '00:00',
-        closeTime: '23:59',
+        descrizione: 'Location virtuale per dati aggregati',
       };
       setInternalCurrentLocation(virtualLocation);
     }
@@ -125,9 +123,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
           },
           body: JSON.stringify({
             name: newSettings.name,
-            capacity: newSettings.capacity,
-            openTime: newSettings.openTime,
-            closeTime: newSettings.closeTime,
+            descrizione: newSettings.descrizione || null,
           }),
         }
       );

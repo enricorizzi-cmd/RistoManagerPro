@@ -21,6 +21,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   periodFilter = 'month',
   onPeriodChange,
 }) => {
+  const currentYear = new Date().getFullYear();
+  
   const kpiCards = [
     {
       key: 'fatturato',
@@ -34,7 +36,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     },
     {
       key: 'utile',
-      title: 'Utile',
+      title: periodFilter === 'year' ? `UTILE ${currentYear}` : 'Utile',
       value: kpis.utile.current,
       change: kpis.utile.changePercent,
       sparkline: kpis.utile.sparkline,
@@ -161,7 +163,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                       <AnimatedCounter
                         value={kpi.value}
                         prefix="€"
-                        decimals={0}
+                        decimals={2}
                         className="text-3xl font-bold text-gray-900"
                       />
                     )}

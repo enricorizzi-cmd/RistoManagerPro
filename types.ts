@@ -25,9 +25,7 @@ export interface StatsOverrides {
 export interface RestaurantLocation {
   id: string;
   name: string;
-  capacity: number;
-  openTime: string; // "HH:MM"
-  closeTime: string; // "HH:MM"
+  descrizione?: string | null;
 }
 
 export type NotificationType = 'success' | 'info' | 'error';

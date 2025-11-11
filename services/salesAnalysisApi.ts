@@ -405,6 +405,7 @@ export interface ExclusionWord {
   id: string;
   location_id: string;
   exclusion_word: string;
+  exclusion_type?: 'dish' | 'category';
   created_at: string;
   created_by?: string | null;
 }
@@ -419,11 +420,15 @@ export const getExclusionWords = (
 // Add exclusion word
 export const addExclusionWord = (
   locationId: string,
-  word: string
+  word: string,
+  exclusionType: 'dish' | 'category' = 'dish'
 ): Promise<ExclusionWord> => {
   return apiCall<ExclusionWord>('/api/sales-analysis/exclusions', locationId, {
     method: 'POST',
-    body: JSON.stringify({ exclusion_word: word }),
+    body: JSON.stringify({ 
+      exclusion_word: word,
+      exclusion_type: exclusionType 
+    }),
   });
 };
 

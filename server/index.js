@@ -657,8 +657,8 @@ const initializeTuttiLocation = async () => {
     if (!existingTutti) {
       const now = new Date().toISOString();
       await masterDbRun(
-        'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        ['all', 'Tutti', 0, '00:00', '23:59', 'active', now, now]
+        'INSERT INTO locations (id, name, descrizione, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        ['all', 'Tutti', 'Location aggregata per tutti i dati', 'active', now, now]
       );
       console.log('Created "Tutti" location for aggregated data');
     }
@@ -685,12 +685,12 @@ app.get('/api/locations', async (req, res) => {
 
 app.post('/api/locations', async (req, res) => {
   try {
-    const { id, name, capacity, openTime, closeTime } = req.body;
+    const { id, name, descrizione } = req.body;
     const now = new Date().toISOString();
 
     await masterDbRun(
-      'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, name, capacity, openTime, closeTime, now, now]
+      'INSERT INTO locations (id, name, descrizione, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      [id, name, descrizione || null, now, now]
     );
 
     const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [
@@ -706,12 +706,12 @@ app.post('/api/locations', async (req, res) => {
 app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, capacity, openTime, closeTime } = req.body;
+    const { name, descrizione } = req.body;
     const now = new Date().toISOString();
 
     await masterDbRun(
-      'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, updated_at = ? WHERE id = ?',
-      [name, capacity, openTime, closeTime, now, id]
+      'UPDATE locations SET name = ?, descrizione = ?, updated_at = ? WHERE id = ?',
+      [name, descrizione || null, now, id]
     );
 
     const location = await masterDbGet('SELECT * FROM locations WHERE id = ?', [
@@ -829,13 +829,13 @@ app.post('/api/init-default-data', async (req, res) => {
 
     // Insert default locations
     await masterDbRun(
-      'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ['loc-1', 'Trattoria del Ponte', 50, '18:00', '23:00', now, now]
+      'INSERT INTO locations (id, name, descrizione, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['loc-1', 'Trattoria del Ponte', 'Trattoria tradizionale', now, now]
     );
 
     await masterDbRun(
-      'INSERT INTO locations (id, name, capacity, open_time, close_time, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ['loc-2', 'Pizzeria al Forno', 80, '19:00', '24:00', now, now]
+      'INSERT INTO locations (id, name, descrizione, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['loc-2', 'Pizzeria al Forno', 'Pizzeria napoletana', now, now]
     );
 
     res.json({ success: true, message: 'Default data initialized' });
@@ -1108,13 +1108,13 @@ app.post(
   requireAdmin,
   async (req, res) => {
     try {
-      const { name, capacity, openTime, closeTime } = req.body;
+      const { name, descrizione } = req.body;
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
 
       await masterDbRun(
-        'INSERT INTO locations (id, name, capacity, open_time, close_time, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, name, capacity, openTime, closeTime, 'active', now, now]
+        'INSERT INTO locations (id, name, descrizione, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, name, descrizione || null, 'active', now, now]
       );
 
       const location = await masterDbGet(
@@ -1136,12 +1136,12 @@ app.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, capacity, openTime, closeTime, status } = req.body;
+      const { name, descrizione, status } = req.body;
       const now = new Date().toISOString();
 
       await masterDbRun(
-        'UPDATE locations SET name = ?, capacity = ?, open_time = ?, close_time = ?, status = ?, updated_at = ? WHERE id = ?',
-        [name, capacity, openTime, closeTime, status, now, id]
+        'UPDATE locations SET name = ?, descrizione = ?, status = ?, updated_at = ? WHERE id = ?',
+        [name, descrizione || null, status, now, id]
       );
 
       const location = await masterDbGet(
@@ -3118,6 +3118,20 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}, query params:`,
         copertiParams
       );
+      
+      // Log detailed query info for debugging
+      if (copertiPeriod === 0) {
+        console.warn(
+          `[Dashboard API] ⚠ WARNING: Nessun coperto trovato per periodo ${period} (location: ${locationId}, year: ${startYear}, month range: ${startMonth}-${endMonth})`
+        );
+        console.warn(
+          `[Dashboard API] ⚠ Verifica che esistano import per questo periodo in sales_imports con coperti > 0`
+        );
+      } else {
+        console.log(
+          `[Dashboard API] ✓ Trovati ${copertiPeriod} coperti per periodo ${period}`
+        );
+      }
     } catch (error) {
       console.error(
         `[Dashboard API] Error fetching coperti for period:`,
@@ -3556,8 +3570,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           sparkline: [],
         },
         // Update utile with period value if calculated from financial plan
+        // For 'year' period, always use utilePeriod (YTD value) even if 0
         utile:
-          utilePeriod > 0
+          period === 'year' || utilePeriod > 0
             ? {
                 current: utilePeriod,
                 previous: utilePrevious,
@@ -5711,26 +5726,56 @@ app.post(
 
       // Get exclusion words for this location (before creating import record)
       const exclusionWords = await db.query(
-        'SELECT exclusion_word FROM sales_import_exclusions WHERE location_id = ?',
+        'SELECT exclusion_word, exclusion_type FROM sales_import_exclusions WHERE location_id = ?',
         [locationId]
       );
-      const exclusionWordsList = exclusionWords.map(e =>
-        e.exclusion_word.toLowerCase()
-      );
+      
+      // Separate exclusion words by type
+      const dishExclusionWords = exclusionWords
+        .filter(e => e.exclusion_type === 'dish' || !e.exclusion_type) // Retrocompatibilità
+        .map(e => e.exclusion_word.toLowerCase());
+      
+      const categoryExclusionWords = exclusionWords
+        .filter(e => e.exclusion_type === 'category')
+        .map(e => e.exclusion_word.toLowerCase());
 
-      // Filter dishes that contain exclusion words
+      // Filter dishes that contain exclusion words in dish name or category
       const filteredDishes = parseResult.detailTable.filter(dish => {
         const dishNameLower = dish.dishName.toLowerCase();
-        return !exclusionWordsList.some(exclusionWord =>
+        const categoryLower = (dish.category || '').toLowerCase();
+        
+        // Check dish name exclusions
+        const excludedByDishName = dishExclusionWords.some(exclusionWord =>
           dishNameLower.includes(exclusionWord)
         );
+        
+        // Check category exclusions
+        const excludedByCategory = categoryExclusionWords.some(exclusionWord =>
+          categoryLower.includes(exclusionWord)
+        );
+        
+        return !excludedByDishName && !excludedByCategory;
       });
 
       const excludedCount =
         parseResult.detailTable.length - filteredDishes.length;
       if (excludedCount > 0) {
+        const excludedByDish = parseResult.detailTable.filter(dish => {
+          const dishNameLower = dish.dishName.toLowerCase();
+          return dishExclusionWords.some(exclusionWord =>
+            dishNameLower.includes(exclusionWord)
+          );
+        }).length;
+        
+        const excludedByCategory = parseResult.detailTable.filter(dish => {
+          const categoryLower = (dish.category || '').toLowerCase();
+          return categoryExclusionWords.some(exclusionWord =>
+            categoryLower.includes(exclusionWord)
+          );
+        }).length;
+        
         console.log(
-          `[IMPORT] Excluded ${excludedCount} dishes containing exclusion words`
+          `[IMPORT] Excluded ${excludedCount} dishes: ${excludedByDish} by dish name, ${excludedByCategory} by category`
         );
       }
 
@@ -5744,14 +5789,39 @@ app.post(
       // Extract coperti from parseResult
       const coperti = parseResult.coperti || 0;
       console.log(
-        `[IMPORT] Rilevati ${coperti} coperti dal file Excel "${parseResult.metadata.fileName}"`
+        `[IMPORT] ✓ Rilevati ${coperti} coperti dal file Excel "${parseResult.metadata.fileName}" per periodo ${periodYear}/${periodMonth}`
       );
 
       // Log warning if coperti is 0 but we have dishes
       if (coperti === 0 && parseResult.detailTable.length > 0) {
         console.warn(
-          `[IMPORT] WARNING: Coperti is 0 but ${parseResult.detailTable.length} dishes were found. Check if "Coperto" entries exist in the Excel file.`
+          `[IMPORT] ⚠ WARNING: Coperti is 0 ma ${parseResult.detailTable.length} piatti trovati. Verifica che il file Excel contenga voci "Coperto" nella colonna prodotto/nome.`
         );
+        console.warn(
+          `[IMPORT] ⚠ Suggerimento: Cerca nel file Excel righe con nome "Coperto", "Coperti", "Cop.", ecc. nella colonna prodotto/nome.`
+        );
+        
+        // Mostra alcuni nomi di piatti per aiutare il debug
+        const sampleDishes = parseResult.detailTable.slice(0, 10).map(d => d.dishName);
+        console.warn(
+          `[IMPORT] ⚠ DEBUG: Esempi di nomi piatti rilevati:`,
+          sampleDishes.join(', ')
+        );
+        
+        // Cerca pattern simili a "coperto" nei piatti
+        const copertoLike = parseResult.detailTable.filter(d => {
+          const name = d.dishName.toLowerCase();
+          return name.includes('cop') || name.includes('cover') || name.includes('coper');
+        });
+        if (copertoLike.length > 0) {
+          console.warn(
+            `[IMPORT] ⚠ TROVATI ${copertoLike.length} piatti con pattern simile a "coperto":`,
+            copertoLike.map(d => `"${d.dishName}" (qty: ${d.quantity})`).join(', ')
+          );
+          console.warn(
+            `[IMPORT] ⚠ Questi potrebbero essere i coperti! Verifica il nome esatto nel file Excel.`
+          );
+        }
       }
 
       // Create import record
@@ -6798,28 +6868,35 @@ app.post('/api/sales-analysis/exclusions', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Location ID valido richiesto' });
     }
 
-    const { exclusion_word } = req.body;
+    const { exclusion_word, exclusion_type = 'dish' } = req.body;
     if (!exclusion_word || !exclusion_word.trim()) {
       return res.status(400).json({ error: 'Parola da escludere richiesta' });
+    }
+
+    // Validate exclusion_type
+    if (exclusion_type !== 'dish' && exclusion_type !== 'category') {
+      return res.status(400).json({ 
+        error: 'exclusion_type deve essere "dish" o "category"' 
+      });
     }
 
     const db = getLocationDb(locationId);
     const word = exclusion_word.trim().toLowerCase();
 
-    // Check if already exists
+    // Check if already exists (with same type)
     const existing = await db.get(
-      'SELECT * FROM sales_import_exclusions WHERE location_id = ? AND exclusion_word = ?',
-      [locationId, word]
+      'SELECT * FROM sales_import_exclusions WHERE location_id = ? AND exclusion_word = ? AND exclusion_type = ?',
+      [locationId, word, exclusion_type]
     );
 
     if (existing) {
-      return res.status(409).json({ error: 'Parola già presente nella lista' });
+      return res.status(409).json({ error: 'Parola già presente nella lista per questo tipo' });
     }
 
     const id = crypto.randomUUID();
     await db.run(
-      'INSERT INTO sales_import_exclusions (id, location_id, exclusion_word, created_by) VALUES (?, ?, ?, ?)',
-      [id, locationId, word, req.user.id]
+      'INSERT INTO sales_import_exclusions (id, location_id, exclusion_word, exclusion_type, created_by) VALUES (?, ?, ?, ?, ?)',
+      [id, locationId, word, exclusion_type, req.user.id]
     );
 
     const exclusion = await db.get(

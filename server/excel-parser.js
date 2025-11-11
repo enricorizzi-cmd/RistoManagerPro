@@ -491,6 +491,7 @@ function parseDetailTable(sheet) {
 
   const dishes = [];
   let coperti = 0; // Rileva e somma coperti separatamente
+  const allDishNames = []; // Per debug: raccogli tutti i nomi dei piatti
 
   // Helper function per rilevare "Coperto"
   const isCoperto = name => {
@@ -498,28 +499,45 @@ function parseDetailTable(sheet) {
     const normalized = normalizeDishName(name);
     const lower = name.toLowerCase().trim();
 
-    // Check various patterns for "Coperto"
+    // Check various patterns for "Coperto" - expanded list
     const patterns = [
       normalized === 'coperto',
+      normalized === 'coperti',
       lower === 'coperto',
       lower === 'coperti',
+      lower === 'coperto singolo',
+      lower === 'coperto doppio',
+      lower === 'coperto tavolo',
+      lower.startsWith('coperto '),
       lower.includes('coperto singolo'),
       lower.includes('coperto doppio'),
       lower.includes('coperto tavolo'),
-      lower.startsWith('coperto '),
       lower.includes('coperto'),
       // Additional patterns for edge cases
       lower === 'cop.',
       lower === 'cop',
+      lower === 'coper',
+      lower.startsWith('cop '),
+      lower.startsWith('cop. '),
       lower.includes('cover'),
+      // Pattern italiani comuni
+      normalized.startsWith('coperto'),
+      normalized.includes('coperto'),
     ];
 
     const isCopertoMatch = patterns.some(p => p === true);
 
     if (isCopertoMatch) {
       console.log(
-        `[EXCEL PARSER] Matched "Coperto" pattern for: "${name}" (normalized: "${normalized}", lower: "${lower}")`
+        `[EXCEL PARSER] ✓ Matched "Coperto" pattern for: "${name}" (normalized: "${normalized}", lower: "${lower}")`
       );
+    } else {
+      // Log first few non-matches for debugging
+      if (Math.random() < 0.01) { // Log 1% of non-matches to avoid spam
+        console.log(
+          `[EXCEL PARSER] No match for: "${name}" (normalized: "${normalized}", lower: "${lower}")`
+        );
+      }
     }
 
     return isCopertoMatch;
@@ -540,13 +558,19 @@ function parseDetailTable(sheet) {
     )
       continue;
 
+    // Debug: raccogli tutti i nomi dei piatti (primi 50 per non intasare i log)
+    if (allDishNames.length < 50) {
+      allDishNames.push(dishName);
+    }
+
     // Rileva "Coperto" e somma la quantità come coperti (non come piatto)
     if (isCoperto(dishName)) {
       const quantity =
         quantityCol >= 0 ? parseNumericValue(row[quantityCol]) : 0;
-      coperti += Math.max(0, Math.round(quantity));
+      const quantityRounded = Math.max(0, Math.round(quantity));
+      coperti += quantityRounded;
       console.log(
-        `[EXCEL PARSER] Rilevato "Coperto": ${dishName}, quantità: ${quantity}, coperti totali: ${coperti}`
+        `[EXCEL PARSER] ✓ Rilevato "Coperto": "${dishName}", quantità: ${quantity} → ${quantityRounded}, coperti totali: ${coperti}`
       );
       continue; // NON aggiungere a dishes
     }
@@ -574,8 +598,35 @@ function parseDetailTable(sheet) {
   }
 
   console.log(
-    `[EXCEL PARSER] Parsed ${dishes.length} dishes from detail table, coperti: ${coperti}`
+    `[EXCEL PARSER] ✓ Parsed ${dishes.length} dishes from detail table, coperti totali: ${coperti}`
   );
+  
+  // Log warning if no coperti found but we have dishes
+  if (coperti === 0 && dishes.length > 0) {
+    console.warn(
+      `[EXCEL PARSER] ⚠ WARNING: Nessun coperto rilevato ma ${dishes.length} piatti trovati. Verifica che il file Excel contenga voci "Coperto" nella colonna prodotto/nome.`
+    );
+    // Log alcuni nomi di piatti rilevati per debug
+    if (allDishNames.length > 0) {
+      console.warn(
+        `[EXCEL PARSER] ⚠ DEBUG: Primi ${Math.min(20, allDishNames.length)} nomi piatti rilevati:`,
+        allDishNames.slice(0, 20).map((name, idx) => `${idx + 1}. "${name}"`).join(', ')
+      );
+      // Cerca pattern simili a "coperto" nei nomi
+      const copertoLike = allDishNames.filter(name => 
+        name.toLowerCase().includes('cop') || 
+        name.toLowerCase().includes('cover') ||
+        name.toLowerCase().includes('coper')
+      );
+      if (copertoLike.length > 0) {
+        console.warn(
+          `[EXCEL PARSER] ⚠ TROVATI pattern simili a "coperto":`,
+          copertoLike.map(name => `"${name}"`).join(', ')
+        );
+      }
+    }
+  }
+  
   return { dishes, coperti };
 }
 

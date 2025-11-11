@@ -59,9 +59,7 @@ export const updateLocationSettings = (
     method: 'PUT',
     body: JSON.stringify({
       name: newSettings.name,
-      capacity: newSettings.capacity,
-      openTime: newSettings.openTime,
-      closeTime: newSettings.closeTime,
+      descrizione: newSettings.descrizione || null,
     }),
   });
 };

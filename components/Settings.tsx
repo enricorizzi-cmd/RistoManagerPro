@@ -5,9 +5,7 @@ import { API_BASE_URL } from '../src/config/api';
 interface Location {
   id: string;
   name: string;
-  capacity: number;
-  open_time: string;
-  close_time: string;
+  descrizione?: string | null;
   status: 'active' | 'suspended';
   created_at: string;
 }
@@ -21,9 +19,7 @@ const Settings: React.FC = () => {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    capacity: 50,
-    openTime: '18:00',
-    closeTime: '23:00',
+    descrizione: '',
   });
   const [showTabsModal, setShowTabsModal] = useState(false);
   const [selectedLocationForTabs, setSelectedLocationForTabs] =
@@ -188,9 +184,7 @@ const Settings: React.FC = () => {
         setShowCreateModal(false);
         setFormData({
           name: '',
-          capacity: 50,
-          openTime: '18:00',
-          closeTime: '23:00',
+          descrizione: '',
         });
         fetchLocations();
       } else {
@@ -225,9 +219,7 @@ const Settings: React.FC = () => {
         setEditingLocation(null);
         setFormData({
           name: '',
-          capacity: 50,
-          openTime: '18:00',
-          closeTime: '23:00',
+          descrizione: '',
         });
         fetchLocations();
       } else {
@@ -258,9 +250,7 @@ const Settings: React.FC = () => {
           },
           body: JSON.stringify({
             name: location.name,
-            capacity: location.capacity,
-            openTime: location.open_time,
-            closeTime: location.close_time,
+            descrizione: location.descrizione || null,
             status: newStatus,
           }),
         }
@@ -446,9 +436,7 @@ const Settings: React.FC = () => {
     setEditingLocation(location);
     setFormData({
       name: location.name,
-      capacity: location.capacity,
-      openTime: location.open_time,
-      closeTime: location.close_time,
+      descrizione: location.descrizione || '',
     });
   };
 
@@ -497,10 +485,11 @@ const Settings: React.FC = () => {
                     <div className="text-sm font-medium text-gray-900">
                       {location.name}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      Capacità: {location.capacity} | Orari:{' '}
-                      {location.open_time} - {location.close_time}
-                    </div>
+                    {location.descrizione && (
+                      <div className="text-sm text-gray-500">
+                        {location.descrizione}
+                      </div>
+                    )}
                     <div className="flex items-center space-x-2 mt-1">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -515,36 +504,42 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => openEditModal(location)}
-                    className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                  >
-                    Modifica
-                  </button>
+                  {location.id !== 'all' && (
+                    <button
+                      onClick={() => openEditModal(location)}
+                      className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    >
+                      Modifica
+                    </button>
+                  )}
                   <button
                     onClick={() => openTabsModal(location)}
                     className="inline-flex items-center px-3 py-1 border border-blue-300 shadow-sm text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     Gestisci Tab
                   </button>
-                  <button
-                    onClick={() =>
-                      handleStatusToggle(location.id, location.status)
-                    }
-                    className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
-                      location.status === 'active'
-                        ? 'border-red-300 text-red-700 bg-white hover:bg-red-50'
-                        : 'border-green-300 text-green-700 bg-white hover:bg-green-50'
-                    }`}
-                  >
-                    {location.status === 'active' ? 'Sospendi' : 'Riattiva'}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteLocation(location.id)}
-                    className="inline-flex items-center px-3 py-1 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    Elimina
-                  </button>
+                  {location.id !== 'all' && (
+                    <>
+                      <button
+                        onClick={() =>
+                          handleStatusToggle(location.id, location.status)
+                        }
+                        className={`inline-flex items-center px-3 py-1 border shadow-sm text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+                          location.status === 'active'
+                            ? 'border-red-300 text-red-700 bg-white hover:bg-red-50'
+                            : 'border-green-300 text-green-700 bg-white hover:bg-green-50'
+                        }`}
+                      >
+                        {location.status === 'active' ? 'Sospendi' : 'Riattiva'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLocation(location.id)}
+                        className="inline-flex items-center px-3 py-1 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        Elimina
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </li>
@@ -584,56 +579,17 @@ const Settings: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Capacità
+                      Descrizione
                     </label>
-                    <input
-                      type="number"
-                      min="1"
-                      required
+                    <textarea
+                      rows={4}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      value={formData.capacity}
+                      value={formData.descrizione}
                       onChange={e =>
-                        setFormData({
-                          ...formData,
-                          capacity: parseInt(e.target.value),
-                        })
+                        setFormData({ ...formData, descrizione: e.target.value })
                       }
+                      placeholder="Inserisci una descrizione dell'azienda (opzionale)"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Apertura
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                        value={formData.openTime}
-                        onChange={e =>
-                          setFormData({ ...formData, openTime: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Chiusura
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                        value={formData.closeTime}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            closeTime: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
                   </div>
                 </div>
 
@@ -645,9 +601,7 @@ const Settings: React.FC = () => {
                       setEditingLocation(null);
                       setFormData({
                         name: '',
-                        capacity: 50,
-                        openTime: '18:00',
-                        closeTime: '23:00',
+                        descrizione: '',
                       });
                     }}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
