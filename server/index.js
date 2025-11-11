@@ -1183,132 +1183,60 @@ app.delete(
 
       // Prevent deletion of "all" location
       if (id === 'all') {
-        return res.status(400).json({ error: 'Cannot delete the "all" location' });
+        return res
+          .status(400)
+          .json({ error: 'Cannot delete the "all" location' });
       }
 
       // Delete in order: child tables first, then parent tables
+      // Helper function to safely delete from Supabase table
+      const safeSupabaseDelete = async (tableName, locationId) => {
+        try {
+          await supabaseCall('DELETE', tableName, {
+            filters: { location_id: locationId },
+          });
+          console.log(`[Settings API] Deleted ${tableName} for location ${locationId}`);
+          return true;
+        } catch (error) {
+          // Ignore table not found errors - table might not exist
+          if (
+            error.message &&
+            (error.message.includes('does not exist') ||
+              error.message.includes('Table') ||
+              error.statusCode === 404 ||
+              error.code === 'PGRST205')
+          ) {
+            console.log(
+              `[Settings API] Table ${tableName} does not exist, skipping`
+            );
+            return false;
+          }
+          // Log other errors but don't fail the entire operation
+          console.warn(
+            `[Settings API] Error deleting ${tableName}:`,
+            error.message
+          );
+          return false;
+        }
+      };
+
       // 1. Delete sales-related data (cascade will handle some, but we'll be explicit)
-      try {
-        // sales_dish_data (has CASCADE from sales_imports, but we'll delete explicitly)
-        await supabaseCall('DELETE', 'sales_dish_data', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted sales_dish_data for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting sales_dish_data:`, error.message);
-      }
-
-      try {
-        // sales_categories
-        await supabaseCall('DELETE', 'sales_categories', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted sales_categories for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting sales_categories:`, error.message);
-      }
-
-      try {
-        // sales_dishes
-        await supabaseCall('DELETE', 'sales_dishes', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted sales_dishes for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting sales_dishes:`, error.message);
-      }
-
-      try {
-        // sales_imports (should cascade to sales_dish_data and sales_categories)
-        await supabaseCall('DELETE', 'sales_imports', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted sales_imports for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting sales_imports:`, error.message);
-      }
-
-      try {
-        // sales_import_exclusions
-        await supabaseCall('DELETE', 'sales_import_exclusions', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted sales_import_exclusions for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting sales_import_exclusions:`, error.message);
-      }
+      await safeSupabaseDelete('sales_dish_data', id);
+      await safeSupabaseDelete('sales_categories', id);
+      await safeSupabaseDelete('sales_dishes', id);
+      await safeSupabaseDelete('sales_imports', id);
+      await safeSupabaseDelete('sales_import_exclusions', id);
 
       // 2. Delete recipe-related data
-      try {
-        // recipe_ingredients (will cascade from recipes, but delete explicitly)
-        await supabaseCall('DELETE', 'recipe_ingredients', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted recipe_ingredients for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting recipe_ingredients:`, error.message);
-      }
-
-      try {
-        // recipe_sales
-        await supabaseCall('DELETE', 'recipe_sales', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted recipe_sales for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting recipe_sales:`, error.message);
-      }
-
-      try {
-        // recipes
-        await supabaseCall('DELETE', 'recipes', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted recipes for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting recipes:`, error.message);
-      }
-
-      try {
-        // raw_materials
-        await supabaseCall('DELETE', 'raw_materials', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted raw_materials for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting raw_materials:`, error.message);
-      }
+      await safeSupabaseDelete('recipe_ingredients', id);
+      await safeSupabaseDelete('recipe_sales', id);
+      await safeSupabaseDelete('recipes', id);
+      await safeSupabaseDelete('raw_materials', id);
 
       // 3. Delete financial data
-      try {
-        // financial_stats
-        await supabaseCall('DELETE', 'financial_stats', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted financial_stats for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting financial_stats:`, error.message);
-      }
-
-      try {
-        // financial_plan_state
-        await supabaseCall('DELETE', 'financial_plan_state', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted financial_plan_state for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting financial_plan_state:`, error.message);
-      }
-
-      try {
-        // data_entries
-        await supabaseCall('DELETE', 'data_entries', {
-          filters: { location_id: id },
-        });
-        console.log(`[Settings API] Deleted data_entries for location ${id}`);
-      } catch (error) {
-        console.warn(`[Settings API] Error deleting data_entries:`, error.message);
-      }
+      await safeSupabaseDelete('financial_stats', id);
+      await safeSupabaseDelete('financial_plan_state', id);
+      await safeSupabaseDelete('data_entries', id);
 
       // 4. Delete master database tables
       try {
@@ -1317,9 +1245,14 @@ app.delete(
           'DELETE FROM user_location_permissions WHERE location_id = ?',
           [id]
         );
-        console.log(`[Settings API] Deleted user_location_permissions for location ${id}`);
+        console.log(
+          `[Settings API] Deleted user_location_permissions for location ${id}`
+        );
       } catch (error) {
-        console.warn(`[Settings API] Error deleting user_location_permissions:`, error.message);
+        console.warn(
+          `[Settings API] Error deleting user_location_permissions:`,
+          error.message
+        );
       }
 
       try {
@@ -1328,23 +1261,37 @@ app.delete(
           'DELETE FROM location_enabled_tabs WHERE location_id = ?',
           [id]
         );
-        console.log(`[Settings API] Deleted location_enabled_tabs for location ${id}`);
+        console.log(
+          `[Settings API] Deleted location_enabled_tabs for location ${id}`
+        );
       } catch (error) {
-        console.warn(`[Settings API] Error deleting location_enabled_tabs:`, error.message);
+        console.warn(
+          `[Settings API] Error deleting location_enabled_tabs:`,
+          error.message
+        );
       }
 
       // 5. Finally, delete the location itself
-      await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
-      console.log(`[Settings API] Successfully deleted location ${id}`);
+      try {
+        await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
+        console.log(`[Settings API] Successfully deleted location ${id}`);
+      } catch (error) {
+        console.error(
+          `[Settings API] Error deleting location ${id}:`,
+          error.message
+        );
+        throw error; // Re-throw to be caught by outer catch
+      }
 
       res.json({ success: true });
     } catch (error) {
       console.error('[Settings API] Failed to delete location:', error);
       console.error('[Settings API] Error stack:', error.stack);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Failed to delete location',
         message: error.message,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.stack : undefined,
       });
     }
   }
@@ -3438,7 +3385,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         if (copertiData && copertiData.length > 0) {
           copertiPeriod = parseInt(copertiData[0].total_coperti || 0);
         }
-        
+
         // Log detailed query info for debugging
         if (copertiPeriod === 0) {
           console.warn(
@@ -3997,10 +3944,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get dashboard data', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get dashboard data',
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
