@@ -167,6 +167,24 @@ Formato risposta JSON:
 }`;
 }
 
+// Helper function to remove control characters
+function removeControlCharacters(str: string): string {
+  return str
+    .split('')
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      // Keep printable characters (32-126) and common whitespace (9, 10, 13)
+      return (
+        code >= 32 ||
+        code === 9 ||
+        code === 10 ||
+        code === 13 ||
+        (code >= 128 && code <= 159)
+      );
+    })
+    .join('');
+}
+
 function parseAIResponse(content: string): AIInsight[] {
   try {
     // Try to extract JSON from markdown code blocks first
@@ -190,8 +208,10 @@ function parseAIResponse(content: string): AIInsight[] {
     jsonString = jsonString
       .replace(/,\s*}/g, '}') // Remove trailing commas before }
       .replace(/,\s*]/g, ']') // Remove trailing commas before ]
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
       .trim();
+    
+    // Remove control characters
+    jsonString = removeControlCharacters(jsonString);
 
     const parsed = JSON.parse(jsonString);
     const insights = parsed.insights || [];
@@ -241,8 +261,10 @@ function parsePredictionsResponse(content: string): AIPrediction {
     jsonString = jsonString
       .replace(/,\s*}/g, '}') // Remove trailing commas before }
       .replace(/,\s*]/g, ']') // Remove trailing commas before ]
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
       .trim();
+    
+    // Remove control characters
+    jsonString = removeControlCharacters(jsonString);
 
     const parsed = JSON.parse(jsonString);
     

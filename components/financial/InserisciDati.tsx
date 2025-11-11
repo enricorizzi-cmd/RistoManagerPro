@@ -329,7 +329,7 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/data-entries/${currentLocation.id}`,
+        `${API_BASE_URL}/api/data-entries/${currentLocation.id}`,
         {
           method: 'POST',
           headers: {
