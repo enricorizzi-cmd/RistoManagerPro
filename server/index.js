@@ -2742,6 +2742,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       case 'year':
         // Current year YTD
         startDate = new Date(currentYear, 0, 1);
+        endDate = new Date(currentYear, currentMonth, currentDay); // Up to today
         monthsToInclude = currentMonth + 1; // Include current month
         daysToInclude = 0;
         break;
@@ -3038,7 +3039,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
       // Simplify query based on period type
       if (period === 'year') {
-        // For year: just filter by year and month <= current month
+        // For year: just filter by year and month <= current month (YTD)
+        // endMonth is already 1-based (currentMonth + 1)
         copertiQuery = `
           SELECT SUM(COALESCE(coperti, 0)) as total_coperti
           FROM sales_imports
@@ -3047,6 +3049,9 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             AND period_month <= ?
         `;
         copertiParams = [locationId, startYear, endMonth];
+        console.log(
+          `[Dashboard API] Year period query - startYear: ${startYear}, endMonth: ${endMonth} (currentMonth: ${currentMonth})`
+        );
       } else if (period === 'month') {
         // For month: filter by specific year and month
         copertiQuery = `
@@ -3565,10 +3570,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       salesAnalysis: {
         topDishes,
         categoryDistribution,
-        ticketMedio:
-          totalSalesQuantity > 0 ? totalSalesValue / totalSalesQuantity : 0,
+        ticketMedio: copertiPeriod > 0 ? totalSalesValue / copertiPeriod : 0,
         totalVendite: totalSalesValue,
         totalQuantity: totalSalesQuantity,
+        coperti: copertiPeriod,
       },
       aiInsights: [],
       aiPredictions: null,
