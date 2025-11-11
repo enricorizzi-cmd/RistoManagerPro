@@ -30,7 +30,7 @@ export async function generateAIInsights(
           {
             role: 'system',
             content:
-              'Sei un esperto analista finanziario per ristoranti. Analizza i dati e fornisci insights pratici e actionable in formato JSON.',
+              'Sei un esperto analista finanziario per ristoranti. Analizza i dati e fornisci insights pratici e actionable. IMPORTANTE: Rispondi SOLO con JSON valido, senza markdown, senza testo aggiuntivo, senza spiegazioni.',
           },
           {
             role: 'user',
@@ -39,6 +39,7 @@ export async function generateAIInsights(
         ],
         temperature: 0.7,
         max_tokens: 1000,
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -83,7 +84,7 @@ export async function generateAIPredictions(
           {
             role: 'system',
             content:
-              'Sei un esperto analista finanziario. Fornisci previsioni accurate basate su trend storici in formato JSON.',
+              'Sei un esperto analista finanziario. Fornisci previsioni accurate basate su trend storici. IMPORTANTE: Rispondi SOLO con JSON valido, senza markdown, senza testo aggiuntivo, senza spiegazioni.',
           },
           {
             role: 'user',
@@ -92,6 +93,7 @@ export async function generateAIPredictions(
         ],
         temperature: 0.5,
         max_tokens: 500,
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -167,13 +169,37 @@ Formato risposta JSON:
 
 function parseAIResponse(content: string): AIInsight[] {
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return getMockInsights();
+    // Try to extract JSON from markdown code blocks first
+    let jsonString = content;
+    
+    // Remove markdown code blocks if present
+    const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonString = codeBlockMatch[1];
+    } else {
+      // Try to find JSON object in the content
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.warn('No JSON found in AI response');
+        return getMockInsights();
+      }
+      jsonString = jsonMatch[0];
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    // Clean up common JSON issues
+    jsonString = jsonString
+      .replace(/,\s*}/g, '}') // Remove trailing commas before }
+      .replace(/,\s*]/g, ']') // Remove trailing commas before ]
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .trim();
+
+    const parsed = JSON.parse(jsonString);
     const insights = parsed.insights || [];
+
+    if (!Array.isArray(insights)) {
+      console.warn('Insights is not an array');
+      return getMockInsights();
+    }
 
     return insights.map((insight: any, index: number) => ({
       id: `insight-${Date.now()}-${index}`,
@@ -187,18 +213,40 @@ function parseAIResponse(content: string): AIInsight[] {
     }));
   } catch (error) {
     console.error('Failed to parse AI response:', error);
+    console.error('Content that failed to parse:', content.substring(0, 500));
     return getMockInsights();
   }
 }
 
 function parsePredictionsResponse(content: string): AIPrediction {
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return getMockPredictions();
+    // Try to extract JSON from markdown code blocks first
+    let jsonString = content;
+    
+    // Remove markdown code blocks if present
+    const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonString = codeBlockMatch[1];
+    } else {
+      // Try to find JSON object in the content
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.warn('No JSON found in predictions response');
+        return getMockPredictions();
+      }
+      jsonString = jsonMatch[0];
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    // Clean up common JSON issues
+    jsonString = jsonString
+      .replace(/,\s*}/g, '}') // Remove trailing commas before }
+      .replace(/,\s*]/g, ']') // Remove trailing commas before ]
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .trim();
+
+    const parsed = JSON.parse(jsonString);
+    
+    // Validate and return with defaults
     return {
       nextMonth: parsed.nextMonth || {
         fatturato: 0,
@@ -210,10 +258,13 @@ function parsePredictionsResponse(content: string): AIPrediction {
         utile: 0,
         vendite: 0,
       },
-      confidence: parsed.confidence || 0.5,
+      confidence: typeof parsed.confidence === 'number' 
+        ? Math.max(0, Math.min(1, parsed.confidence)) 
+        : 0.5,
     };
   } catch (error) {
     console.error('Failed to parse predictions response:', error);
+    console.error('Content that failed to parse:', content.substring(0, 500));
     return getMockPredictions();
   }
 }
