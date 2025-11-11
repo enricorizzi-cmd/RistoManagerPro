@@ -2740,10 +2740,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         daysToInclude = 0;
         break;
       case 'year':
-        // Current year YTD
+        // Current year - include ALL months of the year (not just YTD)
         startDate = new Date(currentYear, 0, 1);
-        endDate = new Date(currentYear, currentMonth, currentDay); // Up to today
-        monthsToInclude = currentMonth + 1; // Include current month
+        endDate = new Date(currentYear, 11, 31); // December 31st of current year
+        monthsToInclude = 12; // All 12 months
         daysToInclude = 0;
         break;
       default:
@@ -2956,6 +2956,25 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
               : 0;
         return sum + (parseFloat(fatturato) || 0);
       }, 0);
+
+      // Debug: Log period stats for year period
+      if (period === 'year') {
+        console.log(
+          `[Dashboard API] Year period stats - Found ${periodStats.length} months, fatturatoPeriod: ${fatturatoPeriod}`
+        );
+        console.log(
+          `[Dashboard API] Year period date range - startDate: ${startDate.toISOString()}, endDate: ${endDate.toISOString()}`
+        );
+        if (periodStats.length > 0) {
+          console.log(
+            `[Dashboard API] Year period months:`,
+            periodStats.map(s => ({
+              month: s.month,
+              fatturato: s.fatturatoTotale || s.fatturatoImponibile,
+            }))
+          );
+        }
+      }
 
       // Fallback: if incassatoPeriod is 0, try to use financial_stats
       if (incassatoPeriod === 0) {
