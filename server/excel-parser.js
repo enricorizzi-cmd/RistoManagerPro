@@ -497,7 +497,7 @@ function parseDetailTable(sheet) {
     if (!name || typeof name !== 'string') return false;
     const normalized = normalizeDishName(name);
     const lower = name.toLowerCase().trim();
-    
+
     // Check various patterns for "Coperto"
     const patterns = [
       normalized === 'coperto',
@@ -513,15 +513,15 @@ function parseDetailTable(sheet) {
       lower === 'cop',
       lower.includes('cover'),
     ];
-    
+
     const isCopertoMatch = patterns.some(p => p === true);
-    
+
     if (isCopertoMatch) {
       console.log(
         `[EXCEL PARSER] Matched "Coperto" pattern for: "${name}" (normalized: "${normalized}", lower: "${lower}")`
       );
     }
-    
+
     return isCopertoMatch;
   };
 
@@ -1023,14 +1023,14 @@ function parseExcelFile(buffer, fileName) {
     console.log(
       `[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes, ${result.coperti} coperti`
     );
-    
+
     // Log warning if coperti is 0 but we have dishes (might indicate parsing issue)
     if (result.coperti === 0 && result.detailTable.length > 0) {
       console.warn(
         `[EXCEL PARSER] WARNING: Coperti is 0 but ${result.detailTable.length} dishes were found. This might indicate that "Coperto" entries were not detected.`
       );
     }
-    
+
     return result;
   } catch (error) {
     console.error('[EXCEL PARSER] Error parsing file:', error);

@@ -115,7 +115,14 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     } finally {
       setLoading(false);
     }
-  }, [locationId, filter, currentPage, searchTerm, itemsPerPage, showNotification]);
+  }, [
+    locationId,
+    filter,
+    currentPage,
+    searchTerm,
+    itemsPerPage,
+    showNotification,
+  ]);
 
   const loadRecipes = async () => {
     try {

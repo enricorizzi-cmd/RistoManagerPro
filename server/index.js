@@ -2152,26 +2152,59 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
         for (const location of locations) {
           try {
-            const copertiQuery = `
-              SELECT SUM(COALESCE(coperti, 0)) as total_coperti
-              FROM sales_imports
-              WHERE location_id = ?
-                AND (
-                  (period_year = ? AND period_month >= ? AND period_month <= ?)
-                  OR (period_year > ? AND period_year < ?)
-                  OR (period_year = ? AND period_month <= ?)
-                )
-            `;
-            const copertiData = await dbQuery(location.id, copertiQuery, [
+            let copertiQuery;
+            let copertiParams;
+
+            // Simplify query based on period type
+            if (period === 'year') {
+              // For year: just filter by year and month <= current month
+              copertiQuery = `
+                SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+                FROM sales_imports
+                WHERE location_id = ?
+                  AND period_year = ?
+                  AND period_month <= ?
+              `;
+              copertiParams = [location.id, startYear, endMonth];
+            } else if (period === 'month') {
+              // For month: filter by specific year and month
+              copertiQuery = `
+                SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+                FROM sales_imports
+                WHERE location_id = ?
+                  AND period_year = ?
+                  AND period_month = ?
+              `;
+              copertiParams = [location.id, startYear, startMonth];
+            } else {
+              // For other periods: use range query
+              copertiQuery = `
+                SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+                FROM sales_imports
+                WHERE location_id = ?
+                  AND (
+                    (period_year = ? AND period_month >= ? AND period_month <= ?)
+                    OR (period_year > ? AND period_year < ?)
+                    OR (period_year = ? AND period_month <= ?)
+                  )
+              `;
+              copertiParams = [
+                location.id,
+                startYear,
+                startMonth,
+                endMonth,
+                startYear,
+                endYear,
+                endYear,
+                endMonth,
+              ];
+            }
+
+            const copertiData = await dbQuery(
               location.id,
-              startYear,
-              startMonth,
-              endMonth,
-              startYear,
-              endYear,
-              endYear,
-              endMonth,
-            ]);
+              copertiQuery,
+              copertiParams
+            );
 
             if (copertiData && copertiData.length > 0) {
               totalCoperti += parseInt(copertiData[0].total_coperti || 0);
@@ -2995,37 +3028,71 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     // Get coperti for the period from sales_imports
     let copertiPeriod = 0;
     try {
-      const copertiQuery = `
-        SELECT SUM(COALESCE(coperti, 0)) as total_coperti
-        FROM sales_imports
-        WHERE location_id = ?
-          AND (
-            (period_year = ? AND period_month >= ? AND period_month <= ?)
-            OR (period_year > ? AND period_year < ?)
-            OR (period_year = ? AND period_month <= ?)
-          )
-      `;
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth() + 1; // 1-based for DB
       const endYear = endDate.getFullYear();
       const endMonth = endDate.getMonth() + 1; // 1-based for DB
 
-      const copertiData = await dbQuery(locationId, copertiQuery, [
+      let copertiQuery;
+      let copertiParams;
+
+      // Simplify query based on period type
+      if (period === 'year') {
+        // For year: just filter by year and month <= current month
+        copertiQuery = `
+          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+          FROM sales_imports
+          WHERE location_id = ?
+            AND period_year = ?
+            AND period_month <= ?
+        `;
+        copertiParams = [locationId, startYear, endMonth];
+      } else if (period === 'month') {
+        // For month: filter by specific year and month
+        copertiQuery = `
+          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+          FROM sales_imports
+          WHERE location_id = ?
+            AND period_year = ?
+            AND period_month = ?
+        `;
+        copertiParams = [locationId, startYear, startMonth];
+      } else {
+        // For other periods: use range query
+        copertiQuery = `
+          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+          FROM sales_imports
+          WHERE location_id = ?
+            AND (
+              (period_year = ? AND period_month >= ? AND period_month <= ?)
+              OR (period_year > ? AND period_year < ?)
+              OR (period_year = ? AND period_month <= ?)
+            )
+        `;
+        copertiParams = [
+          locationId,
+          startYear,
+          startMonth,
+          endMonth,
+          startYear,
+          endYear,
+          endYear,
+          endMonth,
+        ];
+      }
+
+      const copertiData = await dbQuery(
         locationId,
-        startYear,
-        startMonth,
-        endMonth,
-        startYear,
-        endYear,
-        endYear,
-        endMonth,
-      ]);
+        copertiQuery,
+        copertiParams
+      );
 
       if (copertiData && copertiData.length > 0) {
         copertiPeriod = parseInt(copertiData[0].total_coperti || 0);
       }
       console.log(
-        `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}`
+        `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}, query params:`,
+        copertiParams
       );
     } catch (error) {
       console.error(
@@ -5655,7 +5722,7 @@ app.post(
       console.log(
         `[IMPORT] Rilevati ${coperti} coperti dal file Excel "${parseResult.metadata.fileName}"`
       );
-      
+
       // Log warning if coperti is 0 but we have dishes
       if (coperti === 0 && parseResult.detailTable.length > 0) {
         console.warn(

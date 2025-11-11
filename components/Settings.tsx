@@ -48,13 +48,41 @@ const Settings: React.FC = () => {
       label: 'Piano Finanziario',
       is_enabled: true,
       subtabs: [
-        { tab_name: 'financial-plan-overview', label: 'Panoramica', is_enabled: true },
-        { tab_name: 'financial-plan-plan', label: 'Piano Mensile', is_enabled: true },
-        { tab_name: 'financial-plan-causali', label: 'Causali', is_enabled: true },
-        { tab_name: 'financial-plan-business-plan', label: 'Business Plan', is_enabled: true },
-        { tab_name: 'financial-plan-stats', label: 'Statistiche', is_enabled: true },
-        { tab_name: 'financial-plan-inserisci-dati', label: 'Inserisci Dati', is_enabled: true },
-        { tab_name: 'financial-plan-analisi-fp', label: 'Analisi FP', is_enabled: true },
+        {
+          tab_name: 'financial-plan-overview',
+          label: 'Panoramica',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-plan',
+          label: 'Piano Mensile',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-causali',
+          label: 'Causali',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-business-plan',
+          label: 'Business Plan',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-stats',
+          label: 'Statistiche',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-inserisci-dati',
+          label: 'Inserisci Dati',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'financial-plan-analisi-fp',
+          label: 'Analisi FP',
+          is_enabled: true,
+        },
       ],
     },
     {
@@ -62,9 +90,21 @@ const Settings: React.FC = () => {
       label: 'Menu Engineering',
       is_enabled: true,
       subtabs: [
-        { tab_name: 'menu-engineering-materie-prime', label: 'Materie Prime', is_enabled: true },
-        { tab_name: 'menu-engineering-ricette', label: 'Ricette', is_enabled: true },
-        { tab_name: 'menu-engineering-menu-mix', label: 'Menu Mix', is_enabled: true },
+        {
+          tab_name: 'menu-engineering-materie-prime',
+          label: 'Materie Prime',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'menu-engineering-ricette',
+          label: 'Ricette',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'menu-engineering-menu-mix',
+          label: 'Menu Mix',
+          is_enabled: true,
+        },
       ],
     },
     {
@@ -72,10 +112,26 @@ const Settings: React.FC = () => {
       label: 'Analisi Vendite',
       is_enabled: true,
       subtabs: [
-        { tab_name: 'sales-analysis-import', label: 'Import Dati', is_enabled: true },
-        { tab_name: 'sales-analysis-links', label: 'Gestione Collegamenti', is_enabled: true },
-        { tab_name: 'sales-analysis-dashboard', label: 'Dashboard Analisi', is_enabled: true },
-        { tab_name: 'sales-analysis-impostazioni', label: 'Impostazioni', is_enabled: true },
+        {
+          tab_name: 'sales-analysis-import',
+          label: 'Import Dati',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'sales-analysis-links',
+          label: 'Gestione Collegamenti',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'sales-analysis-dashboard',
+          label: 'Dashboard Analisi',
+          is_enabled: true,
+        },
+        {
+          tab_name: 'sales-analysis-impostazioni',
+          label: 'Impostazioni',
+          is_enabled: true,
+        },
       ],
     },
     {
@@ -325,7 +381,10 @@ const Settings: React.FC = () => {
       availableTabs.forEach(tab => {
         flatTabs.push({ tab_name: tab.tab_name, is_enabled: tab.is_enabled });
         tab.subtabs?.forEach(subtab => {
-          flatTabs.push({ tab_name: subtab.tab_name, is_enabled: subtab.is_enabled });
+          flatTabs.push({
+            tab_name: subtab.tab_name,
+            is_enabled: subtab.is_enabled,
+          });
         });
       });
 
@@ -676,7 +735,10 @@ const Settings: React.FC = () => {
                                 checked={subtab.is_enabled && tab.is_enabled}
                                 disabled={!tab.is_enabled}
                                 onChange={() =>
-                                  handleSubtabToggle(tab.tab_name, subtab.tab_name)
+                                  handleSubtabToggle(
+                                    tab.tab_name,
+                                    subtab.tab_name
+                                  )
                                 }
                                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                               />
