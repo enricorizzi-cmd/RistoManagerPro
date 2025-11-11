@@ -28,17 +28,64 @@ const Settings: React.FC = () => {
   const [showTabsModal, setShowTabsModal] = useState(false);
   const [selectedLocationForTabs, setSelectedLocationForTabs] =
     useState<Location | null>(null);
-  const [availableTabs, setAvailableTabs] = useState([
-    { tab_name: 'dashboard', label: 'Dashboard', is_enabled: true },
-    { tab_name: 'reservations', label: 'Prenotazioni', is_enabled: true },
-    { tab_name: 'waitlist', label: "Lista d'attesa", is_enabled: true },
-    { tab_name: 'tables', label: 'Tavoli', is_enabled: true },
-    { tab_name: 'menu', label: 'Menu', is_enabled: true },
-    { tab_name: 'sales', label: 'Vendite', is_enabled: true },
-    { tab_name: 'customers', label: 'Clienti', is_enabled: true },
+  const [expandedTabs, setExpandedTabs] = useState<Set<string>>(new Set());
+
+  interface TabItem {
+    tab_name: string;
+    label: string;
+    is_enabled: boolean;
+    subtabs?: TabItem[];
+  }
+
+  const [availableTabs, setAvailableTabs] = useState<TabItem[]>([
+    {
+      tab_name: 'dashboard',
+      label: 'Dashboard',
+      is_enabled: true,
+    },
     {
       tab_name: 'financial-plan',
       label: 'Piano Finanziario',
+      is_enabled: true,
+      subtabs: [
+        { tab_name: 'financial-plan-overview', label: 'Panoramica', is_enabled: true },
+        { tab_name: 'financial-plan-plan', label: 'Piano Mensile', is_enabled: true },
+        { tab_name: 'financial-plan-causali', label: 'Causali', is_enabled: true },
+        { tab_name: 'financial-plan-business-plan', label: 'Business Plan', is_enabled: true },
+        { tab_name: 'financial-plan-stats', label: 'Statistiche', is_enabled: true },
+        { tab_name: 'financial-plan-inserisci-dati', label: 'Inserisci Dati', is_enabled: true },
+        { tab_name: 'financial-plan-analisi-fp', label: 'Analisi FP', is_enabled: true },
+      ],
+    },
+    {
+      tab_name: 'menu-engineering',
+      label: 'Menu Engineering',
+      is_enabled: true,
+      subtabs: [
+        { tab_name: 'menu-engineering-materie-prime', label: 'Materie Prime', is_enabled: true },
+        { tab_name: 'menu-engineering-ricette', label: 'Ricette', is_enabled: true },
+        { tab_name: 'menu-engineering-menu-mix', label: 'Menu Mix', is_enabled: true },
+      ],
+    },
+    {
+      tab_name: 'sales-analysis',
+      label: 'Analisi Vendite',
+      is_enabled: true,
+      subtabs: [
+        { tab_name: 'sales-analysis-import', label: 'Import Dati', is_enabled: true },
+        { tab_name: 'sales-analysis-links', label: 'Gestione Collegamenti', is_enabled: true },
+        { tab_name: 'sales-analysis-dashboard', label: 'Dashboard Analisi', is_enabled: true },
+        { tab_name: 'sales-analysis-impostazioni', label: 'Impostazioni', is_enabled: true },
+      ],
+    },
+    {
+      tab_name: 'users',
+      label: 'Utenti',
+      is_enabled: true,
+    },
+    {
+      tab_name: 'settings',
+      label: 'Impostazioni',
       is_enabled: true,
     },
   ]);
@@ -175,6 +222,7 @@ const Settings: React.FC = () => {
 
   const openTabsModal = async (location: Location) => {
     setSelectedLocationForTabs(location);
+    setExpandedTabs(new Set()); // Reset expanded tabs
 
     try {
       const response = await fetch(
@@ -188,11 +236,23 @@ const Settings: React.FC = () => {
 
       if (response.ok) {
         const tabs = await response.json();
+        // Flatten tabs array for lookup
+        const tabsMap = new Map<string, boolean>();
+        tabs.forEach((t: any) => {
+          tabsMap.set(t.tab_name, t.is_enabled === 1);
+        });
+
         const updatedTabs = availableTabs.map(tab => {
-          const foundTab = tabs.find((t: any) => t.tab_name === tab.tab_name);
+          const isEnabled = tabsMap.get(tab.tab_name) ?? true;
+          const updatedSubtabs = tab.subtabs?.map(subtab => ({
+            ...subtab,
+            is_enabled: tabsMap.get(subtab.tab_name) ?? true,
+          }));
+
           return {
             ...tab,
-            is_enabled: foundTab ? foundTab.is_enabled === 1 : true,
+            is_enabled: isEnabled,
+            subtabs: updatedSubtabs,
           };
         });
         setAvailableTabs(updatedTabs);
@@ -204,11 +264,55 @@ const Settings: React.FC = () => {
     setShowTabsModal(true);
   };
 
-  const handleTabToggle = (tabName: string) => {
+  const toggleTabExpansion = (tabName: string) => {
+    setExpandedTabs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tabName)) {
+        newSet.delete(tabName);
+      } else {
+        newSet.add(tabName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleMainTabToggle = (tabName: string) => {
     setAvailableTabs(prev =>
-      prev.map(tab =>
-        tab.tab_name === tabName ? { ...tab, is_enabled: !tab.is_enabled } : tab
-      )
+      prev.map(tab => {
+        if (tab.tab_name === tabName) {
+          const newEnabled = !tab.is_enabled;
+          // If disabling main tab, disable all subtabs
+          const updatedSubtabs = tab.subtabs?.map(subtab => ({
+            ...subtab,
+            is_enabled: newEnabled ? subtab.is_enabled : false,
+          }));
+          return {
+            ...tab,
+            is_enabled: newEnabled,
+            subtabs: updatedSubtabs,
+          };
+        }
+        return tab;
+      })
+    );
+  };
+
+  const handleSubtabToggle = (mainTabName: string, subtabName: string) => {
+    setAvailableTabs(prev =>
+      prev.map(tab => {
+        if (tab.tab_name === mainTabName && tab.subtabs) {
+          const updatedSubtabs = tab.subtabs.map(subtab =>
+            subtab.tab_name === subtabName
+              ? { ...subtab, is_enabled: !subtab.is_enabled }
+              : subtab
+          );
+          return {
+            ...tab,
+            subtabs: updatedSubtabs,
+          };
+        }
+        return tab;
+      })
     );
   };
 
@@ -216,6 +320,15 @@ const Settings: React.FC = () => {
     if (!selectedLocationForTabs) return;
 
     try {
+      // Flatten tabs structure for API
+      const flatTabs: Array<{ tab_name: string; is_enabled: boolean }> = [];
+      availableTabs.forEach(tab => {
+        flatTabs.push({ tab_name: tab.tab_name, is_enabled: tab.is_enabled });
+        tab.subtabs?.forEach(subtab => {
+          flatTabs.push({ tab_name: subtab.tab_name, is_enabled: subtab.is_enabled });
+        });
+      });
+
       const response = await fetch(
         `${API_BASE_URL}/api/settings/locations/${selectedLocationForTabs.id}/tabs`,
         {
@@ -224,13 +337,14 @@ const Settings: React.FC = () => {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ tabs: availableTabs }),
+          body: JSON.stringify({ tabs: flatTabs }),
         }
       );
 
       if (response.ok) {
         setShowTabsModal(false);
         setSelectedLocationForTabs(null);
+        setExpandedTabs(new Set());
       } else {
         setError('Errore nel salvataggio delle tab');
       }
@@ -497,26 +611,89 @@ const Settings: React.FC = () => {
       {/* Tabs Management Modal */}
       {showTabsModal && selectedLocationForTabs && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-10 md:top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white m-4">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Gestisci Tab - {selectedLocationForTabs.name}
               </h3>
 
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {availableTabs.map(tab => (
-                  <label key={tab.tab_name} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={tab.is_enabled}
-                      onChange={() => handleTabToggle(tab.tab_name)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">
-                      {tab.label}
-                    </span>
-                  </label>
-                ))}
+              <div className="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-3">
+                {availableTabs.map(tab => {
+                  const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
+                  const isExpanded = expandedTabs.has(tab.tab_name);
+
+                  return (
+                    <div key={tab.tab_name} className="space-y-1">
+                      {/* Main Tab */}
+                      <div className="flex items-center justify-between group hover:bg-gray-50 rounded px-2 py-1">
+                        <div className="flex items-center flex-1">
+                          <input
+                            type="checkbox"
+                            checked={tab.is_enabled}
+                            onChange={() => handleMainTabToggle(tab.tab_name)}
+                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-700">
+                            {tab.label}
+                          </span>
+                        </div>
+                        {hasSubtabs && (
+                          <button
+                            type="button"
+                            onClick={() => toggleTabExpansion(tab.tab_name)}
+                            className="ml-2 p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+                            aria-label={isExpanded ? 'Collassa' : 'Espandi'}
+                          >
+                            <svg
+                              className={`w-4 h-4 transition-transform ${
+                                isExpanded ? 'transform rotate-90' : ''
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Subtabs */}
+                      {hasSubtabs && isExpanded && (
+                        <div className="ml-6 space-y-1 border-l-2 border-gray-200 pl-3">
+                          {tab.subtabs?.map(subtab => (
+                            <label
+                              key={subtab.tab_name}
+                              className="flex items-center hover:bg-gray-50 rounded px-2 py-1 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={subtab.is_enabled && tab.is_enabled}
+                                disabled={!tab.is_enabled}
+                                onChange={() =>
+                                  handleSubtabToggle(tab.tab_name, subtab.tab_name)
+                                }
+                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                              <span
+                                className={`ml-2 text-sm text-gray-600 ${
+                                  !tab.is_enabled ? 'opacity-50' : ''
+                                }`}
+                              >
+                                {subtab.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
@@ -524,6 +701,7 @@ const Settings: React.FC = () => {
                   onClick={() => {
                     setShowTabsModal(false);
                     setSelectedLocationForTabs(null);
+                    setExpandedTabs(new Set());
                   }}
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
