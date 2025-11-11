@@ -17,7 +17,7 @@ export interface DashboardKPIs {
     changePercent: number;
     sparkline: number[];
   };
-  vendite: {
+  coperti?: {
     current: number;
     previous: number;
     change: number;
@@ -82,6 +82,7 @@ export interface SalesAnalysisData {
   ticketMedio: number;
   totalVendite: number;
   totalQuantity: number;
+  coperti?: number;
 }
 
 export interface AIInsight {

@@ -66,7 +66,7 @@ function getEmptyDashboardData(): DashboardData {
         changePercent: 0,
         sparkline: [],
       },
-      vendite: {
+      coperti: {
         current: 0,
         previous: 0,
         change: 0,
@@ -89,6 +89,7 @@ function getEmptyDashboardData(): DashboardData {
       ticketMedio: 0,
       totalVendite: 0,
       totalQuantity: 0,
+      coperti: 0,
     },
     aiInsights: [],
     aiPredictions: null,

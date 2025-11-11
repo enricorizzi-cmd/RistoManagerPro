@@ -2118,6 +2118,78 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         0
       );
 
+      // Get aggregated coperti from all locations for the period
+      let totalCoperti = 0;
+      try {
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth();
+        let startYear, startMonth, endYear, endMonth;
+
+        // Calculate period based on 'period' query param (default to 'month')
+        const period = req.query.period || 'month';
+        switch (period) {
+          case 'month':
+            const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+            const prevMonthYear =
+              currentMonth === 0 ? currentYear - 1 : currentYear;
+            startYear = prevMonthYear;
+            startMonth = prevMonth + 1; // 1-based
+            endYear = prevMonthYear;
+            endMonth = prevMonth + 1;
+            break;
+          case 'year':
+            startYear = currentYear;
+            startMonth = 1;
+            endYear = currentYear;
+            endMonth = currentMonth + 1;
+            break;
+          default:
+            startYear = currentYear;
+            startMonth = 1;
+            endYear = currentYear;
+            endMonth = currentMonth + 1;
+        }
+
+        for (const location of locations) {
+          try {
+            const copertiQuery = `
+              SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+              FROM sales_imports
+              WHERE location_id = ?
+                AND (
+                  (period_year = ? AND period_month >= ? AND period_month <= ?)
+                  OR (period_year > ? AND period_year < ?)
+                  OR (period_year = ? AND period_month <= ?)
+                )
+            `;
+            const copertiData = await dbQuery(location.id, copertiQuery, [
+              location.id,
+              startYear,
+              startMonth,
+              endMonth,
+              startYear,
+              endYear,
+              endYear,
+              endMonth,
+            ]);
+
+            if (copertiData && copertiData.length > 0) {
+              totalCoperti += parseInt(copertiData[0].total_coperti || 0);
+            }
+          } catch (error) {
+            console.error(
+              `[Dashboard API] Error fetching coperti for location ${location.id}:`,
+              error.message
+            );
+          }
+        }
+      } catch (error) {
+        console.error(
+          `[Dashboard API] Error aggregating coperti:`,
+          error.message
+        );
+      }
+
       // Top 10 piatti dalla matrice BCG: ordinati per fatturato e marginalità
       // Preferiamo piatti con alta marginalità e alto fatturato
       const topDishesFromBCG = recipesWithPopolarita
@@ -2316,8 +2388,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           changePercent: calculateChangePercent(utileCurrent, utilePrevious),
           sparkline: calculateSparkline(financialData, 'utile', 7),
         },
-        vendite: {
-          current: totalSalesQuantity,
+        coperti: {
+          current: totalCoperti,
           previous: 0,
           change: 0,
           changePercent: 0,
@@ -2342,10 +2414,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         salesAnalysis: {
           topDishes,
           categoryDistribution,
-          ticketMedio:
-            totalSalesQuantity > 0 ? totalSalesValue / totalSalesQuantity : 0,
+          ticketMedio: totalCoperti > 0 ? totalSalesValue / totalCoperti : 0,
           totalVendite: totalSalesValue,
           totalQuantity: totalSalesQuantity,
+          coperti: totalCoperti,
         },
         aiInsights: [],
         aiPredictions: null,
@@ -2920,6 +2992,49 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       );
     }
 
+    // Get coperti for the period from sales_imports
+    let copertiPeriod = 0;
+    try {
+      const copertiQuery = `
+        SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+        FROM sales_imports
+        WHERE location_id = ?
+          AND (
+            (period_year = ? AND period_month >= ? AND period_month <= ?)
+            OR (period_year > ? AND period_year < ?)
+            OR (period_year = ? AND period_month <= ?)
+          )
+      `;
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth() + 1; // 1-based for DB
+      const endYear = endDate.getFullYear();
+      const endMonth = endDate.getMonth() + 1; // 1-based for DB
+
+      const copertiData = await dbQuery(locationId, copertiQuery, [
+        locationId,
+        startYear,
+        startMonth,
+        endMonth,
+        startYear,
+        endYear,
+        endYear,
+        endMonth,
+      ]);
+
+      if (copertiData && copertiData.length > 0) {
+        copertiPeriod = parseInt(copertiData[0].total_coperti || 0);
+      }
+      console.log(
+        `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}`
+      );
+    } catch (error) {
+      console.error(
+        `[Dashboard API] Error fetching coperti for period:`,
+        error.message
+      );
+      // copertiPeriod remains 0
+    }
+
     // Calculate percentages
     const topDishes = salesDishes.map(dish => ({
       dishName: dish.dish_name,
@@ -3308,8 +3423,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         changePercent: calculateChangePercent(utileCurrent, utilePrevious),
         sparkline: calculateSparkline(financialData, 'utile', 7),
       },
-      vendite: {
-        current: totalSalesValue, // Use total value, not quantity
+      coperti: {
+        current: copertiPeriod, // Numero coperti per il periodo
         previous: 0,
         change: 0,
         changePercent: 0,
@@ -5535,14 +5650,18 @@ app.post(
         ]);
       }
 
+      // Extract coperti from parseResult
+      const coperti = parseResult.coperti || 0;
+      console.log(`[IMPORT] Rilevati ${coperti} coperti dal file Excel`);
+
       // Create import record
       const importId = crypto.randomUUID();
       await db.run(
         `INSERT INTO sales_imports (
           id, location_id, period_month, period_year, file_name, 
-          total_categories, total_dishes, total_quantity, total_value,
+          total_categories, total_dishes, total_quantity, total_value, coperti,
           status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           importId,
           locationId,
@@ -5553,6 +5672,7 @@ app.post(
           filteredDishes.length, // Use filtered dishes count
           filteredDishes.reduce((sum, d) => sum + d.quantity, 0),
           filteredDishes.reduce((sum, d) => sum + d.totalValue, 0),
+          coperti, // NUOVO: salva coperti
           'processing',
         ]
       );
@@ -6793,7 +6913,83 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
     const linkedDishesCount = new Set(
       filteredData.filter(d => d.recipe_id).map(d => d.dish_id)
     ).size;
-    const averageTicket = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+
+    // Get coperti for the period from sales_imports
+    let coperti = 0;
+    try {
+      let copertiQuery =
+        'SELECT SUM(COALESCE(coperti, 0)) as total_coperti FROM sales_imports WHERE location_id = ?';
+      const copertiParams = [locationId];
+
+      if (periodFilter && periodFilter !== '1=1') {
+        // Build WHERE clause for coperti query based on granularity
+        switch (granularity) {
+          case 'mese':
+            if (currentMonth) {
+              copertiQuery += ' AND period_year = ? AND period_month = ?';
+              copertiParams.push(currentYear, currentMonth);
+            }
+            break;
+          case 'trimestre':
+            if (currentMonth) {
+              const quarter = Math.ceil(currentMonth / 3);
+              copertiQuery +=
+                ' AND period_year = ? AND period_month >= ? AND period_month <= ?';
+              copertiParams.push(
+                currentYear,
+                (quarter - 1) * 3 + 1,
+                quarter * 3
+              );
+            }
+            break;
+          case 'quadrimestre':
+            if (currentMonth) {
+              const quadrimestre = Math.ceil(currentMonth / 4);
+              copertiQuery +=
+                ' AND period_year = ? AND period_month >= ? AND period_month <= ?';
+              copertiParams.push(
+                currentYear,
+                (quadrimestre - 1) * 4 + 1,
+                Math.min(quadrimestre * 4, 12)
+              );
+            }
+            break;
+          case 'semestre':
+            if (currentMonth) {
+              const semester = currentMonth <= 6 ? 1 : 2;
+              copertiQuery +=
+                ' AND period_year = ? AND period_month >= ? AND period_month <= ?';
+              copertiParams.push(
+                currentYear,
+                (semester - 1) * 6 + 1,
+                semester * 6
+              );
+            }
+            break;
+          case 'anno':
+            copertiQuery += ' AND period_year = ?';
+            copertiParams.push(currentYear);
+            break;
+          case 'totale':
+            // No additional filter
+            break;
+        }
+      }
+
+      const copertiData = await db.query(copertiQuery, copertiParams);
+      if (copertiData && copertiData.length > 0) {
+        coperti = parseInt(copertiData[0].total_coperti || 0);
+      }
+    } catch (error) {
+      console.error(
+        '[Sales Analysis Dashboard] Error fetching coperti:',
+        error.message
+      );
+      // coperti remains 0
+    }
+
+    // Calculate averageTicket using coperti instead of totalQuantity
+    const averageTicket = coperti > 0 ? totalValue / coperti : 0;
 
     // Get comparison data if requested
     let comparison = null;
@@ -6804,13 +7000,13 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
         previousPeriod: {
           totalValue: 0,
           totalQuantity: 0,
-          uniqueDishes: 0,
+          coperti: 0,
           averageTicket: 0,
         },
         changes: {
           value: 0,
           quantity: 0,
-          uniqueDishes: 0,
+          coperti: 0,
           averageTicket: 0,
         },
       };
@@ -6911,14 +7107,14 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
       kpis: {
         totalValue,
         totalQuantity,
-        uniqueDishes,
+        coperti,
         averageTicket,
         linkedDishesCount,
         unlinkedDishesCount: uniqueDishes - linkedDishesCount,
         trends: {
           value: { change: 0, trend: 'stable' },
           quantity: { change: 0, trend: 'stable' },
-          uniqueDishes: { change: 0, trend: 'stable' },
+          coperti: { change: 0, trend: 'stable' },
           averageTicket: { change: 0, trend: 'stable' },
         },
         comparison,
@@ -6963,6 +7159,55 @@ app.get('/api/sales-analysis/dashboard', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Failed to get dashboard data:', error);
     res.status(500).json({ error: 'Failed to get dashboard data' });
+  }
+});
+
+// Temporary endpoint to run migration (admin only, remove after use)
+app.post('/api/admin/run-migration-coperti', requireAuth, async (req, res) => {
+  try {
+    // Only allow admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const SUPABASE_URL =
+      process.env.SUPABASE_URL || 'https://yuvvqdtyxmdhdamhtszs.supabase.co';
+    const SUPABASE_SERVICE_KEY =
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+    if (!SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({
+        error: 'SUPABASE_SERVICE_ROLE_KEY not configured',
+        message:
+          'Please set SUPABASE_SERVICE_ROLE_KEY in environment variables',
+      });
+    }
+
+    const migrationSQL = `
+      ALTER TABLE sales_imports 
+      ADD COLUMN IF NOT EXISTS coperti INTEGER DEFAULT 0;
+      
+      COMMENT ON COLUMN sales_imports.coperti IS 'Numero di coperti per questo periodo (escluso dal conteggio piatti). Rilevato dalla voce "Coperto" durante l''import.';
+    `;
+
+    // Use Supabase PostgREST to execute SQL
+    // Note: This requires a custom function or direct SQL execution
+    // For now, return the SQL to be executed manually
+    res.json({
+      success: false,
+      message:
+        'Automatic migration not supported. Please execute SQL manually in Supabase SQL Editor.',
+      sql: migrationSQL,
+      instructions: [
+        '1. Go to https://supabase.com/dashboard',
+        '2. Select your project',
+        '3. Go to SQL Editor',
+        '4. Paste and run the SQL provided above',
+      ],
+    });
+  } catch (error) {
+    console.error('Migration endpoint error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

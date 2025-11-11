@@ -146,9 +146,9 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600">Piatti Unici</div>
+          <div className="text-sm text-gray-600">N. Coperti</div>
           <div className="text-2xl font-bold text-gray-900">
-            {dashboardData.kpis.uniqueDishes}
+            {dashboardData.kpis.coperti?.toLocaleString() || '0'}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">

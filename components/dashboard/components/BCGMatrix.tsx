@@ -34,7 +34,8 @@ const getCategoryColor = (categoria: string): string => {
 };
 
 export const BCGMatrix: React.FC<BCGMatrixProps> = ({ recipes }) => {
-  const { quadrants } = useBCGMatrix(recipes);
+  // Note: quadrants calculation available but not used in current implementation
+  useBCGMatrix(recipes);
 
   // Group recipes by category for legend
   const recipesByCategory = useMemo(() => {

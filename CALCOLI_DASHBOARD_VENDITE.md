@@ -51,38 +51,53 @@ totalSalesQuantity = parseInt(salesPeriodData[0].total_quantity || 0);
 
 ---
 
-## Piatti Unici (uniqueDishes)
+## N. Coperti (coperti) - Sostituisce "Piatti Unici"
 
-**Formula**: `COUNT(DISTINCT sales_dish_data.dish_id)` per il periodo selezionato
+**Formula**: `SUM(sales_imports.coperti)` per il periodo selezionato
 
 **Dettagli**:
 
-- Numero di `dish_id` distinti nella tabella `sales_dish_data` per il periodo
-- Non viene calcolato nel dashboard API principale, ma in `/api/sales-analysis/dashboard`
+- Numero totale di coperti per il periodo selezionato
+- I coperti vengono rilevati durante l'import Excel dalla voce "Coperto" (esclusa dai piatti)
+- Salvati in `sales_imports.coperti` per ogni import mensile
 
-**Codice backend** (`/api/sales-analysis/dashboard`):
+**Codice backend** (`/api/dashboard` e `/api/sales-analysis/dashboard`):
 
 ```javascript
-const uniqueDishes = new Set(filteredData.map(d => d.dish_id)).size;
+const copertiQuery = `
+  SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+  FROM sales_imports
+  WHERE location_id = ?
+    AND (
+      (period_year = ? AND period_month >= ? AND period_month <= ?)
+      OR (period_year > ? AND period_year < ?)
+      OR (period_year = ? AND period_month <= ?)
+    )
+`;
 ```
 
-**Nota**: Nel dashboard principale (`/api/dashboard`), questo valore non è incluso. Viene mostrato solo nella sezione "Analisi Vendite".
+**Nota**: Questo KPI sostituisce "Piatti Unici" (uniqueDishes) nel dashboard. Se `coperti = 0`, viene mostrato vuoto (non viene usato fallback).
 
 ---
 
 ## Ticket Medio (ticketMedio / averageTicket)
 
-**Formula**: `totalValue / totalQuantity`
+**Formula**: `totalValue / coperti`
 
 **Dettagli**:
 
-- Divisione tra Valore Totale e Quantità Totale
-- Se `totalQuantity === 0`, restituisce `0`
+- Divisione tra Valore Totale e Numero di Coperti
+- Se `coperti === 0`, restituisce `0` (mostrato vuoto nell'UI)
+- **IMPORTANTE**: Il ticket medio è ora calcolato correttamente usando i coperti invece della quantità totale di piatti
 
 **Codice backend**:
 
 ```javascript
-ticketMedio = totalSalesQuantity > 0 ? totalSalesValue / totalSalesQuantity : 0;
+// Recupera coperti per il periodo
+const copertiPeriod = /* query a sales_imports */;
+
+// Calcola ticket medio
+ticketMedio = copertiPeriod > 0 ? totalSalesValue / copertiPeriod : 0;
 ```
 
 ---
@@ -124,3 +139,12 @@ Il periodo viene calcolato in base al filtro selezionato:
    - `category_name`: Nome categoria
    - `total_value`: Valore totale categoria
    - `total_quantity`: Quantità totale categoria
+
+4. **`sales_imports`**: Registro degli import mensili
+   - `id`: ID import
+   - `location_id`: ID location
+   - `period_year`: Anno del periodo
+   - `period_month`: Mese del periodo (1-12)
+   - `coperti`: Numero di coperti per questo periodo (NUOVO)
+   - `total_dishes`: Numero di piatti importati
+   - `total_value`: Valore totale importato

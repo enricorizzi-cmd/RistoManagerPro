@@ -479,17 +479,35 @@ function parseDetailTable(sheet) {
         console.log(
           `[EXCEL PARSER] Parsed ${dishes.length} dishes using fallback method`
         );
-        return dishes;
+        return { dishes, coperti: 0 }; // Fallback: nessun coperto rilevato
       }
     }
     console.log(
       '[EXCEL PARSER] Could not find any usable column for dish names'
     );
     console.log('[EXCEL PARSER] Headers found:', headers);
-    return [];
+    return { dishes: [], coperti: 0 };
   }
 
   const dishes = [];
+  let coperti = 0; // Rileva e somma coperti separatamente
+
+  // Helper function per rilevare "Coperto"
+  const isCoperto = name => {
+    if (!name || typeof name !== 'string') return false;
+    const normalized = normalizeDishName(name);
+    const lower = name.toLowerCase().trim();
+    return (
+      normalized === 'coperto' ||
+      lower === 'coperto' ||
+      lower === 'coperti' ||
+      lower.includes('coperto singolo') ||
+      lower.includes('coperto doppio') ||
+      lower.includes('coperto tavolo') ||
+      lower.startsWith('coperto ')
+    );
+  };
+
   // Start from row 1 if we have a header row, otherwise from row 0
   const dataStartIndex = detailStartRow !== null ? 1 : 1; // Skip header row
   for (let i = dataStartIndex; i < data.length; i++) {
@@ -504,6 +522,17 @@ function parseDetailTable(sheet) {
       dishName.match(/^[\d\s]+$/) // Skip rows that are only numbers/spaces
     )
       continue;
+
+    // Rileva "Coperto" e somma la quantità come coperti (non come piatto)
+    if (isCoperto(dishName)) {
+      const quantity =
+        quantityCol >= 0 ? parseNumericValue(row[quantityCol]) : 0;
+      coperti += Math.max(0, Math.round(quantity));
+      console.log(
+        `[EXCEL PARSER] Rilevato "Coperto": ${dishName}, quantità: ${quantity}, coperti totali: ${coperti}`
+      );
+      continue; // NON aggiungere a dishes
+    }
 
     const category =
       categoryCol >= 0 ? (row[categoryCol] || '').toString().trim() : '';
@@ -528,9 +557,9 @@ function parseDetailTable(sheet) {
   }
 
   console.log(
-    `[EXCEL PARSER] Parsed ${dishes.length} dishes from detail table`
+    `[EXCEL PARSER] Parsed ${dishes.length} dishes from detail table, coperti: ${coperti}`
   );
-  return dishes;
+  return { dishes, coperti };
 }
 
 /**
@@ -709,20 +738,24 @@ function detectTables(workbook) {
         const detailSheet = { ...sheet };
         // Store the start row offset for parseDetailTable to use
         detailSheet._detailStartRow = detailStartRow - 1; // 0-based index
-        const detail = parseDetailTable(detailSheet);
-        if (detail.length > 0) {
-          detailTable.push(...detail);
-          console.log(`[EXCEL PARSER] Parsed ${detail.length} detail dishes`);
+        const detailResult = parseDetailTable(detailSheet);
+        if (detailResult.dishes && detailResult.dishes.length > 0) {
+          detailTable.push(...detailResult.dishes);
+          totalCoperti += detailResult.coperti || 0;
+          console.log(
+            `[EXCEL PARSER] Parsed ${detailResult.dishes.length} detail dishes, coperti: ${detailResult.coperti || 0}`
+          );
         } else {
           // Fallback: try parsing the full sheet as detail table
           console.log(
             `[EXCEL PARSER] No dishes found in limited range, trying full sheet as detail table`
           );
-          const fullDetail = parseDetailTable(sheet);
-          if (fullDetail.length > 0) {
-            detailTable.push(...fullDetail);
+          const fullDetailResult = parseDetailTable(sheet);
+          if (fullDetailResult.dishes && fullDetailResult.dishes.length > 0) {
+            detailTable.push(...fullDetailResult.dishes);
+            totalCoperti += fullDetailResult.coperti || 0;
             console.log(
-              `[EXCEL PARSER] Parsed ${fullDetail.length} detail dishes from full sheet`
+              `[EXCEL PARSER] Parsed ${fullDetailResult.dishes.length} detail dishes from full sheet, coperti: ${fullDetailResult.coperti || 0}`
             );
           }
         }
@@ -754,9 +787,10 @@ function detectTables(workbook) {
           console.log(
             '[EXCEL PARSER] Single table detected as detail table (has Prodotto column)'
           );
-          const detail = parseDetailTable(sheet);
-          if (detail.length > 0) {
-            detailTable.push(...detail);
+          const detailResult = parseDetailTable(sheet);
+          if (detailResult.dishes && detailResult.dishes.length > 0) {
+            detailTable.push(...detailResult.dishes);
+            totalCoperti += detailResult.coperti || 0;
           }
         } else if (hasOnlyCategoria) {
           // If it only has Categoria (and Quantità, Totale), it's a summary table
@@ -770,20 +804,21 @@ function detectTables(workbook) {
         } else {
           // Try both, but prefer detail if it has more rows
           const summary = parseSummaryTable(sheet);
-          const detail = parseDetailTable(sheet);
+          const detailResult = parseDetailTable(sheet);
 
           // Only use summary if it's clearly a summary (few rows, no prodotto column)
           if (
             summary.length > 0 &&
             summary.length < 50 &&
-            detail.length === 0
+            (!detailResult.dishes || detailResult.dishes.length === 0)
           ) {
             summaryTable.push(...summary);
           }
 
           // Prefer detail table if it has data
-          if (detail.length > 0) {
-            detailTable.push(...detail);
+          if (detailResult.dishes && detailResult.dishes.length > 0) {
+            detailTable.push(...detailResult.dishes);
+            totalCoperti += detailResult.coperti || 0;
           } else if (summary.length > 0 && summary.length < 50) {
             // Only use summary as fallback if no detail found
             summaryTable.push(...summary);
@@ -805,12 +840,13 @@ function detectTables(workbook) {
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
       // Try parsing the full sheet, but skip rows that look like summary
-      const detail = parseDetailTable(sheet);
-      if (detail.length > 0) {
+      const detailResult = parseDetailTable(sheet);
+      if (detailResult.dishes && detailResult.dishes.length > 0) {
         console.log(
-          `[EXCEL PARSER] Found ${detail.length} dishes in full sheet "${sheetName}"`
+          `[EXCEL PARSER] Found ${detailResult.dishes.length} dishes in full sheet "${sheetName}", coperti: ${detailResult.coperti || 0}`
         );
-        detailTable.push(...detail);
+        detailTable.push(...detailResult.dishes);
+        totalCoperti += detailResult.coperti || 0;
         break; // Use first sheet with data
       }
     }
@@ -822,15 +858,17 @@ function detectTables(workbook) {
       '[EXCEL PARSER] Final fallback: trying first sheet as detail table'
     );
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const detail = parseDetailTable(sheet);
-    if (detail.length > 0) {
-      detailTable.push(...detail);
+    const detailResult = parseDetailTable(sheet);
+    if (detailResult.dishes && detailResult.dishes.length > 0) {
+      detailTable.push(...detailResult.dishes);
+      totalCoperti += detailResult.coperti || 0;
     }
   }
 
   return {
     summaryTable: summaryTable.length > 0 ? summaryTable : [],
     detailTable: detailTable.length > 0 ? detailTable : [],
+    coperti: totalCoperti,
   };
 }
 
@@ -932,12 +970,13 @@ function parseExcelFile(buffer, fileName) {
       // Try to parse first sheet as detail table without summary
       if (workbook.SheetNames.length > 0) {
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const detail = parseDetailTable(firstSheet);
-        if (detail.length > 0) {
+        const detailResult = parseDetailTable(firstSheet);
+        if (detailResult.dishes && detailResult.dishes.length > 0) {
           console.log(
-            `[EXCEL PARSER] Found ${detail.length} dishes in first sheet`
+            `[EXCEL PARSER] Found ${detailResult.dishes.length} dishes in first sheet, coperti: ${detailResult.coperti || 0}`
           );
-          tables.detailTable = detail;
+          tables.detailTable = detailResult.dishes;
+          tables.coperti = (tables.coperti || 0) + (detailResult.coperti || 0);
         }
       }
     }
@@ -948,6 +987,7 @@ function parseExcelFile(buffer, fileName) {
     const result = {
       summaryTable: tables.summaryTable,
       detailTable: tables.detailTable,
+      coperti: tables.coperti || 0,
       metadata: {
         fileName,
         fileSize: buffer.length,
@@ -963,7 +1003,7 @@ function parseExcelFile(buffer, fileName) {
     };
 
     console.log(
-      `[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes`
+      `[EXCEL PARSER] Final result: ${result.summaryTable.length} categories, ${result.detailTable.length} dishes, ${result.coperti} coperti`
     );
     return result;
   } catch (error) {
