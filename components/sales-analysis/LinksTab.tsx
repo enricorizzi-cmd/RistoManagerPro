@@ -34,6 +34,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   >('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [recipeFilter, setRecipeFilter] = useState<string>('');
   const [editingDish, setEditingDish] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +47,8 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const [showRecipeFilter, setShowRecipeFilter] = useState(false);
+  const recipeFilterRef = useRef<HTMLDivElement>(null);
 
   // Close category filter when clicking outside
   useEffect(() => {
@@ -67,6 +70,26 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     };
   }, [showCategoryFilter]);
 
+  // Close recipe filter when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        recipeFilterRef.current &&
+        !recipeFilterRef.current.contains(event.target as Node)
+      ) {
+        setShowRecipeFilter(false);
+      }
+    };
+
+    if (showRecipeFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showRecipeFilter]);
+
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filter changes
   }, [filter]);
@@ -74,6 +97,10 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when category filter changes
   }, [categoryFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when recipe filter changes
+  }, [recipeFilter]);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when items per page changes
@@ -223,11 +250,36 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     return Array.from(categories).sort();
   }, [dishes]);
 
-  // Sort dishes based on current sort column and direction
-  const sortedDishes = useMemo(() => {
-    if (!sortColumn) return dishes;
+  // Get unique recipes from linked dishes (for filter dropdown)
+  const uniqueRecipes = useMemo(() => {
+    const recipeMap = new Map<string, { id: string; name: string }>();
+    dishes.forEach(dish => {
+      if (dish.is_linked && dish.recipe_id) {
+        const recipe = recipes.find(r => r.id === dish.recipe_id);
+        if (recipe && !recipeMap.has(dish.recipe_id)) {
+          recipeMap.set(dish.recipe_id, {
+            id: dish.recipe_id,
+            name: recipe.nome_piatto,
+          });
+        }
+      }
+    });
+    return Array.from(recipeMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [dishes, recipes]);
 
-    return [...dishes].sort((a, b) => {
+  // Filter and sort dishes
+  const filteredAndSortedDishes = useMemo(() => {
+    // Apply recipe filter (client-side since API doesn't support it)
+    let filtered = dishes;
+    if (recipeFilter) {
+      filtered = filtered.filter(dish => dish.recipe_id === recipeFilter);
+    }
+
+    if (!sortColumn) return filtered;
+
+    return [...filtered].sort((a, b) => {
       let aValue: string | number;
       let bValue: string | number;
 
@@ -259,7 +311,9 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [dishes, sortColumn, sortDirection, recipes]);
+  }, [dishes, sortColumn, sortDirection, recipes, recipeFilter]);
+
+  const sortedDishes = filteredAndSortedDishes;
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -368,29 +422,23 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
             <button
               onClick={() => setFilter('unlinked')}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                filter === 'unlinked' || filter === 'archived'
+                filter === 'unlinked'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               Non Collegati
             </button>
-            {(filter === 'unlinked' || filter === 'archived') && (
-              <button
-                onClick={() =>
-                  setFilter(filter === 'archived' ? 'unlinked' : 'archived')
-                }
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  filter === 'archived'
-                    ? 'bg-gray-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {filter === 'archived'
-                  ? '← Torna a Non Collegati'
-                  : 'Archiviati'}
-              </button>
-            )}
+            <button
+              onClick={() => setFilter('archived')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                filter === 'archived'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Archiviati
+            </button>
           </div>
           <input
             type="text"
@@ -515,12 +563,92 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                     </div>
                   </th>
                   <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                    onClick={() => handleSort('recipe')}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative"
                   >
-                    <div className="flex items-center">
-                      Ricetta Collegata
-                      <SortIcon column="recipe" />
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1"
+                        onClick={() => handleSort('recipe')}
+                      >
+                        Ricetta Collegata
+                        <SortIcon column="recipe" />
+                      </div>
+                      <div className="relative" ref={recipeFilterRef}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowRecipeFilter(!showRecipeFilter);
+                          }}
+                          className={`p-1 rounded text-gray-600 hover:text-gray-900 ${
+                            recipeFilter
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'hover:bg-gray-200'
+                          }`}
+                          title="Filtra per ricetta"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                            />
+                          </svg>
+                        </button>
+                        {showRecipeFilter && (
+                          <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
+                            <div className="p-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRecipeFilter('');
+                                  setShowRecipeFilter(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                                  recipeFilter === ''
+                                    ? 'bg-primary-50 text-primary-700 font-medium'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                Tutte le ricette
+                              </button>
+                              {uniqueRecipes.length === 0 ? (
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  Nessuna ricetta collegata disponibile
+                                </div>
+                              ) : (
+                                uniqueRecipes.map(recipe => (
+                                  <button
+                                    key={recipe.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRecipeFilter(recipe.id);
+                                      setShowRecipeFilter(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                                      recipeFilter === recipe.id
+                                        ? 'bg-primary-50 text-primary-700 font-medium'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {recipe.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {recipeFilter && (
+                        <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded">
+                          {recipes.find(r => r.id === recipeFilter)?.nome_piatto || 'Ricetta'}
+                        </span>
+                      )}
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">

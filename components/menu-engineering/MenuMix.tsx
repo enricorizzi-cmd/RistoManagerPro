@@ -203,8 +203,15 @@ const MenuMix: React.FC<MenuMixProps> = ({
                       {recipe.nomePiatto}
                     </p>
                     <div className="flex gap-3 mt-1 text-xs text-gray-600">
-                      <span>
+                      <span
+                        className="group relative cursor-help"
+                        title="Popolarità relativa: percentuale rispetto alla ricetta più venduta nel filtro corrente"
+                      >
                         Pop: {getRecipePopularity(recipe.id).toFixed(0)}%
+                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                          Popolarità relativa: percentuale rispetto alla ricetta più venduta nel filtro corrente
+                          <span className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></span>
+                        </span>
                       </span>
                       <span>Marg: {recipe.marginalita.toFixed(1)}%</span>
                     </div>
@@ -336,7 +343,17 @@ const MenuMix: React.FC<MenuMixProps> = ({
               <strong>Popolarità media:</strong> {avgPopularity.toFixed(1)}% |{' '}
               <strong>Marginalità media:</strong> {avgMargin.toFixed(1)}%
             </p>
-            <p className="text-gray-500 italic">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
+              <p className="text-blue-800 font-medium mb-1">
+                ℹ️ Come funziona la Popolarità:
+              </p>
+              <p className="text-blue-700 text-xs">
+                La popolarità è una percentuale <strong>relativa</strong> alle ricette visualizzate nel filtro corrente (categoria e periodo selezionati). 
+                <strong>100%</strong> significa che quella ricetta è la <strong>più venduta</strong> tra tutte quelle visualizzate. 
+                Passa il mouse su "Pop: X%" per maggiori dettagli.
+              </p>
+            </div>
+            <p className="text-gray-500 italic mt-2">
               I dati di vendita provengono dalla scheda Vendite (da integrare)
             </p>
           </div>

@@ -21,7 +21,8 @@ interface FinancialOverviewProps {
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   data,
 }) => {
-  // Convert null to 0 for chart rendering and get last 12 months
+  // Convert null to 0 for chart rendering
+  // Sort by month to ensure chronological order, then show all available data
   const chartData = data
     .map(d => ({
       ...d,
@@ -30,7 +31,23 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
       incassato: d.incassato ?? 0,
       utile: d.utile ?? 0,
     }))
-    .slice(-12);
+    .sort((a, b) => {
+      // Sort by month string (format: "Gen. 25", "Feb. 25", etc.)
+      // Extract year and month for proper sorting
+      const parseMonth = (monthStr: string) => {
+        const monthNames = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+        const parts = monthStr.toLowerCase().replace(/\./g, '').trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const monthIndex = monthNames.indexOf(parts[0]);
+          const year = parseInt(parts[1]);
+          if (monthIndex !== -1 && !isNaN(year)) {
+            return new Date(year < 100 ? 2000 + year : year, monthIndex).getTime();
+          }
+        }
+        return 0;
+      };
+      return parseMonth(a.month) - parseMonth(b.month);
+    });
 
   // If no data, show message
   if (chartData.length === 0) {

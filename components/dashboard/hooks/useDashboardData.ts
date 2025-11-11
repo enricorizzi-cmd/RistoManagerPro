@@ -26,6 +26,7 @@ export function useDashboardData() {
   const loadDashboardData = async () => {
     setLoading(true);
     setError(null);
+    // Don't clear existing data while loading - keep it visible until new data arrives
 
     try {
       // Fetch dashboard data from API endpoint
@@ -34,8 +35,10 @@ export function useDashboardData() {
       if (data) {
         setDashboardData(data);
       } else {
-        // Fallback: use empty dashboard data
-        setDashboardData({
+        // Only set empty data if we don't have existing data
+        // This prevents clearing data when switching periods if API returns null
+        if (!dashboardData) {
+          setDashboardData({
           kpis: {
             fatturato: {
               current: 0,
@@ -79,13 +82,17 @@ export function useDashboardData() {
           aiPredictions: null,
           loading: false,
           error: null,
-        });
+          });
+        }
+        // If we have existing data and API returns null, keep existing data
+        // This prevents clearing data when switching periods
       }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Errore nel caricamento dati'
       );
       console.error('Dashboard data loading error:', err);
+      // Don't clear data on error - keep existing data visible
     } finally {
       setLoading(false);
     }

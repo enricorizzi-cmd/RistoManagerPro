@@ -1890,7 +1890,6 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             FROM financial_stats 
             WHERE location_id = ? 
             ORDER BY month DESC
-            LIMIT 48
           `,
             [location.id]
           );
@@ -2334,6 +2333,8 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       };
 
       const financialData = financialStats.map(stat => {
+        const parsed = parsePlanMonthLabel(stat.month);
+        
         // Get fatturatoPrevisionale from financial_plan_state.statsOverrides if not in financial_stats
         let fatturatoPrevisionaleValue =
           stat.fatturatoPrevisionale !== null &&
@@ -2341,26 +2342,75 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             ? stat.fatturatoPrevisionale
             : null;
 
+        // Get incassato from financial_plan_state.statsOverrides if not in financial_stats
+        let incassatoValue =
+          stat.incassato !== null && stat.incassato !== undefined
+            ? stat.incassato
+            : null;
+
+        // Get utile from financial_plan_state.statsOverrides if not in financial_stats
+        let utileValue =
+          stat.utile !== null && stat.utile !== undefined ? stat.utile : null;
+
         // Fallback: try to get from aggregated financial_plan_state.statsOverrides
         if (
-          fatturatoPrevisionaleValue === null &&
           aggregatedFinancialPlanState &&
-          aggregatedFinancialPlanState.statsOverrides
+          aggregatedFinancialPlanState.statsOverrides &&
+          parsed
         ) {
-          const parsed = parsePlanMonthLabel(stat.month);
-          if (parsed) {
-            // Build month key using same format as buildMonthKey: "YYYY-MM"
-            const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
-            const key = `${monthKey}|fatturatoPrevisionale`;
+          // Build month key using same format as buildMonthKey: "YYYY-MM"
+          const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
 
+          // Try to get fatturatoPrevisionale from statsOverrides
+          if (fatturatoPrevisionaleValue === null) {
+            const fatturatoPrevisionaleKey = `${monthKey}|fatturatoPrevisionale`;
             if (
-              aggregatedFinancialPlanState.statsOverrides[key] !== undefined
+              aggregatedFinancialPlanState.statsOverrides[
+                fatturatoPrevisionaleKey
+              ] !== undefined
             ) {
               fatturatoPrevisionaleValue =
-                parseFloat(aggregatedFinancialPlanState.statsOverrides[key]) ||
-                null;
+                parseFloat(
+                  aggregatedFinancialPlanState.statsOverrides[
+                    fatturatoPrevisionaleKey
+                  ]
+                ) || null;
               console.log(
-                `[Dashboard API] Found fatturatoPrevisionale in aggregated statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${key})`
+                `[Dashboard API] Found fatturatoPrevisionale in aggregated statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${fatturatoPrevisionaleKey})`
+              );
+            }
+          }
+
+          // Try to get incassato from statsOverrides
+          if (incassatoValue === null) {
+            const incassatoKey = `${monthKey}|incassato`;
+            if (
+              aggregatedFinancialPlanState.statsOverrides[incassatoKey] !==
+              undefined
+            ) {
+              incassatoValue =
+                parseFloat(
+                  aggregatedFinancialPlanState.statsOverrides[incassatoKey]
+                ) || null;
+              console.log(
+                `[Dashboard API] Found incassato in aggregated statsOverrides for ${stat.month}: ${incassatoValue} (key: ${incassatoKey})`
+              );
+            }
+          }
+
+          // Try to get utile from statsOverrides
+          if (utileValue === null) {
+            const utileKey = `${monthKey}|utile`;
+            if (
+              aggregatedFinancialPlanState.statsOverrides[utileKey] !==
+              undefined
+            ) {
+              utileValue =
+                parseFloat(
+                  aggregatedFinancialPlanState.statsOverrides[utileKey]
+                ) || null;
+              console.log(
+                `[Dashboard API] Found utile in aggregated statsOverrides for ${stat.month}: ${utileValue} (key: ${utileKey})`
               );
             }
           }
@@ -2370,11 +2420,11 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           month: stat.month,
           fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
           fatturatoPrevisionale: fatturatoPrevisionaleValue,
-          incassato: stat.incassato || null,
+          incassato: incassatoValue,
           incassatoPrevisionale: stat.incassatoPrevisionale || null,
           costiFissi: null,
           costiVariabili: null,
-          utile: stat.utile || null,
+          utile: utileValue,
           utilePrevisionale: stat.utilePrevisionale || null,
         };
       });
@@ -3330,6 +3380,41 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       let costiVariabiliValue = null;
       let utileValue =
         stat.utile !== null && stat.utile !== undefined ? stat.utile : null;
+
+      // First, try to get from statsOverrides if available
+      if (
+        financialPlanState &&
+        financialPlanState.statsOverrides &&
+        parsed
+      ) {
+        // Build month key using same format as buildMonthKey: "YYYY-MM"
+        const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
+
+        // Try to get incassato from statsOverrides if not already set
+        if (incassatoValue === null) {
+          const incassatoKey = `${monthKey}|incassato`;
+          if (financialPlanState.statsOverrides[incassatoKey] !== undefined) {
+            incassatoValue =
+              parseFloat(financialPlanState.statsOverrides[incassatoKey]) ||
+              null;
+            console.log(
+              `[Dashboard API] Found incassato in statsOverrides for ${stat.month}: ${incassatoValue} (key: ${incassatoKey})`
+            );
+          }
+        }
+
+        // Try to get utile from statsOverrides if not already set
+        if (utileValue === null) {
+          const utileKey = `${monthKey}|utile`;
+          if (financialPlanState.statsOverrides[utileKey] !== undefined) {
+            utileValue =
+              parseFloat(financialPlanState.statsOverrides[utileKey]) || null;
+            console.log(
+              `[Dashboard API] Found utile in statsOverrides for ${stat.month}: ${utileValue} (key: ${utileKey})`
+            );
+          }
+        }
+      }
 
       // If we have financial plan state and parsed month, calculate from plan
       if (
@@ -6648,9 +6733,13 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
     // Build filters for Supabase query
     const filters = { location_id: locationId };
 
-    // By default, exclude archived dishes unless explicitly requested
-    const includeArchived = req.query.archived === 'true';
-    if (!includeArchived) {
+    // Handle archived filter: if archived=true, show ONLY archived; if not set, exclude archived
+    const archivedParam = req.query.archived;
+    if (archivedParam === 'true') {
+      // Show ONLY archived dishes
+      filters.is_archived = true;
+    } else {
+      // By default, exclude archived dishes
       filters.is_archived = false;
     }
 
@@ -6706,8 +6795,13 @@ app.get('/api/sales-analysis/dishes', requireAuth, async (req, res) => {
       }
     }
 
-    // Apply filters in JavaScript
-    if (!includeArchived) {
+    // Apply filters in JavaScript (additional filtering if needed)
+    // Note: Supabase filter should already handle archived, but we double-check here
+    if (archivedParam === 'true') {
+      // Ensure we only have archived dishes
+      allDishes = allDishes.filter(d => d.is_archived === true);
+    } else {
+      // Ensure we exclude archived dishes
       allDishes = allDishes.filter(d => !d.is_archived);
     }
 

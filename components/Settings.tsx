@@ -549,12 +549,11 @@ const Settings: React.FC = () => {
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingLocation) && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {editingLocation ? 'Modifica Azienda' : 'Nuova Azienda'}
-              </h3>
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {editingLocation ? 'Modifica Azienda' : 'Nuova Azienda'}
+            </h3>
 
               <form
                 onSubmit={
@@ -619,19 +618,17 @@ const Settings: React.FC = () => {
                   </button>
                 </div>
               </form>
-            </div>
           </div>
         </div>
       )}
 
       {/* Tabs Management Modal */}
       {showTabsModal && selectedLocationForTabs && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 md:top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white m-4">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Gestisci Tab - {selectedLocationForTabs.name}
-              </h3>
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-2xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Gestisci Tab - {selectedLocationForTabs.name}
+            </h3>
 
               <div className="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-3">
                 {availableTabs.map(tab => {
@@ -733,7 +730,6 @@ const Settings: React.FC = () => {
                   Salva
                 </button>
               </div>
-            </div>
           </div>
         </div>
       )}
