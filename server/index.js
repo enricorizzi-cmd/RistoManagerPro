@@ -1177,26 +1177,175 @@ app.delete(
   async (req, res) => {
     try {
       const { id } = req.params;
+      const { supabaseCall } = require('./supabase-wrapper');
 
-      // Delete user permissions for this location
-      await masterDbRun(
-        'DELETE FROM user_location_permissions WHERE location_id = ?',
-        [id]
-      );
+      console.log(`[Settings API] Starting deletion of location ${id}`);
 
-      // Delete enabled tabs for this location
-      await masterDbRun(
-        'DELETE FROM location_enabled_tabs WHERE location_id = ?',
-        [id]
-      );
+      // Prevent deletion of "all" location
+      if (id === 'all') {
+        return res.status(400).json({ error: 'Cannot delete the "all" location' });
+      }
 
-      // Delete location
+      // Delete in order: child tables first, then parent tables
+      // 1. Delete sales-related data (cascade will handle some, but we'll be explicit)
+      try {
+        // sales_dish_data (has CASCADE from sales_imports, but we'll delete explicitly)
+        await supabaseCall('DELETE', 'sales_dish_data', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted sales_dish_data for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting sales_dish_data:`, error.message);
+      }
+
+      try {
+        // sales_categories
+        await supabaseCall('DELETE', 'sales_categories', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted sales_categories for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting sales_categories:`, error.message);
+      }
+
+      try {
+        // sales_dishes
+        await supabaseCall('DELETE', 'sales_dishes', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted sales_dishes for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting sales_dishes:`, error.message);
+      }
+
+      try {
+        // sales_imports (should cascade to sales_dish_data and sales_categories)
+        await supabaseCall('DELETE', 'sales_imports', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted sales_imports for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting sales_imports:`, error.message);
+      }
+
+      try {
+        // sales_import_exclusions
+        await supabaseCall('DELETE', 'sales_import_exclusions', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted sales_import_exclusions for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting sales_import_exclusions:`, error.message);
+      }
+
+      // 2. Delete recipe-related data
+      try {
+        // recipe_ingredients (will cascade from recipes, but delete explicitly)
+        await supabaseCall('DELETE', 'recipe_ingredients', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted recipe_ingredients for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting recipe_ingredients:`, error.message);
+      }
+
+      try {
+        // recipe_sales
+        await supabaseCall('DELETE', 'recipe_sales', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted recipe_sales for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting recipe_sales:`, error.message);
+      }
+
+      try {
+        // recipes
+        await supabaseCall('DELETE', 'recipes', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted recipes for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting recipes:`, error.message);
+      }
+
+      try {
+        // raw_materials
+        await supabaseCall('DELETE', 'raw_materials', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted raw_materials for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting raw_materials:`, error.message);
+      }
+
+      // 3. Delete financial data
+      try {
+        // financial_stats
+        await supabaseCall('DELETE', 'financial_stats', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted financial_stats for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting financial_stats:`, error.message);
+      }
+
+      try {
+        // financial_plan_state
+        await supabaseCall('DELETE', 'financial_plan_state', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted financial_plan_state for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting financial_plan_state:`, error.message);
+      }
+
+      try {
+        // data_entries
+        await supabaseCall('DELETE', 'data_entries', {
+          filters: { location_id: `eq.${id}` },
+        });
+        console.log(`[Settings API] Deleted data_entries for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting data_entries:`, error.message);
+      }
+
+      // 4. Delete master database tables
+      try {
+        // Delete user permissions for this location
+        await masterDbRun(
+          'DELETE FROM user_location_permissions WHERE location_id = ?',
+          [id]
+        );
+        console.log(`[Settings API] Deleted user_location_permissions for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting user_location_permissions:`, error.message);
+      }
+
+      try {
+        // Delete enabled tabs for this location
+        await masterDbRun(
+          'DELETE FROM location_enabled_tabs WHERE location_id = ?',
+          [id]
+        );
+        console.log(`[Settings API] Deleted location_enabled_tabs for location ${id}`);
+      } catch (error) {
+        console.warn(`[Settings API] Error deleting location_enabled_tabs:`, error.message);
+      }
+
+      // 5. Finally, delete the location itself
       await masterDbRun('DELETE FROM locations WHERE id = ?', [id]);
+      console.log(`[Settings API] Successfully deleted location ${id}`);
 
       res.json({ success: true });
     } catch (error) {
-      console.error('Failed to delete location', error);
-      res.status(500).json({ error: 'Failed to delete location' });
+      console.error('[Settings API] Failed to delete location:', error);
+      console.error('[Settings API] Error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Failed to delete location',
+        message: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 );
@@ -3217,97 +3366,92 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     // Get coperti for the period from sales_imports
     let copertiPeriod = 0;
     try {
-      const startYear = startDate.getFullYear();
-      const startMonth = startDate.getMonth() + 1; // 1-based for DB
-      const endYear = endDate.getFullYear();
-      const endMonth = endDate.getMonth() + 1; // 1-based for DB
-
-      let copertiQuery;
-      let copertiParams;
-
-      // Simplify query based on period type
-      if (period === 'year') {
-        // For year: include ALL months of the year (not just YTD)
-        // endMonth should be 12 (December) for full year
-        copertiQuery = `
-          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
-          FROM sales_imports
-          WHERE location_id = ?
-            AND period_year = ?
-            AND period_month >= 1
-            AND period_month <= 12
-        `;
-        copertiParams = [locationId, startYear];
-        console.log(
-          `[Dashboard API] Year period query - startYear: ${startYear}, including all months (1-12)`
+      if (!startDate || !endDate) {
+        console.warn(
+          `[Dashboard API] startDate or endDate is null for period ${period}, skipping coperti query`
         );
-      } else if (period === 'month') {
-        // For month: filter by specific year and month
-        copertiQuery = `
-          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
-          FROM sales_imports
-          WHERE location_id = ?
-            AND period_year = ?
-            AND period_month = ?
-        `;
-        copertiParams = [locationId, startYear, startMonth];
       } else {
-        // For other periods: use range query
-        copertiQuery = `
-          SELECT SUM(COALESCE(coperti, 0)) as total_coperti
-          FROM sales_imports
-          WHERE location_id = ?
-            AND (
-              (period_year = ? AND period_month >= ? AND period_month <= ?)
-              OR (period_year > ? AND period_year < ?)
-              OR (period_year = ? AND period_month <= ?)
-            )
-        `;
-        copertiParams = [
+        const startYear = startDate.getFullYear();
+        const startMonth = startDate.getMonth() + 1; // 1-based for DB
+        const endYear = endDate.getFullYear();
+        const endMonth = endDate.getMonth() + 1; // 1-based for DB
+
+        let copertiQuery;
+        let copertiParams;
+
+        // Simplify query based on period type
+        if (period === 'year') {
+          // For year: include ALL months of the year (not just YTD)
+          // endMonth should be 12 (December) for full year
+          copertiQuery = `
+            SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+            FROM sales_imports
+            WHERE location_id = ?
+              AND period_year = ?
+              AND period_month >= 1
+              AND period_month <= 12
+          `;
+          copertiParams = [locationId, startYear];
+          console.log(
+            `[Dashboard API] Year period query - startYear: ${startYear}, including all months (1-12)`
+          );
+        } else if (period === 'month') {
+          // For month: filter by specific year and month
+          copertiQuery = `
+            SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+            FROM sales_imports
+            WHERE location_id = ?
+              AND period_year = ?
+              AND period_month = ?
+          `;
+          copertiParams = [locationId, startYear, startMonth];
+        } else {
+          // For other periods: use range query
+          copertiQuery = `
+            SELECT SUM(COALESCE(coperti, 0)) as total_coperti
+            FROM sales_imports
+            WHERE location_id = ?
+              AND (
+                (period_year = ? AND period_month >= ? AND period_month <= ?)
+                OR (period_year > ? AND period_year < ?)
+                OR (period_year = ? AND period_month <= ?)
+              )
+          `;
+          copertiParams = [
+            locationId,
+            startYear,
+            startMonth,
+            endMonth,
+            startYear,
+            endYear,
+            endYear,
+            endMonth,
+          ];
+        }
+
+        const copertiData = await dbQuery(
           locationId,
-          startYear,
-          startMonth,
-          endMonth,
-          startYear,
-          endYear,
-          endYear,
-          endMonth,
-        ];
-      }
-
-      const copertiData = await dbQuery(
-        locationId,
-        copertiQuery,
-        copertiParams
-      );
-
-      if (copertiData && copertiData.length > 0) {
-        copertiPeriod = parseInt(copertiData[0].total_coperti || 0);
-      }
-      console.log(
-        `[Dashboard API] Coperti per periodo (${period}): ${copertiPeriod}, query params:`,
-        copertiParams
-      );
-
-      // Log detailed query info for debugging
-      if (copertiPeriod === 0) {
-        console.warn(
-          `[Dashboard API] ⚠ WARNING: Nessun coperto trovato per periodo ${period} (location: ${locationId}, year: ${startYear}, month range: ${startMonth}-${endMonth})`
+          copertiQuery,
+          copertiParams
         );
-        console.warn(
-          `[Dashboard API] ⚠ Verifica che esistano import per questo periodo in sales_imports con coperti > 0`
-        );
-      } else {
-        console.log(
-          `[Dashboard API] ✓ Trovati ${copertiPeriod} coperti per periodo ${period}`
-        );
+
+        if (copertiData && copertiData.length > 0) {
+          copertiPeriod = parseInt(copertiData[0].total_coperti || 0);
+        }
+        
+        // Log detailed query info for debugging
+        if (copertiPeriod === 0) {
+          console.warn(
+            `[Dashboard API] ⚠ WARNING: Nessun coperto trovato per periodo ${period} (location: ${locationId}, year: ${startYear})`
+          );
+        }
       }
     } catch (error) {
       console.error(
-        `[Dashboard API] Error fetching coperti for period:`,
-        error.message
+        `[Dashboard API] Error fetching coperti for period ${period}:`,
+        error.message || error
       );
-      // copertiPeriod remains 0
+      // Continue with copertiPeriod = 0
     }
 
     // Calculate percentages
@@ -3852,7 +3996,12 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to get dashboard data', error);
-    res.status(500).json({ error: 'Failed to get dashboard data' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to get dashboard data',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

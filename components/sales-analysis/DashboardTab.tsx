@@ -202,7 +202,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
                 cy="50%"
                 labelLine={false}
                 label={({ category, percentage }) =>
-                  `${category}: ${percentage.toFixed(1)}%`
+                  `${category}: ${(percentage ?? 0).toFixed(1)}%`
                 }
                 outerRadius={80}
                 fill="#8884d8"
