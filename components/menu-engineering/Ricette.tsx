@@ -39,6 +39,8 @@ const Ricette: React.FC<RicetteProps> = ({
     { key: 'antipasti', label: 'Antipasti' },
     { key: 'primi', label: 'Primi' },
     { key: 'secondi', label: 'Secondi' },
+    { key: 'contorni', label: 'Contorni' },
+    { key: 'pizze', label: 'Pizze' },
     { key: 'dessert', label: 'Dessert' },
     { key: 'altro', label: 'Altro' },
     { key: 'tutti', label: 'Tutti' },
@@ -142,9 +144,7 @@ const Ricette: React.FC<RicetteProps> = ({
       {/* Grid Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 md:p-4 rounded-lg shadow border border-gray-200 gap-2">
         <span className="text-xs md:text-sm text-gray-600">
-          {filteredRecipes.length} ricetta
-          {filteredRecipes.length !== 1 ? 'e' : ''} visualizzata
-          {filteredRecipes.length !== 1 ? 'e' : ''}
+          {filteredRecipes.length} {filteredRecipes.length === 1 ? 'ricetta visualizzata' : 'ricette visualizzate'}
         </span>
       </div>
 
@@ -257,7 +257,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       className={`h-full flex flex-col ${isReadOnly ? '' : isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
     >
       {/* Header with Name and Price */}
-      <div className="bg-white border-b border-gray-200 p-2 md:p-3 rounded-t-lg">
+      <div className="bg-white border-b-2 border-gray-300 p-2 md:p-3 rounded-t-lg">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-base md:text-lg text-gray-900 break-words">
@@ -371,23 +371,23 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
       {/* Summary - matching form layout */}
       <div className="px-2 md:px-3 pb-2 md:pb-3">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-2 sm:p-3 rounded-lg border border-green-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-xs">
-            <div>
-              <span className="text-gray-600">Food Cost:</span>
-              <span className="ml-2 font-bold text-gray-900">
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="text-gray-600 whitespace-nowrap">Food Cost:</span>
+              <span className="font-bold text-gray-900 whitespace-nowrap">
                 €{recipe.foodCost.toFixed(2)}
               </span>
             </div>
-            <div>
-              <span className="text-gray-600">Utile:</span>
-              <span className="ml-2 font-bold text-green-700">
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="text-gray-600 whitespace-nowrap">Utile:</span>
+              <span className="font-bold text-green-700 whitespace-nowrap">
                 €{recipe.utile.toFixed(2)}
               </span>
             </div>
-            <div>
-              <span className="text-gray-600">Marginalità:</span>
-              <span className="ml-2 font-bold text-green-700">
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="text-gray-600 whitespace-nowrap">Marginalità:</span>
+              <span className="font-bold text-green-700 whitespace-nowrap">
                 {recipe.marginalita.toFixed(1)}%
               </span>
             </div>
@@ -552,7 +552,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
       <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">
@@ -760,7 +760,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
       {/* Ingredient Modal */}
       {showIngredientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-[60] p-2 md:p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-[60] p-2 md:p-4 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <h4 className="text-lg font-bold mb-4">Aggiungi Ingrediente</h4>
             <div className="space-y-4">

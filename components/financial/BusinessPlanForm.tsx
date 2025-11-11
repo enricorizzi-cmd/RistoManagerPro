@@ -90,6 +90,24 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
   const { currentLocation } = useAppContext();
   const [showMissingDataModal, setShowMissingDataModal] = React.useState(false);
 
+  // Close modal on ESC key
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showMissingDataModal) {
+        setShowMissingDataModal(false);
+      }
+    };
+    if (showMissingDataModal) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showMissingDataModal]);
+
   // Automatic calculation of fatturato totale when component mounts or location changes
   React.useEffect(() => {
     const autoCalculateFatturatoTotale = async () => {
@@ -889,11 +907,19 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              className="fixed inset-0 bg-gray-500 bg-opacity-40 transition-opacity"
               onClick={() => setShowMissingDataModal(false)}
+              role="button"
+              tabIndex={0}
+              aria-label="Chiudi modal"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  setShowMissingDataModal(false);
+                }
+              }}
             ></div>
 
-            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
+            <div className="relative z-10 inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 sm:mx-0 sm:h-10 sm:w-10">

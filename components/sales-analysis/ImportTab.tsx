@@ -8,6 +8,7 @@ import {
 } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
 import type { SalesImport } from '../../services/salesAnalysisApi';
+import { formatCurrency } from '../../utils/format';
 
 interface ImportTabProps {
   locationId: string;
@@ -253,7 +254,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                             {row.quantity}
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-900">
-                            € {row.totalValue.toFixed(2)}
+                            {formatCurrency(row.totalValue)}
                           </td>
                         </tr>
                       ))}
@@ -300,7 +301,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                             {row.quantity}
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-900">
-                            € {row.totalValue.toFixed(2)}
+                            {formatCurrency(row.totalValue)}
                           </td>
                         </tr>
                       ))}
@@ -433,7 +434,7 @@ const ImportTab: React.FC<ImportTabProps> = ({ locationId }) => {
                       {importItem.total_quantity.toLocaleString('it-IT')}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      € {importItem.total_value.toFixed(2)}
+                      {formatCurrency(importItem.total_value)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {new Date(importItem.import_date).toLocaleDateString(

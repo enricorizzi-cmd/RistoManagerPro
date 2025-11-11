@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getDashboardData } from '../../services/salesAnalysisApi';
 import { useAppContext } from '../../contexts/AppContext';
+import { formatCurrency } from '../../utils/format';
 import {
   ResponsiveContainer,
   LineChart,
@@ -136,7 +137,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Valore Totale</div>
           <div className="text-2xl font-bold text-gray-900">
-            € {dashboardData.kpis.totalValue.toFixed(2)}
+            {formatCurrency(dashboardData.kpis.totalValue)}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
@@ -154,7 +155,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Ticket Medio</div>
           <div className="text-2xl font-bold text-gray-900">
-            € {dashboardData.kpis.averageTicket.toFixed(2)}
+            {formatCurrency(dashboardData.kpis.averageTicket)}
           </div>
         </div>
       </div>
@@ -169,7 +170,14 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip />
+              <Tooltip
+                formatter={(value: number) => formatCurrency(value)}
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                }}
+              />
               <Legend />
               <Line
                 type="monotone"
@@ -209,7 +217,14 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
                   )
                 )}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                formatter={(value: number) => formatCurrency(value)}
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -228,7 +243,14 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ locationId }) => {
               height={100}
             />
             <YAxis />
-            <Tooltip />
+            <Tooltip
+              formatter={(value: number) => formatCurrency(value)}
+              contentStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
+                borderRadius: '8px',
+              }}
+            />
             <Bar dataKey="value" fill="#0088FE" name="Valore (€)" />
           </BarChart>
         </ResponsiveContainer>

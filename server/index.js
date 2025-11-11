@@ -11,6 +11,13 @@ const {
   normalizeDishName,
   normalizeCategoryName,
 } = require('./excel-parser');
+const {
+  createFullBackup,
+  createLocationBackup,
+  listBackups,
+  restoreBackup,
+  cleanupOldBackups,
+} = require('./backup-service');
 
 const PORT = process.env.PORT || 4000;
 
@@ -2164,15 +2171,16 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
             // Simplify query based on period type
             if (period === 'year') {
-              // For year: just filter by year and month <= current month
+              // For year: include ALL months of the year (not just YTD)
               copertiQuery = `
                 SELECT SUM(COALESCE(coperti, 0)) as total_coperti
                 FROM sales_imports
                 WHERE location_id = ?
                   AND period_year = ?
-                  AND period_month <= ?
+                  AND period_month >= 1
+                  AND period_month <= 12
               `;
-              copertiParams = [location.id, startYear, endMonth];
+              copertiParams = [location.id, startYear];
             } else if (period === 'month') {
               // For month: filter by specific year and month
               copertiQuery = `
@@ -2279,17 +2287,93 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             : 0,
       }));
 
-      const financialData = financialStats.map(stat => ({
-        month: stat.month,
-        fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
-        fatturatoPrevisionale: stat.fatturatoPrevisionale || null,
-        incassato: stat.incassato || null,
-        incassatoPrevisionale: stat.incassatoPrevisionale || null,
-        costiFissi: null,
-        costiVariabili: null,
-        utile: stat.utile || null,
-        utilePrevisionale: stat.utilePrevisionale || null,
-      }));
+      // Get aggregated financial plan state for "all" location
+      let aggregatedFinancialPlanState = null;
+      try {
+        aggregatedFinancialPlanState = await getState('all');
+      } catch (error) {
+        console.error(
+          `[Dashboard API] Error fetching aggregated financial plan state:`,
+          error.message || error
+        );
+      }
+
+      // Helper function to parse month label
+      const parsePlanMonthLabel = label => {
+        if (!label) return null;
+        const monthNames = [
+          'gen',
+          'feb',
+          'mar',
+          'apr',
+          'mag',
+          'giu',
+          'lug',
+          'ago',
+          'set',
+          'ott',
+          'nov',
+          'dic',
+        ];
+        const normalized = label
+          .replace(/\./g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+        for (let i = 0; i < monthNames.length; i++) {
+          if (normalized.startsWith(monthNames[i])) {
+            const yearPart = normalized.substring(monthNames[i].length).trim();
+            const year = parseInt(yearPart);
+            if (!isNaN(year)) {
+              const fullYear = year < 100 ? 2000 + year : year;
+              return { year: fullYear, monthIndex: i };
+            }
+          }
+        }
+        return null;
+      };
+
+      const financialData = financialStats.map(stat => {
+        // Get fatturatoPrevisionale from financial_plan_state.statsOverrides if not in financial_stats
+        let fatturatoPrevisionaleValue =
+          stat.fatturatoPrevisionale !== null &&
+          stat.fatturatoPrevisionale !== undefined
+            ? stat.fatturatoPrevisionale
+            : null;
+        
+        // Fallback: try to get from aggregated financial_plan_state.statsOverrides
+        if (
+          fatturatoPrevisionaleValue === null &&
+          aggregatedFinancialPlanState &&
+          aggregatedFinancialPlanState.statsOverrides
+        ) {
+          const parsed = parsePlanMonthLabel(stat.month);
+          if (parsed) {
+            // Build month key using same format as buildMonthKey: "YYYY-MM"
+            const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
+            const key = `${monthKey}|fatturatoPrevisionale`;
+            
+            if (aggregatedFinancialPlanState.statsOverrides[key] !== undefined) {
+              fatturatoPrevisionaleValue = parseFloat(aggregatedFinancialPlanState.statsOverrides[key]) || null;
+              console.log(
+                `[Dashboard API] Found fatturatoPrevisionale in aggregated statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${key})`
+              );
+            }
+          }
+        }
+
+        return {
+          month: stat.month,
+          fatturato: stat.fatturatoImponibile || stat.fatturatoTotale || null,
+          fatturatoPrevisionale: fatturatoPrevisionaleValue,
+          incassato: stat.incassato || null,
+          incassatoPrevisionale: stat.incassatoPrevisionale || null,
+          costiFissi: null,
+          costiVariabili: null,
+          utile: stat.utile || null,
+          utilePrevisionale: stat.utilePrevisionale || null,
+        };
+      });
 
       // Debug logging
       console.log(
@@ -2990,6 +3074,30 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           0
         );
       }
+
+      // Fallback: if utilePeriod is 0, try to calculate from financial_stats
+      // This handles cases where financial plan data is not available
+      if (utilePeriod === 0 && period === 'year') {
+        // Try to sum utile from all months in the year from financial_stats
+        const yearStats = financialStats.filter(stat => {
+          const parsed = parsePlanMonthLabel(stat.month);
+          return parsed && parsed.year === startYear;
+        });
+        
+        if (yearStats.length > 0) {
+          utilePeriod = yearStats.reduce(
+            (sum, stat) => sum + (parseFloat(stat.utile || 0) || 0),
+            0
+          );
+          console.log(
+            `[Dashboard API] Fallback: Calculated utilePeriod from financial_stats: ${utilePeriod} (from ${yearStats.length} months)`
+          );
+        } else {
+          console.log(
+            `[Dashboard API] No financial_stats data found for year ${startYear}`
+          );
+        }
+      }
     }
 
     // Log calculated values for debugging
@@ -3065,18 +3173,19 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
       // Simplify query based on period type
       if (period === 'year') {
-        // For year: just filter by year and month <= current month (YTD)
-        // endMonth is already 1-based (currentMonth + 1)
+        // For year: include ALL months of the year (not just YTD)
+        // endMonth should be 12 (December) for full year
         copertiQuery = `
           SELECT SUM(COALESCE(coperti, 0)) as total_coperti
           FROM sales_imports
           WHERE location_id = ?
             AND period_year = ?
-            AND period_month <= ?
+            AND period_month >= 1
+            AND period_month <= 12
         `;
-        copertiParams = [locationId, startYear, endMonth];
+        copertiParams = [locationId, startYear];
         console.log(
-          `[Dashboard API] Year period query - startYear: ${startYear}, endMonth: ${endMonth} (currentMonth: ${currentMonth})`
+          `[Dashboard API] Year period query - startYear: ${startYear}, including all months (1-12)`
         );
       } else if (period === 'month') {
         // For month: filter by specific year and month
@@ -3181,6 +3290,33 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
       // Parse month to get year and monthIndex
       const parsed = parsePlanMonthLabel(stat.month);
+      
+      // Get fatturatoPrevisionale from financial_plan_state.statsOverrides if not in financial_stats
+      let fatturatoPrevisionaleValue =
+        stat.fatturatoPrevisionale !== null &&
+        stat.fatturatoPrevisionale !== undefined
+          ? stat.fatturatoPrevisionale
+          : null;
+      
+      // Fallback: try to get from financial_plan_state.statsOverrides
+      if (
+        fatturatoPrevisionaleValue === null &&
+        financialPlanState &&
+        financialPlanState.statsOverrides &&
+        parsed
+      ) {
+        // Build month key using same format as buildMonthKey: "YYYY-MM"
+        const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
+        const key = `${monthKey}|fatturatoPrevisionale`;
+        
+        if (financialPlanState.statsOverrides[key] !== undefined) {
+          fatturatoPrevisionaleValue = parseFloat(financialPlanState.statsOverrides[key]) || null;
+          console.log(
+            `[Dashboard API] Found fatturatoPrevisionale in statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${key})`
+          );
+        }
+      }
+      
       let incassatoValue =
         stat.incassato !== null && stat.incassato !== undefined
           ? stat.incassato
@@ -3306,11 +3442,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       return {
         month: stat.month,
         fatturato: fatturato,
-        fatturatoPrevisionale:
-          stat.fatturatoPrevisionale !== null &&
-          stat.fatturatoPrevisionale !== undefined
-            ? stat.fatturatoPrevisionale
-            : null,
+        fatturatoPrevisionale: fatturatoPrevisionaleValue,
         incassato: incassatoValue,
         incassatoPrevisionale:
           stat.incassatoPrevisionale !== null &&
@@ -3432,20 +3564,26 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     }
 
     // Use period totals instead of single month
+    // For 'year' period, always prefer period totals (even if 0) to show YTD correctly
+    // For other periods, fallback to current month data
     const fatturatoCurrent =
-      fatturatoPeriod > 0
+      period === 'year' && fatturatoPeriod !== undefined
         ? fatturatoPeriod
-        : currentMonthData?.fatturato !== null &&
-            currentMonthData?.fatturato !== undefined
-          ? currentMonthData.fatturato
-          : 0;
+        : fatturatoPeriod > 0
+          ? fatturatoPeriod
+          : currentMonthData?.fatturato !== null &&
+              currentMonthData?.fatturato !== undefined
+            ? currentMonthData.fatturato
+            : 0;
     const utileCurrent =
-      utilePeriod > 0
+      period === 'year' && utilePeriod !== undefined
         ? utilePeriod
-        : currentMonthData?.utile !== null &&
-            currentMonthData?.utile !== undefined
-          ? currentMonthData.utile
-          : 0;
+        : utilePeriod > 0
+          ? utilePeriod
+          : currentMonthData?.utile !== null &&
+              currentMonthData?.utile !== undefined
+            ? currentMonthData.utile
+            : 0;
 
     // For previous period comparison, calculate previous period totals
     let fatturatoPrevious = 0;
@@ -3501,12 +3639,19 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
     // Debug: Log calculated KPIs
     console.log(
-      `[Dashboard API] Calculated KPIs - Fatturato: ${fatturatoCurrent}, Utile: ${utileCurrent}, Previous Fatturato: ${fatturatoPrevious}, Previous Utile: ${utilePrevious}`
+      `[Dashboard API] Calculated KPIs - Period: ${period}, Fatturato: ${fatturatoCurrent} (from period: ${fatturatoPeriod}, from month: ${currentMonthData?.fatturato}), Utile: ${utileCurrent} (from period: ${utilePeriod}, from month: ${currentMonthData?.utile}), Previous Fatturato: ${fatturatoPrevious}, Previous Utile: ${utilePrevious}`
     );
+    
+    // Calculate margine: (Utile / Fatturato) * 100
+    // Only calculate if fatturato > 0 to avoid division by zero
     const margineCurrent =
       fatturatoCurrent > 0 ? (utileCurrent / fatturatoCurrent) * 100 : 0;
     const marginePrevious =
       fatturatoPrevious > 0 ? (utilePrevious / fatturatoPrevious) * 100 : 0;
+    
+    console.log(
+      `[Dashboard API] Calculated Margine - Current: ${margineCurrent.toFixed(2)}%, Previous: ${marginePrevious.toFixed(2)}%`
+    );
 
     const calculateChangePercent = (current, previous) => {
       if (previous === 0) return current > 0 ? 100 : 0;
@@ -7402,6 +7547,143 @@ app.post('/api/admin/run-migration-coperti', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Migration endpoint error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================================================
+// BACKUP API ENDPOINTS
+// =====================================================
+
+// Create full backup (admin only)
+app.post('/api/backup/create', requireAuth, async (req, res) => {
+  try {
+    // Only allow admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { locationId } = req.body;
+
+    console.log(`[BACKUP API] Creating backup${locationId ? ` for location ${locationId}` : ' (all locations)'}...`);
+
+    const result = locationId
+      ? await createLocationBackup(locationId)
+      : await createFullBackup();
+
+    res.json({
+      success: result.success,
+      message: `Backup created successfully`,
+      backup: {
+        path: result.backupPath,
+        storagePath: result.storagePath || result.backupPath,
+        timestamp: result.timestamp,
+        tables: result.tables,
+        records: result.records,
+        errors: result.errors,
+      },
+    });
+  } catch (error) {
+    console.error('[BACKUP API] Failed to create backup:', error);
+    res.status(500).json({
+      error: 'Failed to create backup',
+      details: error.message,
+    });
+  }
+});
+
+// List all backups
+app.get('/api/backup/list', requireAuth, async (req, res) => {
+  try {
+    // Only allow admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const backups = await listBackups();
+
+    res.json({
+      success: true,
+      backups,
+      count: backups.length,
+    });
+  } catch (error) {
+    console.error('[BACKUP API] Failed to list backups:', error);
+    res.status(500).json({
+      error: 'Failed to list backups',
+      details: error.message,
+    });
+  }
+});
+
+// Restore backup (admin only, with confirmation)
+app.post('/api/backup/restore', requireAuth, async (req, res) => {
+  try {
+    // Only allow admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { backupPath, storagePath, confirm } = req.body;
+
+    // Support both old filesystem path and new storage path
+    const actualPath = storagePath || backupPath;
+    
+    if (!actualPath) {
+      return res.status(400).json({ error: 'Backup path is required' });
+    }
+
+    if (!confirm) {
+      return res.status(400).json({
+        error: 'Restore confirmation required',
+        message: 'Restore operation requires explicit confirmation',
+        requiresConfirmation: true,
+      });
+    }
+
+    // Dry run first to show what would be restored
+    const dryRunResult = await restoreBackup(actualPath, true);
+
+    // For now, return dry run results
+    // Full restore should be done through Supabase dashboard or with more careful implementation
+    res.json({
+      success: true,
+      message: 'Restore dry run completed. Full restore not yet implemented via API.',
+      warning: 'Use Supabase dashboard for full restore operations',
+      dryRun: dryRunResult,
+    });
+  } catch (error) {
+    console.error('[BACKUP API] Failed to restore backup:', error);
+    res.status(500).json({
+      error: 'Failed to restore backup',
+      details: error.message,
+    });
+  }
+});
+
+// Cleanup old backups (admin only)
+app.post('/api/backup/cleanup', requireAuth, async (req, res) => {
+  try {
+    // Only allow admin users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { daysToKeep = 30 } = req.body;
+
+    const result = await cleanupOldBackups(daysToKeep);
+
+    res.json({
+      success: true,
+      message: `Cleanup completed: ${result.deleted} backup(s) deleted`,
+      deleted: result.deleted,
+      total: result.total,
+    });
+  } catch (error) {
+    console.error('[BACKUP API] Failed to cleanup backups:', error);
+    res.status(500).json({
+      error: 'Failed to cleanup backups',
+      details: error.message,
+    });
   }
 });
 

@@ -25,6 +25,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   antipasti: '#8B5CF6', // Purple
   primi: '#3B82F6', // Blue
   secondi: '#EF4444', // Red
+  contorni: '#10B981', // Green
+  pizze: '#F97316', // Orange
   dessert: '#F59E0B', // Amber
   altro: '#6B7280', // Gray
 };

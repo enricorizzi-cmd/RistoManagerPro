@@ -77,7 +77,7 @@ const ManageListModal: React.FC<ManageListModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">{title}</h3>

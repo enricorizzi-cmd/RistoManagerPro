@@ -1080,6 +1080,7 @@ const FinancialPlan: React.FC = () => {
               ? causaliCatalog
               : (financialCausali as any)
           }
+          monthlyMetrics={monthlyMetrics}
         />
       )}
 

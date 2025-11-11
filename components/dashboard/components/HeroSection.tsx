@@ -59,7 +59,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     },
     {
       key: 'margine',
-      title: 'Margine',
+      title: 'Margine (Utile/Fatturato)',
       value: kpis.margine.current,
       change: kpis.margine.changePercent,
       sparkline: kpis.margine.sparkline,

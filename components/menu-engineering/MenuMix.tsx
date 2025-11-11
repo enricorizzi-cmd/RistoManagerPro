@@ -31,6 +31,8 @@ const MenuMix: React.FC<MenuMixProps> = ({
     { key: 'antipasti', label: 'Antipasti' },
     { key: 'primi', label: 'Primi' },
     { key: 'secondi', label: 'Secondi' },
+    { key: 'contorni', label: 'Contorni' },
+    { key: 'pizze', label: 'Pizze' },
     { key: 'dessert', label: 'Dessert' },
     { key: 'altro', label: 'Altro' },
     { key: 'tutti', label: 'Tutti' },

@@ -29,18 +29,33 @@ interface MetricField {
 
 interface InserisciDatiProps {
   causaliCatalog: FinancialCausaleGroup[];
+  monthlyMetrics?: any[];
 }
 
 export const InserisciDati: React.FC<InserisciDatiProps> = ({
   causaliCatalog,
+  monthlyMetrics = [],
 }) => {
   const { showNotification, currentLocation } = useAppContext();
   const { token } = useAuth();
   const { handleSaveMetrics } = useFinancialPlanData(currentLocation?.id);
 
-  // Form state
-  const [mese, setMese] = useState<number>(new Date().getMonth());
-  const [anno, setAnno] = useState<number>(new Date().getFullYear());
+  // Calculate previous month (mese precedente al mese in corso)
+  const getPreviousMonth = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // Previous month is the month before current month
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    return { year: previousYear, monthIndex: previousMonth };
+  }, []);
+
+  // Form state - initialize with previous month
+  const [mese, setMese] = useState<number>(getPreviousMonth.monthIndex);
+  const [anno, setAnno] = useState<number>(getPreviousMonth.year);
   const [tipologiaCausale, setTipologiaCausale] = useState<string>('');
   const [categoria, setCategoria] = useState<string>('');
   const [causale, setCausale] = useState<string>('');
@@ -208,6 +223,44 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
 
     loadExistingData();
   }, [currentLocation?.id, token, showNotification]);
+
+  // Load last values from monthlyMetrics
+  useEffect(() => {
+    if (monthlyMetrics.length === 0) return;
+
+    // Find last value for each metric
+    const getLastValue = (metricId: string): string => {
+      // Find most recent metric entry for this metric
+      const relevantMetrics = monthlyMetrics
+        .filter(m => m.values && m.values[metricId] !== undefined)
+        .sort((a, b) => {
+          // Sort by year and month (most recent first)
+          if (a.year !== b.year) return b.year - a.year;
+          return b.month - a.month;
+        });
+
+      if (relevantMetrics.length > 0) {
+        const value = relevantMetrics[0].values[metricId];
+        return value !== null && value !== undefined
+          ? formatItalianNumber(value)
+          : '-';
+      }
+      return '-';
+    };
+
+    setMetrics(prev =>
+      prev.map(metric => ({
+        ...metric,
+        lastValue: getLastValue(metric.id),
+      }))
+    );
+  }, [monthlyMetrics]);
+
+  // Update mese and anno when previous month changes
+  useEffect(() => {
+    setMese(getPreviousMonth.monthIndex);
+    setAnno(getPreviousMonth.year);
+  }, [getPreviousMonth]);
 
   // Format current date for display
   const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm');

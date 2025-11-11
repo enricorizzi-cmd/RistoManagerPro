@@ -8,6 +8,8 @@ export type RecipeCategory =
   | 'secondi'
   | 'dessert'
   | 'altro'
+  | 'contorni'
+  | 'pizze'
   | 'tutti';
 
 export interface RawMaterial {
