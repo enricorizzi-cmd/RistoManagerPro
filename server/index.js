@@ -5652,7 +5652,16 @@ app.post(
 
       // Extract coperti from parseResult
       const coperti = parseResult.coperti || 0;
-      console.log(`[IMPORT] Rilevati ${coperti} coperti dal file Excel`);
+      console.log(
+        `[IMPORT] Rilevati ${coperti} coperti dal file Excel "${parseResult.metadata.fileName}"`
+      );
+      
+      // Log warning if coperti is 0 but we have dishes
+      if (coperti === 0 && parseResult.detailTable.length > 0) {
+        console.warn(
+          `[IMPORT] WARNING: Coperti is 0 but ${parseResult.detailTable.length} dishes were found. Check if "Coperto" entries exist in the Excel file.`
+        );
+      }
 
       // Create import record
       const importId = crypto.randomUUID();

@@ -32,11 +32,6 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }))
     .slice(-12);
 
-  // Debug: log data
-  if (chartData.length > 0) {
-    console.log('[FinancialOverview] Chart data:', chartData.slice(0, 3));
-  }
-
   // If no data, show message
   if (chartData.length === 0) {
     return (
