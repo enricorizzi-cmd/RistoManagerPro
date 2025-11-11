@@ -1191,7 +1191,7 @@ app.delete(
       try {
         // sales_dish_data (has CASCADE from sales_imports, but we'll delete explicitly)
         await supabaseCall('DELETE', 'sales_dish_data', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted sales_dish_data for location ${id}`);
       } catch (error) {
@@ -1201,7 +1201,7 @@ app.delete(
       try {
         // sales_categories
         await supabaseCall('DELETE', 'sales_categories', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted sales_categories for location ${id}`);
       } catch (error) {
@@ -1211,7 +1211,7 @@ app.delete(
       try {
         // sales_dishes
         await supabaseCall('DELETE', 'sales_dishes', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted sales_dishes for location ${id}`);
       } catch (error) {
@@ -1221,7 +1221,7 @@ app.delete(
       try {
         // sales_imports (should cascade to sales_dish_data and sales_categories)
         await supabaseCall('DELETE', 'sales_imports', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted sales_imports for location ${id}`);
       } catch (error) {
@@ -1231,7 +1231,7 @@ app.delete(
       try {
         // sales_import_exclusions
         await supabaseCall('DELETE', 'sales_import_exclusions', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted sales_import_exclusions for location ${id}`);
       } catch (error) {
@@ -1242,7 +1242,7 @@ app.delete(
       try {
         // recipe_ingredients (will cascade from recipes, but delete explicitly)
         await supabaseCall('DELETE', 'recipe_ingredients', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted recipe_ingredients for location ${id}`);
       } catch (error) {
@@ -1252,7 +1252,7 @@ app.delete(
       try {
         // recipe_sales
         await supabaseCall('DELETE', 'recipe_sales', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted recipe_sales for location ${id}`);
       } catch (error) {
@@ -1262,7 +1262,7 @@ app.delete(
       try {
         // recipes
         await supabaseCall('DELETE', 'recipes', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted recipes for location ${id}`);
       } catch (error) {
@@ -1272,7 +1272,7 @@ app.delete(
       try {
         // raw_materials
         await supabaseCall('DELETE', 'raw_materials', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted raw_materials for location ${id}`);
       } catch (error) {
@@ -1283,7 +1283,7 @@ app.delete(
       try {
         // financial_stats
         await supabaseCall('DELETE', 'financial_stats', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted financial_stats for location ${id}`);
       } catch (error) {
@@ -1293,7 +1293,7 @@ app.delete(
       try {
         // financial_plan_state
         await supabaseCall('DELETE', 'financial_plan_state', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted financial_plan_state for location ${id}`);
       } catch (error) {
@@ -1303,7 +1303,7 @@ app.delete(
       try {
         // data_entries
         await supabaseCall('DELETE', 'data_entries', {
-          filters: { location_id: `eq.${id}` },
+          filters: { location_id: id },
         });
         console.log(`[Settings API] Deleted data_entries for location ${id}`);
       } catch (error) {
