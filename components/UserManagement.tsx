@@ -372,13 +372,12 @@ const UserManagement: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && selectedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Permessi Aziende - {selectedUser.first_name}{' '}
-                {selectedUser.last_name}
-              </h3>
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Permessi Aziende - {selectedUser.first_name}{' '}
+              {selectedUser.last_name}
+            </h3>
 
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {locations.map(location => (
@@ -410,19 +409,17 @@ const UserManagement: React.FC = () => {
                   Salva
                 </button>
               </div>
-            </div>
           </div>
         </div>
       )}
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Aggiungi Nuovo Utente
-              </h3>
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Aggiungi Nuovo Utente
+            </h3>
 
               <div className="space-y-4">
                 <div>
@@ -528,7 +525,6 @@ const UserManagement: React.FC = () => {
                   Crea Utente
                 </button>
               </div>
-            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
 import {
   getDishes,
@@ -27,6 +27,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     'all' | 'linked' | 'unlinked' | 'archived'
   >('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [editingDish, setEditingDish] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,10 +38,36 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   const [hasMore, setHasMore] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
+
+  // Close category filter when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        categoryFilterRef.current &&
+        !categoryFilterRef.current.contains(event.target as Node)
+      ) {
+        setShowCategoryFilter(false);
+      }
+    };
+
+    if (showCategoryFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCategoryFilter]);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filter changes
   }, [filter]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when category filter changes
+  }, [categoryFilter]);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when items per page changes
@@ -59,12 +86,12 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     loadDishes();
     loadRecipes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, filter, currentPage, searchTerm]);
+  }, [locationId, filter, currentPage, searchTerm, categoryFilter]);
 
   const loadDishes = useCallback(async () => {
     setLoading(true);
     try {
-      // Archiviati sono sempre non collegati
+      // Quando archived, mostriamo tutti gli archiviati (collegati e non collegati)
       const isArchivedView = filter === 'archived';
       const offset = (currentPage - 1) * itemsPerPage;
       const result = await getDishes(locationId, {
@@ -73,10 +100,11 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
             ? undefined
             : filter === 'linked'
               ? true
-              : filter === 'unlinked' || isArchivedView
+              : filter === 'unlinked'
                 ? false
-                : undefined,
+                : undefined, // Quando archived, non filtrare per linked (mostra tutti gli archiviati)
         archived: isArchivedView ? true : undefined,
+        category: categoryFilter || undefined,
         search: searchTerm || undefined,
         limit: itemsPerPage,
         offset: offset,
@@ -120,6 +148,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
     filter,
     currentPage,
     searchTerm,
+    categoryFilter,
     itemsPerPage,
     showNotification,
   ]);
@@ -176,6 +205,17 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
   // ).length;
 
   const totalPages = Math.ceil(totalDishes / itemsPerPage);
+
+  // Get unique categories from all dishes (for filter dropdown)
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>();
+    dishes.forEach(dish => {
+      if (dish.category_gestionale) {
+        categories.add(dish.category_gestionale);
+      }
+    });
+    return Array.from(categories).sort();
+  }, [dishes]);
 
   // Sort dishes based on current sort column and direction
   const sortedDishes = useMemo(() => {
@@ -382,12 +422,92 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                     </div>
                   </th>
                   <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
-                    onClick={() => handleSort('category')}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative"
                   >
-                    <div className="flex items-center">
-                      Categoria
-                      <SortIcon column="category" />
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1"
+                        onClick={() => handleSort('category')}
+                      >
+                        Categoria
+                        <SortIcon column="category" />
+                      </div>
+                      <div className="relative" ref={categoryFilterRef}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowCategoryFilter(!showCategoryFilter);
+                          }}
+                          className={`p-1 rounded text-gray-600 hover:text-gray-900 ${
+                            categoryFilter
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'hover:bg-gray-200'
+                          }`}
+                          title="Filtra per categoria"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                            />
+                          </svg>
+                        </button>
+                        {showCategoryFilter && (
+                          <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
+                            <div className="p-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCategoryFilter('');
+                                  setShowCategoryFilter(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                                  categoryFilter === ''
+                                    ? 'bg-primary-50 text-primary-700 font-medium'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                Tutte le categorie
+                              </button>
+                              {uniqueCategories.length === 0 ? (
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  Nessuna categoria disponibile
+                                </div>
+                              ) : (
+                                uniqueCategories.map(category => (
+                                  <button
+                                    key={category}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCategoryFilter(category);
+                                      setShowCategoryFilter(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                                      categoryFilter === category
+                                        ? 'bg-primary-50 text-primary-700 font-medium'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {category}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {categoryFilter && (
+                        <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded">
+                          {categoryFilter}
+                        </span>
+                      )}
                     </div>
                   </th>
                   <th
