@@ -15,7 +15,7 @@ const Chatbot: React.FC = () => {
     {
       role: 'assistant',
       content:
-        'Ciao! Sono il tuo consulente esperto di gestione finanziaria aziendale e menu engineering specializzato in ristorazione.\n\nAnalizzo i DATI CONCRETI del tuo database per fornirti:\n\n• Analisi finanziarie approfondite basate sui dati reali\n• Analisi menu engineering: food cost, marginalità, matrice BCG\n• Identificazione di problemi e opportunità specifiche\n• Confronti con benchmark di settore\n• Raccomandazioni concrete e azionabili\n• Interpretazione di indicatori KPI\n• Analisi di trend e proiezioni\n• Ottimizzazione menu e ricette\n\nCome posso aiutarti oggi con i tuoi dati finanziari o di menu engineering?',
+        'Ciao! Sono il tuo consulente esperto di gestione finanziaria aziendale e menu engineering specializzato in ristorazione.\n\nPosso aiutarti in due modi:\n\n📊 ANALISI DATI:\n• Analisi finanziarie approfondite basate sui dati reali\n• Analisi menu engineering: food cost, marginalità, matrice BCG\n• Identificazione di problemi e opportunità specifiche\n• Confronti con benchmark di settore\n• Raccomandazioni concrete e azionabili\n• Interpretazione di indicatori KPI\n• Analisi di trend e proiezioni\n• Ottimizzazione menu e ricette\n\n🛠️ ISTRUZIONI OPERATIVE:\n• Come inserire/modificare/eliminare dati\n• Dove trovare funzionalità e schede\n• Come navigare l\'applicazione\n• Guide passo-passo per operazioni comuni\n• Spiegazione di dove vengono salvati i dati\n\nCome posso aiutarti oggi?',
       timestamp: new Date(),
     },
   ]);
