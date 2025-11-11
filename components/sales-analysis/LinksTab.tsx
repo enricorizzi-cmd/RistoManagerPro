@@ -562,9 +562,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       )}
                     </div>
                   </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative"
-                  >
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative">
                     <div className="flex items-center gap-2">
                       <div
                         className="flex items-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1"
@@ -575,7 +573,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       </div>
                       <div className="relative" ref={recipeFilterRef}>
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             setShowRecipeFilter(!showRecipeFilter);
                           }}
@@ -604,7 +602,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                           <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
                             <div className="p-2">
                               <button
-                                onClick={(e) => {
+                                onClick={e => {
                                   e.stopPropagation();
                                   setRecipeFilter('');
                                   setShowRecipeFilter(false);
@@ -625,7 +623,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                                 uniqueRecipes.map(recipe => (
                                   <button
                                     key={recipe.id}
-                                    onClick={(e) => {
+                                    onClick={e => {
                                       e.stopPropagation();
                                       setRecipeFilter(recipe.id);
                                       setShowRecipeFilter(false);
@@ -646,7 +644,8 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       </div>
                       {recipeFilter && (
                         <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded">
-                          {recipes.find(r => r.id === recipeFilter)?.nome_piatto || 'Ricetta'}
+                          {recipes.find(r => r.id === recipeFilter)
+                            ?.nome_piatto || 'Ricetta'}
                         </span>
                       )}
                     </div>

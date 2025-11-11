@@ -209,7 +209,8 @@ const MenuMix: React.FC<MenuMixProps> = ({
                       >
                         Pop: {getRecipePopularity(recipe.id).toFixed(0)}%
                         <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                          Popolarità relativa: percentuale rispetto alla ricetta più venduta nel filtro corrente
+                          Popolarità relativa: percentuale rispetto alla ricetta
+                          più venduta nel filtro corrente
                           <span className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></span>
                         </span>
                       </span>
@@ -348,9 +349,12 @@ const MenuMix: React.FC<MenuMixProps> = ({
                 ℹ️ Come funziona la Popolarità:
               </p>
               <p className="text-blue-700 text-xs">
-                La popolarità è una percentuale <strong>relativa</strong> alle ricette visualizzate nel filtro corrente (categoria e periodo selezionati). 
-                <strong>100%</strong> significa che quella ricetta è la <strong>più venduta</strong> tra tutte quelle visualizzate. 
-                Passa il mouse su "Pop: X%" per maggiori dettagli.
+                La popolarità è una percentuale <strong>relativa</strong> alle
+                ricette visualizzate nel filtro corrente (categoria e periodo
+                selezionati).
+                <strong>100%</strong> significa che quella ricetta è la{' '}
+                <strong>più venduta</strong> tra tutte quelle visualizzate.
+                Passa il mouse su &quot;Pop: X%&quot; per maggiori dettagli.
               </p>
             </div>
             <p className="text-gray-500 italic mt-2">

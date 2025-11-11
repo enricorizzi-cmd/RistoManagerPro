@@ -549,187 +549,187 @@ const Settings: React.FC = () => {
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingLocation) && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               {editingLocation ? 'Modifica Azienda' : 'Nuova Azienda'}
             </h3>
 
-              <form
-                onSubmit={
-                  editingLocation ? handleUpdateLocation : handleCreateLocation
-                }
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Nome Azienda
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      value={formData.name}
-                      onChange={e =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Descrizione
-                    </label>
-                    <textarea
-                      rows={4}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                      value={formData.descrizione}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          descrizione: e.target.value,
-                        })
-                      }
-                      placeholder="Inserisci una descrizione dell'azienda (opzionale)"
-                    />
-                  </div>
+            <form
+              onSubmit={
+                editingLocation ? handleUpdateLocation : handleCreateLocation
+              }
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nome Azienda
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={formData.name}
+                    onChange={e =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                  />
                 </div>
 
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingLocation(null);
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Descrizione
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                    value={formData.descrizione}
+                    onChange={e =>
                       setFormData({
-                        name: '',
-                        descrizione: '',
-                      });
-                    }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  >
-                    Annulla
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {editingLocation ? 'Aggiorna' : 'Crea'}
-                  </button>
+                        ...formData,
+                        descrizione: e.target.value,
+                      })
+                    }
+                    placeholder="Inserisci una descrizione dell'azienda (opzionale)"
+                  />
                 </div>
-              </form>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs Management Modal */}
-      {showTabsModal && selectedLocationForTabs && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-2xl">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Gestisci Tab - {selectedLocationForTabs.name}
-            </h3>
-
-              <div className="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-3">
-                {availableTabs.map(tab => {
-                  const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
-                  const isExpanded = expandedTabs.has(tab.tab_name);
-
-                  return (
-                    <div key={tab.tab_name} className="space-y-1">
-                      {/* Main Tab */}
-                      <div className="flex items-center justify-between group hover:bg-gray-50 rounded px-2 py-1">
-                        <div className="flex items-center flex-1">
-                          <input
-                            type="checkbox"
-                            checked={tab.is_enabled}
-                            onChange={() => handleMainTabToggle(tab.tab_name)}
-                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                          />
-                          <span className="ml-2 text-sm font-medium text-gray-700">
-                            {tab.label}
-                          </span>
-                        </div>
-                        {hasSubtabs && (
-                          <button
-                            type="button"
-                            onClick={() => toggleTabExpansion(tab.tab_name)}
-                            className="ml-2 p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
-                            aria-label={isExpanded ? 'Collassa' : 'Espandi'}
-                          >
-                            <svg
-                              className={`w-4 h-4 transition-transform ${
-                                isExpanded ? 'transform rotate-90' : ''
-                              }`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Subtabs */}
-                      {hasSubtabs && isExpanded && (
-                        <div className="ml-6 space-y-1 border-l-2 border-gray-200 pl-3">
-                          {tab.subtabs?.map(subtab => (
-                            <label
-                              key={subtab.tab_name}
-                              className="flex items-center hover:bg-gray-50 rounded px-2 py-1 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={subtab.is_enabled && tab.is_enabled}
-                                disabled={!tab.is_enabled}
-                                onChange={() =>
-                                  handleSubtabToggle(
-                                    tab.tab_name,
-                                    subtab.tab_name
-                                  )
-                                }
-                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                              <span
-                                className={`ml-2 text-sm text-gray-600 ${
-                                  !tab.is_enabled ? 'opacity-50' : ''
-                                }`}
-                              >
-                                {subtab.label}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => {
-                    setShowTabsModal(false);
-                    setSelectedLocationForTabs(null);
-                    setExpandedTabs(new Set());
+                    setShowCreateModal(false);
+                    setEditingLocation(null);
+                    setFormData({
+                      name: '',
+                      descrizione: '',
+                    });
                   }}
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
                   Annulla
                 </button>
                 <button
-                  onClick={saveTabs}
+                  type="submit"
                   className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  Salva
+                  {editingLocation ? 'Aggiorna' : 'Crea'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs Management Modal */}
+      {showTabsModal && selectedLocationForTabs && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-2xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Gestisci Tab - {selectedLocationForTabs.name}
+            </h3>
+
+            <div className="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-3">
+              {availableTabs.map(tab => {
+                const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
+                const isExpanded = expandedTabs.has(tab.tab_name);
+
+                return (
+                  <div key={tab.tab_name} className="space-y-1">
+                    {/* Main Tab */}
+                    <div className="flex items-center justify-between group hover:bg-gray-50 rounded px-2 py-1">
+                      <div className="flex items-center flex-1">
+                        <input
+                          type="checkbox"
+                          checked={tab.is_enabled}
+                          onChange={() => handleMainTabToggle(tab.tab_name)}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm font-medium text-gray-700">
+                          {tab.label}
+                        </span>
+                      </div>
+                      {hasSubtabs && (
+                        <button
+                          type="button"
+                          onClick={() => toggleTabExpansion(tab.tab_name)}
+                          className="ml-2 p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          aria-label={isExpanded ? 'Collassa' : 'Espandi'}
+                        >
+                          <svg
+                            className={`w-4 h-4 transition-transform ${
+                              isExpanded ? 'transform rotate-90' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Subtabs */}
+                    {hasSubtabs && isExpanded && (
+                      <div className="ml-6 space-y-1 border-l-2 border-gray-200 pl-3">
+                        {tab.subtabs?.map(subtab => (
+                          <label
+                            key={subtab.tab_name}
+                            className="flex items-center hover:bg-gray-50 rounded px-2 py-1 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={subtab.is_enabled && tab.is_enabled}
+                              disabled={!tab.is_enabled}
+                              onChange={() =>
+                                handleSubtabToggle(
+                                  tab.tab_name,
+                                  subtab.tab_name
+                                )
+                              }
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span
+                              className={`ml-2 text-sm text-gray-600 ${
+                                !tab.is_enabled ? 'opacity-50' : ''
+                              }`}
+                            >
+                              {subtab.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowTabsModal(false);
+                  setSelectedLocationForTabs(null);
+                  setExpandedTabs(new Set());
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={saveTabs}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                Salva
+              </button>
+            </div>
           </div>
         </div>
       )}

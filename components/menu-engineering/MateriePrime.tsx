@@ -468,7 +468,7 @@ const MateriePrime: React.FC<MateriePrimeProps> = ({
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-70 flex items-center justify-center z-50 p-2 md:p-4 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-2xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">

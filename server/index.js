@@ -2334,7 +2334,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
       const financialData = financialStats.map(stat => {
         const parsed = parsePlanMonthLabel(stat.month);
-        
+
         // Get fatturatoPrevisionale from financial_plan_state.statsOverrides if not in financial_stats
         let fatturatoPrevisionaleValue =
           stat.fatturatoPrevisionale !== null &&
@@ -3382,11 +3382,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         stat.utile !== null && stat.utile !== undefined ? stat.utile : null;
 
       // First, try to get from statsOverrides if available
-      if (
-        financialPlanState &&
-        financialPlanState.statsOverrides &&
-        parsed
-      ) {
+      if (financialPlanState && financialPlanState.statsOverrides && parsed) {
         // Build month key using same format as buildMonthKey: "YYYY-MM"
         const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
 

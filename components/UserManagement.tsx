@@ -372,7 +372,7 @@ const UserManagement: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && selectedUser && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Permessi Aziende - {selectedUser.first_name}{' '}
@@ -415,7 +415,7 @@ const UserManagement: React.FC = () => {
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-40 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative z-10 bg-white rounded-lg shadow-xl p-5 border w-full max-w-md">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Aggiungi Nuovo Utente

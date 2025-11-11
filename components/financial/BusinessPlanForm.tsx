@@ -907,7 +907,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-40 transition-opacity"
+              className="fixed inset-0 bg-gray-500 bg-opacity-70 transition-opacity"
               onClick={() => setShowMissingDataModal(false)}
               role="button"
               tabIndex={0}
