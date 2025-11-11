@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { PencilIcon, XIcon, CheckCircleIcon } from '../icons/Icons';
 import {
   getDishes,
@@ -421,9 +427,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       <SortIcon column="dish_name" />
                     </div>
                   </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative"
-                  >
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase select-none relative">
                     <div className="flex items-center gap-2">
                       <div
                         className="flex items-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1"
@@ -434,7 +438,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                       </div>
                       <div className="relative" ref={categoryFilterRef}>
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             setShowCategoryFilter(!showCategoryFilter);
                           }}
@@ -463,7 +467,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                           <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
                             <div className="p-2">
                               <button
-                                onClick={(e) => {
+                                onClick={e => {
                                   e.stopPropagation();
                                   setCategoryFilter('');
                                   setShowCategoryFilter(false);
@@ -484,7 +488,7 @@ const LinksTab: React.FC<LinksTabProps> = ({ locationId }) => {
                                 uniqueCategories.map(category => (
                                   <button
                                     key={category}
-                                    onClick={(e) => {
+                                    onClick={e => {
                                       e.stopPropagation();
                                       setCategoryFilter(category);
                                       setShowCategoryFilter(false);

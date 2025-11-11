@@ -3,6 +3,7 @@
 ## 📋 Panoramica
 
 Il sistema di backup automatico permette di:
+
 - Creare backup completi del database Supabase
 - Eseguire backup automatici programmati
 - Gestire e pulire backup vecchi
@@ -15,6 +16,7 @@ Il sistema di backup automatico permette di:
 ### 1. Backup Manuale via API
 
 #### Creare un backup completo
+
 ```bash
 curl -X POST http://localhost:4000/api/backup/create \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -23,6 +25,7 @@ curl -X POST http://localhost:4000/api/backup/create \
 ```
 
 #### Creare backup di una location specifica
+
 ```bash
 curl -X POST http://localhost:4000/api/backup/create \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -31,6 +34,7 @@ curl -X POST http://localhost:4000/api/backup/create \
 ```
 
 #### Listare tutti i backup
+
 ```bash
 curl -X GET http://localhost:4000/api/backup/list \
   -H "Authorization: Bearer YOUR_TOKEN"
@@ -41,6 +45,7 @@ curl -X GET http://localhost:4000/api/backup/list \
 ### 2. Backup Automatico con Script
 
 #### Eseguire backup manuale
+
 ```bash
 # Backup completo
 node server/scripts/backup-automatico.cjs
@@ -56,18 +61,21 @@ node server/scripts/backup-automatico.cjs location-id-123
 ### Backup Giornaliero Completo
 
 Aggiungi al crontab (`crontab -e`):
+
 ```bash
 # Backup completo ogni giorno alle 2:00 AM
 0 2 * * * cd /path/to/RistoManagerPro && node server/scripts/backup-automatico.cjs >> /var/log/ristomanager-backup.log 2>&1
 ```
 
 ### Backup Location Specifica ogni 6 ore
+
 ```bash
 # Backup location ogni 6 ore
 0 */6 * * * cd /path/to/RistoManagerPro && node server/scripts/backup-automatico.cjs location-id-123 >> /var/log/ristomanager-backup.log 2>&1
 ```
 
 ### Backup Multipli
+
 ```bash
 # Backup completo giornaliero alle 2:00 AM
 0 2 * * * cd /path/to/RistoManagerPro && node server/scripts/backup-automatico.cjs >> /var/log/ristomanager-backup.log 2>&1
@@ -119,6 +127,7 @@ I backup vengono salvati in: `server/backups/`
 Formato file: `backup_[locationId]_YYYY-MM-DDTHH-mm-ss.json`
 
 Esempio:
+
 ```
 server/backups/
   ├── backup_full_2025-01-11T02-00-00.json
@@ -174,6 +183,7 @@ curl -X POST http://localhost:4000/api/backup/cleanup \
 ### Pulizia Automatica
 
 Lo script `backup-automatico.cjs` pulisce automaticamente i backup vecchi:
+
 ```bash
 # Mantieni backup per 60 giorni invece di 30
 node server/scripts/backup-automatico.cjs "" 60
@@ -237,12 +247,14 @@ tail -f /var/log/ristomanager-backup.log
 ### Variabili d'Ambiente
 
 Il sistema di backup usa le stesse credenziali Supabase del server:
+
 - `SUPABASE_URL` - URL del progetto Supabase
 - `SUPABASE_KEY` - Service Role Key (per accesso completo)
 
 ### Personalizzare Tabelle da Backup
 
 Modifica `server/backup-service.js`:
+
 ```javascript
 const TABLES_TO_BACKUP = [
   'users',
@@ -309,4 +321,3 @@ const TABLES_TO_BACKUP = [
 ---
 
 **Ultimo aggiornamento:** 2025-01-11
-

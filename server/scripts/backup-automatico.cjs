@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
  * Script per backup automatico del database
- * 
- * ⚠️ NOTA: Questo script è per uso locale/test. 
+ *
+ * ⚠️ NOTA: Questo script è per uso locale/test.
  * Su Render, usa Render Scheduled Jobs che chiamano l'API endpoint direttamente.
- * 
+ *
  * Uso:
  *   node server/scripts/backup-automatico.cjs [locationId] [daysToKeep]
- * 
+ *
  * Esempi:
  *   # Backup completo (tutte le locations)
  *   node server/scripts/backup-automatico.cjs
- * 
+ *
  *   # Backup di una location specifica
  *   node server/scripts/backup-automatico.cjs location-id-123
- * 
+ *
  * Per Render Production:
  *   Usa Render Scheduled Jobs che chiamano:
  *   POST https://your-app.onrender.com/api/backup/create
- *   
+ *
  *   Vedi BACKUP_SETUP_RENDER.md per dettagli.
  */
 
@@ -58,9 +58,11 @@ async function main() {
       console.log(`  File: ${result.backupPath}`);
       console.log(`  Tabelle: ${result.tables}`);
       console.log(`  Record: ${result.records}`);
-      
+
       if (result.errors && result.errors.length > 0) {
-        console.log(`  ⚠️  Errori: ${result.errors.length} tabella(e) con errori`);
+        console.log(
+          `  ⚠️  Errori: ${result.errors.length} tabella(e) con errori`
+        );
         result.errors.forEach(err => {
           console.log(`     - ${err.table}: ${err.error}`);
         });
@@ -92,7 +94,7 @@ async function main() {
     console.log('='.repeat(60));
     console.log('Backup automatico completato');
     console.log('='.repeat(60));
-    
+
     process.exit(0);
   } catch (error) {
     console.error('');
@@ -107,4 +109,3 @@ async function main() {
 
 // Esegui lo script
 main();
-

@@ -2340,7 +2340,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           stat.fatturatoPrevisionale !== undefined
             ? stat.fatturatoPrevisionale
             : null;
-        
+
         // Fallback: try to get from aggregated financial_plan_state.statsOverrides
         if (
           fatturatoPrevisionaleValue === null &&
@@ -2352,9 +2352,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             // Build month key using same format as buildMonthKey: "YYYY-MM"
             const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
             const key = `${monthKey}|fatturatoPrevisionale`;
-            
-            if (aggregatedFinancialPlanState.statsOverrides[key] !== undefined) {
-              fatturatoPrevisionaleValue = parseFloat(aggregatedFinancialPlanState.statsOverrides[key]) || null;
+
+            if (
+              aggregatedFinancialPlanState.statsOverrides[key] !== undefined
+            ) {
+              fatturatoPrevisionaleValue =
+                parseFloat(aggregatedFinancialPlanState.statsOverrides[key]) ||
+                null;
               console.log(
                 `[Dashboard API] Found fatturatoPrevisionale in aggregated statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${key})`
               );
@@ -3083,7 +3087,7 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           const parsed = parsePlanMonthLabel(stat.month);
           return parsed && parsed.year === startYear;
         });
-        
+
         if (yearStats.length > 0) {
           utilePeriod = yearStats.reduce(
             (sum, stat) => sum + (parseFloat(stat.utile || 0) || 0),
@@ -3290,14 +3294,14 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
 
       // Parse month to get year and monthIndex
       const parsed = parsePlanMonthLabel(stat.month);
-      
+
       // Get fatturatoPrevisionale from financial_plan_state.statsOverrides if not in financial_stats
       let fatturatoPrevisionaleValue =
         stat.fatturatoPrevisionale !== null &&
         stat.fatturatoPrevisionale !== undefined
           ? stat.fatturatoPrevisionale
           : null;
-      
+
       // Fallback: try to get from financial_plan_state.statsOverrides
       if (
         fatturatoPrevisionaleValue === null &&
@@ -3308,15 +3312,16 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
         // Build month key using same format as buildMonthKey: "YYYY-MM"
         const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
         const key = `${monthKey}|fatturatoPrevisionale`;
-        
+
         if (financialPlanState.statsOverrides[key] !== undefined) {
-          fatturatoPrevisionaleValue = parseFloat(financialPlanState.statsOverrides[key]) || null;
+          fatturatoPrevisionaleValue =
+            parseFloat(financialPlanState.statsOverrides[key]) || null;
           console.log(
             `[Dashboard API] Found fatturatoPrevisionale in statsOverrides for ${stat.month}: ${fatturatoPrevisionaleValue} (key: ${key})`
           );
         }
       }
-      
+
       let incassatoValue =
         stat.incassato !== null && stat.incassato !== undefined
           ? stat.incassato
@@ -3641,14 +3646,14 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     console.log(
       `[Dashboard API] Calculated KPIs - Period: ${period}, Fatturato: ${fatturatoCurrent} (from period: ${fatturatoPeriod}, from month: ${currentMonthData?.fatturato}), Utile: ${utileCurrent} (from period: ${utilePeriod}, from month: ${currentMonthData?.utile}), Previous Fatturato: ${fatturatoPrevious}, Previous Utile: ${utilePrevious}`
     );
-    
+
     // Calculate margine: (Utile / Fatturato) * 100
     // Only calculate if fatturato > 0 to avoid division by zero
     const margineCurrent =
       fatturatoCurrent > 0 ? (utileCurrent / fatturatoCurrent) * 100 : 0;
     const marginePrevious =
       fatturatoPrevious > 0 ? (utilePrevious / fatturatoPrevious) * 100 : 0;
-    
+
     console.log(
       `[Dashboard API] Calculated Margine - Current: ${margineCurrent.toFixed(2)}%, Previous: ${marginePrevious.toFixed(2)}%`
     );
@@ -7564,7 +7569,9 @@ app.post('/api/backup/create', requireAuth, async (req, res) => {
 
     const { locationId } = req.body;
 
-    console.log(`[BACKUP API] Creating backup${locationId ? ` for location ${locationId}` : ' (all locations)'}...`);
+    console.log(
+      `[BACKUP API] Creating backup${locationId ? ` for location ${locationId}` : ' (all locations)'}...`
+    );
 
     const result = locationId
       ? await createLocationBackup(locationId)
@@ -7627,7 +7634,7 @@ app.post('/api/backup/restore', requireAuth, async (req, res) => {
 
     // Support both old filesystem path and new storage path
     const actualPath = storagePath || backupPath;
-    
+
     if (!actualPath) {
       return res.status(400).json({ error: 'Backup path is required' });
     }
@@ -7647,7 +7654,8 @@ app.post('/api/backup/restore', requireAuth, async (req, res) => {
     // Full restore should be done through Supabase dashboard or with more careful implementation
     res.json({
       success: true,
-      message: 'Restore dry run completed. Full restore not yet implemented via API.',
+      message:
+        'Restore dry run completed. Full restore not yet implemented via API.',
       warning: 'Use Supabase dashboard for full restore operations',
       dryRun: dryRunResult,
     });

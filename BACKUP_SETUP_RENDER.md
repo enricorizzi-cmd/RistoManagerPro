@@ -3,6 +3,7 @@
 ## 📋 Panoramica
 
 Il sistema di backup automatico è configurato per funzionare su **Render** utilizzando:
+
 - **Supabase Storage** per salvare i backup (non filesystem locale - ephemeral su Render)
 - **Render Scheduled Jobs** per backup automatici programmati
 - **API REST** per backup manuali
@@ -31,7 +32,8 @@ SUPABASE_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 ```
 
-**⚠️ IMPORTANTE**: `SUPABASE_SERVICE_ROLE_KEY` è necessario per accedere a Supabase Storage. 
+**⚠️ IMPORTANTE**: `SUPABASE_SERVICE_ROLE_KEY` è necessario per accedere a Supabase Storage.
+
 - Trovalo in Supabase Dashboard → Settings → API → Service Role Key
 - **NON esporre questa chiave nel frontend!**
 
@@ -76,7 +78,7 @@ Render supporta **Scheduled Jobs** (Cron Jobs) per eseguire script a intervalli 
 2. Configurazione:
    - **Name**: `RistoManager Backup Automatico`
    - **Schedule**: `0 2 * * *` (ogni giorno alle 2:00 AM UTC)
-   - **Command**: 
+   - **Command**:
      ```bash
      curl -X POST https://your-app.onrender.com/api/backup/create \
        -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
@@ -97,6 +99,7 @@ Render supporta **Scheduled Jobs** (Cron Jobs) per eseguire script a intervalli 
 Se preferisci usare lo script Node.js:
 
 1. Crea un endpoint API dedicato per il cron job:
+
    ```javascript
    // In server/index.js
    app.post('/api/backup/scheduled', async (req, res) => {
@@ -104,7 +107,7 @@ Se preferisci usare lo script Node.js:
      if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
        return res.status(403).json({ error: 'Unauthorized' });
      }
-     
+
      const result = await createFullBackup();
      res.json({ success: true, result });
    });
@@ -125,6 +128,7 @@ I backup vengono salvati in: `backups/` bucket
 Formato path: `{locationId|all}/backup_{locationId}_YYYY-MM-DDTHH-mm-ss.json`
 
 Esempio:
+
 ```
 backups/
   ├── all/backup_full_2025-01-11T02-00-00.json
@@ -244,6 +248,7 @@ curl -X GET https://your-app.onrender.com/api/backup/list \
 ### Personalizzare Tabelle da Backup
 
 Modifica `server/backup-service.js`:
+
 ```javascript
 const TABLES_TO_BACKUP = [
   'users',
@@ -324,4 +329,3 @@ const TABLES_TO_BACKUP = [
 
 **Ultimo aggiornamento:** 2025-01-11  
 **Ambiente:** Render Production
-

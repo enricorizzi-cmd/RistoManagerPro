@@ -45,11 +45,11 @@ export const InserisciDati: React.FC<InserisciDatiProps> = ({
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    
+
     // Previous month is the month before current month
     const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    
+
     return { year: previousYear, monthIndex: previousMonth };
   }, []);
 

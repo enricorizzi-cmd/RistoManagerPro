@@ -19,20 +19,20 @@ const TABLES_TO_BACKUP = [
   'user_location_permissions',
   'locations',
   'location_enabled_tabs',
-  
+
   // Financial Plan
   'financial_plan_state',
   'data_entries',
   'business_plan_drafts',
   'financial_stats',
-  
+
   // Menu Engineering
   'raw_materials',
   'recipes',
   'recipe_ingredients',
   'recipe_sales',
   'menu_dropdown_values',
-  
+
   // Sales Analysis
   'sales_imports',
   'sales_categories',
@@ -44,18 +44,22 @@ const TABLES_TO_BACKUP = [
 /**
  * Upload file to Supabase Storage
  */
-async function uploadToStorage(filePath, content, contentType = 'application/json') {
+async function uploadToStorage(
+  filePath,
+  content,
+  contentType = 'application/json'
+) {
   if (!SUPABASE_SERVICE_KEY) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
   }
 
   const url = `${SUPABASE_URL}/storage/v1/object/${BACKUP_BUCKET}/${filePath}`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      'apikey': SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_KEY,
       'Content-Type': contentType,
       'x-upsert': 'true', // Overwrite if exists
     },
@@ -64,7 +68,9 @@ async function uploadToStorage(filePath, content, contentType = 'application/jso
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to upload to storage: ${response.status} ${errorText}`);
+    throw new Error(
+      `Failed to upload to storage: ${response.status} ${errorText}`
+    );
   }
 
   const data = await response.json();
@@ -80,18 +86,20 @@ async function listStorageFiles(prefix = '') {
   }
 
   const url = `${SUPABASE_URL}/storage/v1/object/list/${BACKUP_BUCKET}?prefix=${encodeURIComponent(prefix)}`;
-  
+
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      'apikey': SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_KEY,
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to list storage files: ${response.status} ${errorText}`);
+    throw new Error(
+      `Failed to list storage files: ${response.status} ${errorText}`
+    );
   }
 
   const data = await response.json();
@@ -107,18 +115,20 @@ async function downloadFromStorage(filePath) {
   }
 
   const url = `${SUPABASE_URL}/storage/v1/object/${BACKUP_BUCKET}/${filePath}`;
-  
+
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      'apikey': SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_KEY,
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to download from storage: ${response.status} ${errorText}`);
+    throw new Error(
+      `Failed to download from storage: ${response.status} ${errorText}`
+    );
   }
 
   return await response.text();
@@ -133,18 +143,20 @@ async function deleteFromStorage(filePath) {
   }
 
   const url = `${SUPABASE_URL}/storage/v1/object/${BACKUP_BUCKET}/${filePath}`;
-  
+
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      'apikey': SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_KEY,
     },
   });
 
   if (!response.ok && response.status !== 404) {
     const errorText = await response.text();
-    throw new Error(`Failed to delete from storage: ${response.status} ${errorText}`);
+    throw new Error(
+      `Failed to delete from storage: ${response.status} ${errorText}`
+    );
   }
 
   return true;
@@ -157,7 +169,7 @@ async function deleteFromStorage(filePath) {
  */
 async function createFullBackup(locationId = null) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFileName = locationId 
+  const backupFileName = locationId
     ? `backup_${locationId}_${timestamp}.json`
     : `backup_full_${timestamp}.json`;
   const backupPath = `${locationId || 'all'}/${backupFileName}`;
@@ -176,17 +188,24 @@ async function createFullBackup(locationId = null) {
   let successfulTables = 0;
   const errors = [];
 
-  console.log(`[BACKUP] Starting backup${locationId ? ` for location ${locationId}` : ' (all locations)'}...`);
+  console.log(
+    `[BACKUP] Starting backup${locationId ? ` for location ${locationId}` : ' (all locations)'}...`
+  );
 
   for (const tableName of TABLES_TO_BACKUP) {
     try {
       console.log(`[BACKUP] Backing up table: ${tableName}...`);
-      
+
       // Costruisci i filtri se è specificata una location
       const filters = {};
-      if (locationId && tableName !== 'users' && tableName !== 'user_sessions' && 
-          tableName !== 'user_location_permissions' && tableName !== 'locations' && 
-          tableName !== 'location_enabled_tabs') {
+      if (
+        locationId &&
+        tableName !== 'users' &&
+        tableName !== 'user_sessions' &&
+        tableName !== 'user_location_permissions' &&
+        tableName !== 'locations' &&
+        tableName !== 'location_enabled_tabs'
+      ) {
         // La maggior parte delle tabelle ha location_id
         filters.location_id = locationId;
       }
@@ -197,7 +216,7 @@ async function createFullBackup(locationId = null) {
         limit: 100000, // Limite alto per ottenere tutti i record
       });
 
-      const recordCount = Array.isArray(data) ? data.length : (data ? 1 : 0);
+      const recordCount = Array.isArray(data) ? data.length : data ? 1 : 0;
       totalRecords += recordCount;
       successfulTables++;
 
@@ -241,7 +260,9 @@ async function createFullBackup(locationId = null) {
     const backupJson = JSON.stringify(backup, null, 2);
     await uploadToStorage(backupPath, backupJson, 'application/json');
     console.log(`[BACKUP] ✓ Backup saved to Supabase Storage: ${backupPath}`);
-    console.log(`[BACKUP] Summary: ${successfulTables}/${TABLES_TO_BACKUP.length} tables, ${totalRecords} records`);
+    console.log(
+      `[BACKUP] Summary: ${successfulTables}/${TABLES_TO_BACKUP.length} tables, ${totalRecords} records`
+    );
   } catch (error) {
     console.error('[BACKUP] Failed to save backup to storage:', error);
     throw error;
@@ -274,15 +295,15 @@ async function createLocationBackup(locationId) {
 async function listBackups() {
   try {
     const files = await listStorageFiles('backup_');
-    
+
     const backups = [];
-    
+
     for (const file of files) {
       try {
         // Download metadata only (first part of file)
         const content = await downloadFromStorage(file.name);
         const backup = JSON.parse(content);
-        
+
         backups.push({
           fileName: file.name.split('/').pop(), // Just filename
           path: file.name, // Full path in storage
@@ -295,13 +316,16 @@ async function listBackups() {
           hasErrors: (backup.metadata.errors || []).length > 0,
         });
       } catch (error) {
-        console.error(`[BACKUP] Failed to read backup file ${file.name}:`, error);
+        console.error(
+          `[BACKUP] Failed to read backup file ${file.name}:`,
+          error
+        );
       }
     }
-    
+
     // Ordina per data (più recenti prima)
     backups.sort((a, b) => new Date(b.created) - new Date(a.created));
-    
+
     return backups;
   } catch (error) {
     console.error('[BACKUP] Failed to list backups:', error);
@@ -315,47 +339,55 @@ async function listBackups() {
  * @param {boolean} dryRun - Se true, solo simula il restore senza scrivere
  */
 async function restoreBackup(backupPath, dryRun = false) {
-  console.log(`[BACKUP] ${dryRun ? 'DRY RUN: ' : ''}Restoring backup from: ${backupPath}`);
-  
+  console.log(
+    `[BACKUP] ${dryRun ? 'DRY RUN: ' : ''}Restoring backup from: ${backupPath}`
+  );
+
   const content = await downloadFromStorage(backupPath);
   const backup = JSON.parse(content);
-  
+
   if (!backup.data || !backup.metadata) {
     throw new Error('Invalid backup file format');
   }
-  
+
   const results = {
     restored: [],
     failed: [],
     skipped: [],
   };
-  
+
   for (const [tableName, data] of Object.entries(backup.data)) {
     if (!Array.isArray(data) || data.length === 0) {
       results.skipped.push({ table: tableName, reason: 'No data' });
       continue;
     }
-    
+
     try {
       if (dryRun) {
-        console.log(`[BACKUP] DRY RUN: Would restore ${data.length} records to ${tableName}`);
+        console.log(
+          `[BACKUP] DRY RUN: Would restore ${data.length} records to ${tableName}`
+        );
         results.restored.push({ table: tableName, records: data.length });
       } else {
         // Per restore, dovremmo usare upsert per evitare duplicati
         // Nota: Questo è un esempio base, potrebbe essere necessario gestire meglio
-        console.log(`[BACKUP] Restoring ${data.length} records to ${tableName}...`);
-        
+        console.log(
+          `[BACKUP] Restoring ${data.length} records to ${tableName}...`
+        );
+
         // Per ora, logghiamo solo. Il restore completo richiederebbe logica più complessa
         // per gestire foreign keys, constraints, ecc.
         results.restored.push({ table: tableName, records: data.length });
-        console.log(`[BACKUP] ⚠️  Full restore not yet implemented. Use Supabase dashboard for restore.`);
+        console.log(
+          `[BACKUP] ⚠️  Full restore not yet implemented. Use Supabase dashboard for restore.`
+        );
       }
     } catch (error) {
       console.error(`[BACKUP] Failed to restore ${tableName}:`, error);
       results.failed.push({ table: tableName, error: error.message });
     }
   }
-  
+
   return results;
 }
 

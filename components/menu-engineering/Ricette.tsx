@@ -144,7 +144,10 @@ const Ricette: React.FC<RicetteProps> = ({
       {/* Grid Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-3 md:p-4 rounded-lg shadow border border-gray-200 gap-2">
         <span className="text-xs md:text-sm text-gray-600">
-          {filteredRecipes.length} {filteredRecipes.length === 1 ? 'ricetta visualizzata' : 'ricette visualizzate'}
+          {filteredRecipes.length}{' '}
+          {filteredRecipes.length === 1
+            ? 'ricetta visualizzata'
+            : 'ricette visualizzate'}
         </span>
       </div>
 
@@ -374,7 +377,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-2 sm:p-3 rounded-lg border border-green-200">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-xs">
             <div className="flex items-center flex-wrap gap-1">
-              <span className="text-gray-600 whitespace-nowrap">Food Cost:</span>
+              <span className="text-gray-600 whitespace-nowrap">
+                Food Cost:
+              </span>
               <span className="font-bold text-gray-900 whitespace-nowrap">
                 €{recipe.foodCost.toFixed(2)}
               </span>
@@ -386,7 +391,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </span>
             </div>
             <div className="flex items-center flex-wrap gap-1">
-              <span className="text-gray-600 whitespace-nowrap">Marginalità:</span>
+              <span className="text-gray-600 whitespace-nowrap">
+                Marginalità:
+              </span>
               <span className="font-bold text-green-700 whitespace-nowrap">
                 {recipe.marginalita.toFixed(1)}%
               </span>

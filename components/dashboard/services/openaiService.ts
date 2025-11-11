@@ -171,7 +171,7 @@ Formato risposta JSON:
 function removeControlCharacters(str: string): string {
   return str
     .split('')
-    .filter((char) => {
+    .filter(char => {
       const code = char.charCodeAt(0);
       // Keep printable characters (32-126) and common whitespace (9, 10, 13)
       return (
@@ -189,7 +189,7 @@ function parseAIResponse(content: string): AIInsight[] {
   try {
     // Try to extract JSON from markdown code blocks first
     let jsonString = content;
-    
+
     // Remove markdown code blocks if present
     const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (codeBlockMatch) {
@@ -209,7 +209,7 @@ function parseAIResponse(content: string): AIInsight[] {
       .replace(/,\s*}/g, '}') // Remove trailing commas before }
       .replace(/,\s*]/g, ']') // Remove trailing commas before ]
       .trim();
-    
+
     // Remove control characters
     jsonString = removeControlCharacters(jsonString);
 
@@ -242,7 +242,7 @@ function parsePredictionsResponse(content: string): AIPrediction {
   try {
     // Try to extract JSON from markdown code blocks first
     let jsonString = content;
-    
+
     // Remove markdown code blocks if present
     const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (codeBlockMatch) {
@@ -262,12 +262,12 @@ function parsePredictionsResponse(content: string): AIPrediction {
       .replace(/,\s*}/g, '}') // Remove trailing commas before }
       .replace(/,\s*]/g, ']') // Remove trailing commas before ]
       .trim();
-    
+
     // Remove control characters
     jsonString = removeControlCharacters(jsonString);
 
     const parsed = JSON.parse(jsonString);
-    
+
     // Validate and return with defaults
     return {
       nextMonth: parsed.nextMonth || {
@@ -280,9 +280,10 @@ function parsePredictionsResponse(content: string): AIPrediction {
         utile: 0,
         vendite: 0,
       },
-      confidence: typeof parsed.confidence === 'number' 
-        ? Math.max(0, Math.min(1, parsed.confidence)) 
-        : 0.5,
+      confidence:
+        typeof parsed.confidence === 'number'
+          ? Math.max(0, Math.min(1, parsed.confidence))
+          : 0.5,
     };
   } catch (error) {
     console.error('Failed to parse predictions response:', error);

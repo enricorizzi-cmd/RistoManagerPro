@@ -912,7 +912,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
               role="button"
               tabIndex={0}
               aria-label="Chiudi modal"
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   setShowMissingDataModal(false);
                 }

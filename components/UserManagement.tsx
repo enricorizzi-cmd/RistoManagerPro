@@ -379,36 +379,36 @@ const UserManagement: React.FC = () => {
               {selectedUser.last_name}
             </h3>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {locations.map(location => (
-                  <label key={location.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedLocations.includes(location.id)}
-                      onChange={() => handleLocationToggle(location.id)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">
-                      {location.name}
-                    </span>
-                  </label>
-                ))}
-              </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {locations.map(location => (
+                <label key={location.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedLocations.includes(location.id)}
+                    onChange={() => handleLocationToggle(location.id)}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    {location.name}
+                  </span>
+                </label>
+              ))}
+            </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => setShowPermissionsModal(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                >
-                  Annulla
-                </button>
-                <button
-                  onClick={savePermissions}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  Salva
-                </button>
-              </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowPermissionsModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={savePermissions}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                Salva
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -421,110 +421,110 @@ const UserManagement: React.FC = () => {
               Aggiungi Nuovo Utente
             </h3>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Nome
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.firstName}
-                    onChange={e =>
-                      setNewUser({ ...newUser, firstName: e.target.value })
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Inserisci nome"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Cognome
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.lastName}
-                    onChange={e =>
-                      setNewUser({ ...newUser, lastName: e.target.value })
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Inserisci cognome"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={newUser.email}
-                    onChange={e =>
-                      setNewUser({ ...newUser, email: e.target.value })
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Inserisci email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={newUser.password}
-                    onChange={e =>
-                      setNewUser({ ...newUser, password: e.target.value })
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Inserisci password"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Ruolo
-                  </label>
-                  <select
-                    value={newUser.role}
-                    onChange={e =>
-                      setNewUser({
-                        ...newUser,
-                        role: e.target.value as 'admin' | 'user',
-                      })
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="user">Utente</option>
-                    <option value="admin">Amministratore</option>
-                  </select>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={newUser.firstName}
+                  onChange={e =>
+                    setNewUser({ ...newUser, firstName: e.target.value })
+                  }
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Inserisci nome"
+                />
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowAddUserModal(false);
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Cognome
+                </label>
+                <input
+                  type="text"
+                  value={newUser.lastName}
+                  onChange={e =>
+                    setNewUser({ ...newUser, lastName: e.target.value })
+                  }
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Inserisci cognome"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={e =>
+                    setNewUser({ ...newUser, email: e.target.value })
+                  }
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Inserisci email"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={e =>
+                    setNewUser({ ...newUser, password: e.target.value })
+                  }
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Inserisci password"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Ruolo
+                </label>
+                <select
+                  value={newUser.role}
+                  onChange={e =>
                     setNewUser({
-                      firstName: '',
-                      lastName: '',
-                      email: '',
-                      password: '',
-                      role: 'user',
-                    });
-                  }}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      ...newUser,
+                      role: e.target.value as 'admin' | 'user',
+                    })
+                  }
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
-                  Annulla
-                </button>
-                <button
-                  onClick={createUser}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  Crea Utente
-                </button>
+                  <option value="user">Utente</option>
+                  <option value="admin">Amministratore</option>
+                </select>
               </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAddUserModal(false);
+                  setNewUser({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    password: '',
+                    role: 'user',
+                  });
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={createUser}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                Crea Utente
+              </button>
+            </div>
           </div>
         </div>
       )}
