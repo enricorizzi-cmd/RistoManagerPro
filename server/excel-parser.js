@@ -691,6 +691,7 @@ function findDetailTableStart(sheet) {
 function detectTables(workbook) {
   const summaryTable = [];
   const detailTable = [];
+  let totalCoperti = 0; // Initialize coperti counter
 
   // Try to find tables in all sheets
   for (const sheetName of workbook.SheetNames) {
