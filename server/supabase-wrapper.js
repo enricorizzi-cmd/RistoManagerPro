@@ -995,7 +995,22 @@ function getLocationDb(locationId) {
           `[SUPABASE] INSERT into ${table}:`,
           Object.keys(data).join(', ')
         );
-        return await supabaseCall('POST', table, { data, upsert: false });
+        console.log(`[SUPABASE] INSERT data values:`, {
+          columns: columns,
+          paramsCount: params.length,
+          dataKeys: Object.keys(data),
+          locationIdInColumns: hasLocationIdInColumns,
+          locationIdInData: 'location_id' in data,
+          locationIdValue: data.location_id,
+        });
+
+        try {
+          return await supabaseCall('POST', table, { data, upsert: false });
+        } catch (error) {
+          console.error(`[SUPABASE] INSERT error for table ${table}:`, error);
+          console.error(`[SUPABASE] INSERT data that failed:`, JSON.stringify(data, null, 2));
+          throw error;
+        }
       }
 
       // UPDATE
