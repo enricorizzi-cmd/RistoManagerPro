@@ -1022,14 +1022,28 @@ function getLocationDb(locationId) {
         // Tables that don't have location_id column
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
-        // Only add location_id if the table requires it
-        if (!tablesWithoutLocationId.includes(table)) {
+
+        // Parse WHERE clause first to get all filters including location_id if present
+        const parsedFilters = parseWhereClause(
+          whereClause,
+          params.slice(paramIndex)
+        );
+
+        // Check if location_id is already in parsed filters
+        const hasLocationIdInParsedFilters = 'location_id' in parsedFilters;
+
+        // Only add location_id automatically if:
+        // 1. Table requires it (not in tablesWithoutLocationId)
+        // 2. location_id is not already in WHERE clause (checked via parsedFilters)
+        if (
+          !tablesWithoutLocationId.includes(table) &&
+          !hasLocationIdInParsedFilters
+        ) {
           filters.location_id = locationId;
         }
-        Object.assign(
-          filters,
-          parseWhereClause(whereClause, params.slice(paramIndex))
-        );
+
+        // Merge parsed filters (this will override location_id if it was set above, which is correct)
+        Object.assign(filters, parsedFilters);
 
         return await supabaseCall('PATCH', table, { data, filters });
       }
@@ -1038,14 +1052,30 @@ function getLocationDb(locationId) {
       const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)\s+WHERE\s+(.+)/i);
       if (deleteMatch) {
         const table = deleteMatch[1].trim();
+        const whereClause = deleteMatch[2];
+
         // Tables that don't have location_id column
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
-        // Only add location_id if the table requires it
-        if (!tablesWithoutLocationId.includes(table)) {
+
+        // Parse WHERE clause first to get all filters including location_id if present
+        const parsedFilters = parseWhereClause(whereClause, params);
+
+        // Check if location_id is already in parsed filters
+        const hasLocationIdInParsedFilters = 'location_id' in parsedFilters;
+
+        // Only add location_id automatically if:
+        // 1. Table requires it (not in tablesWithoutLocationId)
+        // 2. location_id is not already in WHERE clause (checked via parsedFilters)
+        if (
+          !tablesWithoutLocationId.includes(table) &&
+          !hasLocationIdInParsedFilters
+        ) {
           filters.location_id = locationId;
         }
-        Object.assign(filters, parseWhereClause(deleteMatch[2], params));
+
+        // Merge parsed filters (this will override location_id if it was set above, which is correct)
+        Object.assign(filters, parsedFilters);
 
         return await supabaseCall('DELETE', table, { filters });
       }
