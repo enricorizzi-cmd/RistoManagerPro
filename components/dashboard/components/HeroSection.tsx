@@ -69,6 +69,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     },
   ];
 
+  // Temporaneamente nascosta - da riattivare quando i dati saranno corretti
+  const showHeroSection = false;
+
+  if (!showHeroSection) {
+    return null;
+  }
+
   return (
     <div className="relative w-full mb-8">
       {/* Animated Gradient Background */}
@@ -189,8 +196,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           })}
         </div>
 
-        {/* Period Info - Temporaneamente nascosta */}
-        {/* <div className="mt-4 text-center">
+        {/* Period Info */}
+        <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             {periodFilter === 'month'
               ? (() => {
@@ -214,10 +221,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 ? `Dati dell'anno corrente: ${new Date().getFullYear()}`
                 : 'Dati del periodo selezionato'}
           </p>
-        </div> */}
+        </div>
 
-        {/* Quick Filters - Temporaneamente nascosti */}
-        {/* <div className="mt-4 flex flex-wrap gap-2 justify-center">
+        {/* Quick Filters */}
+        <div className="mt-4 flex flex-wrap gap-2 justify-center">
           {[
             { label: 'Mese', value: 'month' as PeriodFilter },
             { label: 'Anno', value: 'year' as PeriodFilter },
@@ -226,7 +233,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             return (
               <motion.button
                 key={filter.value}
-                onClick={() => onPeriodChange?.(filter.value)}
+                onClick={() => _onPeriodChange?.(filter.value)}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5 + index * 0.05 }}
@@ -242,7 +249,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </motion.button>
             );
           })}
-        </div> */}
+        </div>
       </GlassCard>
     </div>
   );
