@@ -705,7 +705,10 @@ function getLocationDb(locationId) {
         let cleanSelect = select;
         const aliasMap = {}; // Map original column name -> alias
 
-        if (select.includes(' as ')) {
+        // Handle SELECT * (select all columns)
+        if (select.trim() === '*') {
+          cleanSelect = '*';
+        } else if (select.includes(' as ')) {
           // Extract column names (before "as") for Supabase query
           // Keep track of aliases for mapping later
           const selectParts = select.split(',');
@@ -722,9 +725,12 @@ function getLocationDb(locationId) {
               return trimmed;
             })
             .join(',');
+          // Remove spaces after commas in select clause for Supabase
+          cleanSelect = cleanSelect.replace(/\s*,\s*/g, ',');
+        } else {
+          // Remove spaces after commas in select clause for Supabase
+          cleanSelect = cleanSelect.replace(/\s*,\s*/g, ',');
         }
-        // Remove spaces after commas in select clause for Supabase
-        cleanSelect = cleanSelect.replace(/\s*,\s*/g, ',');
 
         const whereMatch = normalizedSql.match(
           /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
@@ -732,16 +738,23 @@ function getLocationDb(locationId) {
         // Tables that don't have location_id column
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
-        // Only add location_id if the table requires it
-        // Check if WHERE clause already contains location_id to avoid duplicates
+        
+        // Parse WHERE clause first to get all filters including location_id if present
         const whereClause = whereMatch ? whereMatch[1] : '';
-        const hasLocationIdInWhere = whereClause
-          .toLowerCase()
-          .includes('location_id');
-        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInWhere) {
+        const parsedFilters = parseWhereClause(whereClause, params);
+        
+        // Check if location_id is already in parsed filters
+        const hasLocationIdInParsedFilters = 'location_id' in parsedFilters;
+        
+        // Only add location_id automatically if:
+        // 1. Table requires it (not in tablesWithoutLocationId)
+        // 2. location_id is not already in WHERE clause (checked via parsedFilters)
+        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInParsedFilters) {
           filters.location_id = locationId;
         }
-        Object.assign(filters, parseWhereClause(whereClause, params));
+        
+        // Merge parsed filters (this will override location_id if it was set above, which is correct)
+        Object.assign(filters, parsedFilters);
 
         const orderMatch = normalizedSql.match(
           /ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i
