@@ -627,7 +627,78 @@ function getLocationDb(locationId) {
           return finalResult;
         }
 
-        // Regular SELECT query without GROUP BY
+        // Check if query has aggregation functions (SUM, COUNT, AVG, etc.) without GROUP BY
+        // In this case, we need to fetch all data and aggregate in JavaScript
+        const hasAggregation = /SUM\(|COUNT\(|AVG\(|MAX\(|MIN\(/i.test(select);
+
+        if (hasAggregation && groupByIndex === -1) {
+          // This is an aggregation query without GROUP BY (e.g., SELECT SUM(...) FROM ...)
+          // Extract column names from SUM() functions
+          const sumMatches = select.matchAll(/SUM\((\w+)\)\s+as\s+(\w+)/gi);
+          const sumColumns = [];
+          const sumAliases = {};
+
+          for (const match of sumMatches) {
+            sumColumns.push(match[1]);
+            sumAliases[match[1]] = match[2];
+          }
+
+          // If no matches with "as", try without alias
+          if (sumColumns.length === 0) {
+            const sumMatchesSimple = select.matchAll(/SUM\((\w+)\)/gi);
+            for (const match of sumMatchesSimple) {
+              sumColumns.push(match[1]);
+              sumAliases[match[1]] = `sum_${match[1]}`;
+            }
+          }
+
+          // Build select clause for fetching raw data (just the columns, not SUM)
+          const rawSelect = sumColumns.join(',');
+
+          const whereMatch = normalizedSql.match(
+            /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
+          );
+          // Tables that don't have location_id column
+          const tablesWithoutLocationId = [
+            'recipe_ingredients',
+            'recipe_sales',
+          ];
+          const filters = {};
+          if (!tablesWithoutLocationId.includes(table)) {
+            filters.location_id = locationId;
+          }
+          Object.assign(
+            filters,
+            parseWhereClause(whereMatch ? whereMatch[1] : '', params)
+          );
+
+          // Fetch all matching rows
+          const allRows = await supabaseCall('GET', table, {
+            select: rawSelect.replace(/\s*,\s*/g, ','),
+            filters,
+            limit: 10000,
+          });
+
+          if (!Array.isArray(allRows)) {
+            throw new Error('Failed to fetch data for aggregation');
+          }
+
+          // Perform aggregation in JavaScript
+          const aggregated = {};
+          sumColumns.forEach(col => {
+            aggregated[sumAliases[col]] = 0;
+          });
+
+          allRows.forEach(row => {
+            sumColumns.forEach(col => {
+              aggregated[sumAliases[col]] += parseFloat(row[col] || 0);
+            });
+          });
+
+          return [aggregated];
+        }
+
+        // Regular SELECT query without GROUP BY and without aggregation
         // Handle SELECT with aliases (e.g., "column as alias")
         // For Supabase, we need to pass columns without aliases
         // Then map the results back to use aliases
@@ -735,7 +806,11 @@ function getLocationDb(locationId) {
         return result;
       } catch (error) {
         console.error(`[SUPABASE] Query error:`, error);
-        console.error(`[SUPABASE] SQL:`, normalizedSql.substring(0, 200));
+        if (typeof normalizedSql !== 'undefined') {
+          console.error(`[SUPABASE] SQL:`, normalizedSql.substring(0, 200));
+        } else {
+          console.error(`[SUPABASE] SQL:`, sql.substring(0, 200));
+        }
 
         // If this is a table not found error for menu_dropdown_values,
         // preserve the error properties for proper handling upstream
