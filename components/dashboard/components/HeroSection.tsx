@@ -19,7 +19,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   kpis,
   loading = false,
   periodFilter = 'month',
-  onPeriodChange,
+  onPeriodChange: _onPeriodChange,
 }) => {
   const currentYear = new Date().getFullYear();
 
@@ -189,8 +189,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           })}
         </div>
 
-        {/* Period Info */}
-        <div className="mt-4 text-center">
+        {/* Period Info - Temporaneamente nascosta */}
+        {/* <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             {periodFilter === 'month'
               ? (() => {
@@ -214,10 +214,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 ? `Dati dell'anno corrente: ${new Date().getFullYear()}`
                 : 'Dati del periodo selezionato'}
           </p>
-        </div>
+        </div> */}
 
-        {/* Quick Filters */}
-        <div className="mt-4 flex flex-wrap gap-2 justify-center">
+        {/* Quick Filters - Temporaneamente nascosti */}
+        {/* <div className="mt-4 flex flex-wrap gap-2 justify-center">
           {[
             { label: 'Mese', value: 'month' as PeriodFilter },
             { label: 'Anno', value: 'year' as PeriodFilter },
@@ -242,7 +242,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </motion.button>
             );
           })}
-        </div>
+        </div> */}
       </GlassCard>
     </div>
   );
