@@ -652,8 +652,28 @@ function getLocationDb(locationId) {
             }
           }
 
+          // If still no columns found, this might be COUNT(*) or other aggregation
+          // Fall back to selecting all columns
+          if (sumColumns.length === 0) {
+            // For COUNT(*), we don't need specific columns, just count rows
+            if (select.includes('COUNT(*)')) {
+              sumColumns.push('*');
+              sumAliases['*'] = 'count';
+            } else {
+              // For other aggregations, try to extract column name from function
+              const anyAggMatch = select.match(/(?:SUM|AVG|MAX|MIN)\((\w+)\)/i);
+              if (anyAggMatch) {
+                sumColumns.push(anyAggMatch[1]);
+                sumAliases[anyAggMatch[1]] = select.match(/as\s+(\w+)/i)?.[1] || `agg_${anyAggMatch[1]}`;
+              } else {
+                // Last resort: select all columns
+                sumColumns.push('*');
+              }
+            }
+          }
+
           // Build select clause for fetching raw data (just the columns, not SUM)
-          const rawSelect = sumColumns.join(',');
+          const rawSelect = sumColumns.length > 0 ? sumColumns.join(',') : '*';
 
           const whereMatch = normalizedSql.match(
             /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
@@ -664,17 +684,27 @@ function getLocationDb(locationId) {
             'recipe_sales',
           ];
           const filters = {};
-          if (!tablesWithoutLocationId.includes(table)) {
+          
+          // Parse WHERE clause first to get all filters including location_id if present
+          const whereClause = whereMatch ? whereMatch[1] : '';
+          const parsedFilters = parseWhereClause(whereClause, params);
+          
+          // Check if location_id is already in parsed filters
+          const hasLocationIdInParsedFilters = 'location_id' in parsedFilters;
+          
+          // Only add location_id automatically if:
+          // 1. Table requires it (not in tablesWithoutLocationId)
+          // 2. location_id is not already in WHERE clause (checked via parsedFilters)
+          if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInParsedFilters) {
             filters.location_id = locationId;
           }
-          Object.assign(
-            filters,
-            parseWhereClause(whereMatch ? whereMatch[1] : '', params)
-          );
+          
+          // Merge parsed filters (this will override location_id if it was set above, which is correct)
+          Object.assign(filters, parsedFilters);
 
           // Fetch all matching rows
           const allRows = await supabaseCall('GET', table, {
-            select: rawSelect.replace(/\s*,\s*/g, ','),
+            select: rawSelect === '*' ? '*' : rawSelect.replace(/\s*,\s*/g, ','),
             filters,
             limit: 10000,
           });
@@ -685,15 +715,32 @@ function getLocationDb(locationId) {
 
           // Perform aggregation in JavaScript
           const aggregated = {};
-          sumColumns.forEach(col => {
-            aggregated[sumAliases[col]] = 0;
-          });
-
-          allRows.forEach(row => {
+          
+          // Handle COUNT(*) separately
+          if (sumColumns.includes('*') && select.includes('COUNT(*)')) {
+            aggregated.count = Array.isArray(allRows) ? allRows.length : (allRows ? 1 : 0);
+          } else {
+            // Initialize aggregated values
             sumColumns.forEach(col => {
-              aggregated[sumAliases[col]] += parseFloat(row[col] || 0);
+              if (col !== '*') {
+                aggregated[sumAliases[col]] = 0;
+              }
             });
-          });
+
+            // Aggregate values
+            if (Array.isArray(allRows) && allRows.length > 0) {
+              allRows.forEach(row => {
+                sumColumns.forEach(col => {
+                  if (col !== '*') {
+                    const value = parseFloat(row[col] || 0);
+                    if (!isNaN(value)) {
+                      aggregated[sumAliases[col]] += value;
+                    }
+                  }
+                });
+              });
+            }
+          }
 
           return [aggregated];
         }
@@ -864,17 +911,24 @@ function getLocationDb(locationId) {
         // Tables that don't have location_id column
         const tablesWithoutLocationId = ['recipe_ingredients', 'recipe_sales'];
         const filters = {};
-        // Only add location_id if the table requires it
-        // Check if WHERE clause already contains location_id to avoid duplicates
+        
+        // Parse WHERE clause first to get all filters including location_id if present
         const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i);
         const whereClause = whereMatch ? whereMatch[1] : '';
-        const hasLocationIdInWhere = whereClause
-          .toLowerCase()
-          .includes('location_id');
-        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInWhere) {
+        const parsedFilters = parseWhereClause(whereClause, params);
+        
+        // Check if location_id is already in parsed filters
+        const hasLocationIdInParsedFilters = 'location_id' in parsedFilters;
+        
+        // Only add location_id automatically if:
+        // 1. Table requires it (not in tablesWithoutLocationId)
+        // 2. location_id is not already in WHERE clause (checked via parsedFilters)
+        if (!tablesWithoutLocationId.includes(table) && !hasLocationIdInParsedFilters) {
           filters.location_id = locationId;
         }
-        Object.assign(filters, parseWhereClause(whereClause, params));
+        
+        // Merge parsed filters (this will override location_id if it was set above, which is correct)
+        Object.assign(filters, parsedFilters);
 
         return await supabaseCall('GET', table, {
           select,
