@@ -184,8 +184,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
           return null;
         };
 
-        // Usa fatturatoImponibile come nel grafico 48 mesi
-        const fatturatoValue = getFieldValue('fatturatoImponibile') ?? 0;
+        // Usa fatturatoTotale invece di fatturatoImponibile
+        const fatturatoValue = getFieldValue('fatturatoTotale') ?? 0;
 
         return acc + (fatturatoValue || 0);
       }, 0);
@@ -406,8 +406,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         return null;
       };
 
-      // Usa fatturatoImponibile come nel grafico 48 mesi
-      return getFieldValue('fatturatoImponibile') ?? 0;
+      // Usa fatturatoTotale invece di fatturatoImponibile
+      return getFieldValue('fatturatoTotale') ?? 0;
     });
 
     // Calcolo del breakeven point
@@ -504,7 +504,8 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
         };
 
         // Estrai dati reali dalle statistiche (con override)
-        const fatturatoReale = getFieldValue('fatturatoImponibile');
+        // Usa fatturatoTotale invece di fatturatoImponibile
+        const fatturatoReale = getFieldValue('fatturatoTotale');
         const incassatoReale = getFieldValue('incassato');
 
         // Estrai dati previsionali dalle statistiche (con override)

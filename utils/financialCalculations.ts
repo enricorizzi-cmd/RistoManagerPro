@@ -345,19 +345,26 @@ export const computeYearMetrics = (
       const monthKey = buildMonthKey(year, monthIndex);
       const statsData = statsMap.get(monthKey);
 
-      // FATTURATO: sempre da statistiche (fatturatoTotale = corrispettivi + fatturatoImponibile)
+      // FATTURATO: sempre da statistiche usando fatturatoTotale (non fatturatoImponibile)
       let monthFatturato = 0;
       if (statsData) {
         monthFatturato = statsData.fatturatoTotale ?? 0;
       } else if (statsOverrides) {
         // Fallback to statsOverrides if financialStatsRows is empty
+        // Usa direttamente fatturatoTotale, non calcolarlo da fatturatoImponibile + corrispettivi
         const fatturatoTotale =
           statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
-        const fatturatoImponibile =
-          statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
-        const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
 
-        monthFatturato = fatturatoTotale ?? fatturatoImponibile + corrispettivi;
+        if (fatturatoTotale !== null) {
+          monthFatturato = fatturatoTotale;
+        } else {
+          // Ultimo fallback: calcola da componenti solo se fatturatoTotale non è disponibile
+          const fatturatoImponibile =
+            statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
+          const corrispettivi =
+            statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
+          monthFatturato = fatturatoImponibile + corrispettivi;
+        }
       }
 
       // INCASSATO: sempre da piano mensile (consuntivo)

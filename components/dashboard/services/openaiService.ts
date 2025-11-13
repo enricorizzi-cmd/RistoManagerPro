@@ -30,7 +30,7 @@ export async function generateAIInsights(
           {
             role: 'system',
             content:
-              'Sei un esperto analista finanziario per ristoranti. Analizza i dati e fornisci insights pratici e actionable. IMPORTANTE: Rispondi SOLO con JSON valido, senza markdown, senza testo aggiuntivo, senza spiegazioni.',
+              'Sei un esperto analista finanziario per ristoranti. Analizza i dati e fornisci insights pratici e actionable. IMPORTANTE: Quando analizzi il "fatturato", ricorda che si tratta sempre del FATTURATO TOTALE (fatturato imponibile + corrispettivi), non solo del fatturato imponibile. Rispondi SOLO con JSON valido, senza markdown, senza testo aggiuntivo, senza spiegazioni.',
           },
           {
             role: 'user',
@@ -121,6 +121,10 @@ function buildInsightsPrompt(
   recipes: any[]
 ): string {
   return `Analizza i seguenti dati del ristorante e fornisci 3-5 insights pratici in formato JSON:
+
+IMPORTANTE - DEFINIZIONI FINANZIARIE:
+- FATTURATO = Fatturato Totale (fatturato imponibile + corrispettivi). Quando si parla di "fatturato" si intende SEMPRE il fatturato totale, non solo il fatturato imponibile.
+- Il campo "fatturato" nei dati finanziari rappresenta sempre il fatturato totale completo.
 
 Dati Finanziari:
 ${JSON.stringify(financialData, null, 2)}

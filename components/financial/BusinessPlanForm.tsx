@@ -150,7 +150,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
     const getFatturatoFromStats = (year: number, monthIndex: number) => {
       const monthKey = buildMonthKey(year, monthIndex);
 
-      // First try to get fatturatoTotale directly from statsOverrides (saved by StatsTable)
+      // Usa sempre fatturatoTotale direttamente da statsOverrides (non fatturatoImponibile)
       const fatturatoTotale =
         statsOverrides[`${monthKey}|fatturatoTotale`] ?? null;
 
@@ -158,8 +158,8 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
         return fatturatoTotale;
       }
 
-      // Fallback: calculate from individual components
-      const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0; // Default to 0 if missing
+      // Ultimo fallback: calcola da componenti solo se fatturatoTotale non è disponibile
+      const corrispettivi = statsOverrides[`${monthKey}|corrispettivi`] ?? 0;
       const fatturatoImponibile =
         statsOverrides[`${monthKey}|fatturatoImponibile`] ?? 0;
 

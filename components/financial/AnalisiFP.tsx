@@ -187,18 +187,8 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
         const dataWithKey = { ...data, monthKey };
 
         // Get fatturato from statistics, fallback to incassato if not available
-        const fatturatoFromStats = getFieldValue(
-          dataWithKey,
-          'fatturatoTotale'
-        );
-        const fatturatoImponibile = getFieldValue(
-          dataWithKey,
-          'fatturatoImponibile'
-        );
-        let fatturatoTotale = fatturatoFromStats;
-        if (fatturatoTotale === null || fatturatoTotale === undefined) {
-          fatturatoTotale = fatturatoImponibile;
-        }
+        // Usa sempre fatturatoTotale (non fatturatoImponibile)
+        let fatturatoTotale = getFieldValue(dataWithKey, 'fatturatoTotale');
         if (fatturatoTotale === null || fatturatoTotale === undefined) {
           fatturatoTotale = incassato;
         }

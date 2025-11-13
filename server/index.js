@@ -3190,13 +3190,39 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
       });
 
       fatturatoPeriod = periodStats.reduce((sum, stat) => {
-        const fatturato =
-          stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined
-            ? stat.fatturatoTotale
-            : stat.fatturatoImponibile !== null &&
-                stat.fatturatoImponibile !== undefined
-              ? stat.fatturatoImponibile
-              : 0;
+        // Usa sempre fatturatoTotale come priorità (non fatturatoImponibile)
+        let fatturato = 0;
+        if (
+          stat.fatturatoTotale !== null &&
+          stat.fatturatoTotale !== undefined
+        ) {
+          fatturato = stat.fatturatoTotale;
+        } else if (
+          stat.fatturatoImponibile !== null &&
+          stat.fatturatoImponibile !== undefined
+        ) {
+          // Fallback: calcola fatturatoTotale = fatturatoImponibile + corrispettivi
+          // Prova a recuperare corrispettivi da statsOverrides se disponibile
+          let corrispettivi = 0;
+          const parsed = parsePlanMonthLabel(stat.month);
+          if (
+            parsed &&
+            financialPlanState &&
+            financialPlanState.statsOverrides
+          ) {
+            const monthKey = `${parsed.year}-${String(parsed.monthIndex + 1).padStart(2, '0')}`;
+            const corrispettiviKey = `${monthKey}|corrispettivi`;
+            if (
+              financialPlanState.statsOverrides[corrispettiviKey] !== undefined
+            ) {
+              corrispettivi =
+                parseFloat(
+                  financialPlanState.statsOverrides[corrispettiviKey]
+                ) || 0;
+            }
+          }
+          fatturato = stat.fatturatoImponibile + corrispettivi;
+        }
         return sum + (parseFloat(fatturato) || 0);
       }, 0);
 
@@ -3427,13 +3453,35 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
     // Transform financial stats to dashboard format
     // Integrate financial plan data for incassato, costiFissi, costiVariabili, utile
     const financialData = financialStats.map(stat => {
-      const fatturato =
+      // Usa sempre fatturatoTotale come priorità (non fatturatoImponibile)
+      // Se fatturatoTotale non è disponibile, calcola fatturatoImponibile + corrispettivi
+      let fatturato = null;
+      if (stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined) {
+        fatturato = stat.fatturatoTotale;
+      } else if (
         stat.fatturatoImponibile !== null &&
         stat.fatturatoImponibile !== undefined
-          ? stat.fatturatoImponibile
-          : stat.fatturatoTotale !== null && stat.fatturatoTotale !== undefined
-            ? stat.fatturatoTotale
-            : null;
+      ) {
+        // Fallback: calcola fatturatoTotale = fatturatoImponibile + corrispettivi
+        let corrispettivi = 0;
+        const parsedForCorrispettivi = parsePlanMonthLabel(stat.month);
+        if (
+          parsedForCorrispettivi &&
+          financialPlanState &&
+          financialPlanState.statsOverrides
+        ) {
+          const monthKey = `${parsedForCorrispettivi.year}-${String(parsedForCorrispettivi.monthIndex + 1).padStart(2, '0')}`;
+          const corrispettiviKey = `${monthKey}|corrispettivi`;
+          if (
+            financialPlanState.statsOverrides[corrispettiviKey] !== undefined
+          ) {
+            corrispettivi =
+              parseFloat(financialPlanState.statsOverrides[corrispettiviKey]) ||
+              0;
+          }
+        }
+        fatturato = stat.fatturatoImponibile + corrispettivi;
+      }
 
       // Parse month to get year and monthIndex
       const parsed = parsePlanMonthLabel(stat.month);
