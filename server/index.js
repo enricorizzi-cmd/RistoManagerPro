@@ -1515,7 +1515,16 @@ app.get('/api/data-entries/:locationId', requireAuth, async (req, res) => {
     res.json(entries);
   } catch (error) {
     console.error('Failed to get data entries', error);
-    res.status(500).json({ error: 'Failed to get data entries' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      locationId: req.params.locationId,
+    });
+    res.status(500).json({
+      error: 'Failed to get data entries',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
   }
 });
 
@@ -1577,7 +1586,17 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
     res.json({ success: true, id: entryId });
   } catch (error) {
     console.error('Failed to create data entry', error);
-    res.status(500).json({ error: 'Failed to create data entry' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      locationId: req.params.locationId,
+      body: req.body,
+    });
+    res.status(500).json({
+      error: 'Failed to create data entry',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
   }
 });
 
@@ -1640,7 +1659,18 @@ app.put(
       res.json({ success: true });
     } catch (error) {
       console.error('Failed to update data entry', error);
-      res.status(500).json({ error: 'Failed to update data entry' });
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        locationId: req.params.locationId,
+        entryId: req.params.entryId,
+        body: req.body,
+      });
+      res.status(500).json({
+        error: 'Failed to update data entry',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      });
     }
   }
 );
@@ -1680,7 +1710,17 @@ app.delete(
       res.json({ success: true });
     } catch (error) {
       console.error('Failed to delete data entry', error);
-      res.status(500).json({ error: 'Failed to delete data entry' });
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        locationId: req.params.locationId,
+        entryId: req.params.entryId,
+      });
+      res.status(500).json({
+        error: 'Failed to delete data entry',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      });
     }
   }
 );
