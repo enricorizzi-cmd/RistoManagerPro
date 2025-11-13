@@ -527,10 +527,10 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                   PERIODO
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-20 font-semibold">
-                  CORRISPETTIVI
+                  RICEVUTE FISCALI
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-20 font-semibold">
-                  FATTURATO IMPONIBILE
+                  FATTURE
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-blue-50 to-blue-100 sticky top-0 z-20 font-semibold text-blue-800">
                   FATTURATO TOTALE
@@ -539,10 +539,10 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                   FATTURATO PREVISIONALE
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-blue-50 to-blue-100 sticky top-0 z-20 font-semibold text-blue-800">
-                  INCASSATO
+                  VERSAMENTI
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-emerald-50 to-emerald-100 sticky top-0 z-20 font-semibold text-emerald-800">
-                  INCASSATO PREVISIONALE
+                  VERSAMENTI PREVISIONALE
                 </th>
                 <th className="px-4 py-4 text-right bg-gradient-to-r from-slate-100 to-slate-200 sticky top-0 z-20 font-semibold">
                   SALDO CONTO

@@ -374,14 +374,14 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
       unit: '%',
     });
 
-    // INCASSATO
+    // VERSAMENTI
     const incassatoLastMonth = getSameMonthPreviousYear('incassato');
     const incassatoYTD = getYTDValues('incassato');
     const incassato12Months = getLast12MonthsValues('incassato');
     const incassatoValues = getSelectedMonthValues('incassato');
 
     indicators.push({
-      label: 'INCASSATO',
+      label: 'VERSAMENTI',
       lastMonthValues: incassatoValues,
       lastMonth: incassatoLastMonth
         ? calculatePercentageChange(
@@ -897,7 +897,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
     // PREVISIONALE / CONSUNTIVO comparison - always show all fields
     const previsionaleConsuntivo = [
       {
-        label: 'INCASSATO',
+        label: 'VERSAMENTI',
         consuntivo: currentMonthData.incassato,
         previsionale: getIncassatoTotal(
           causaliCatalog,
@@ -1236,7 +1236,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
           : // Show all indicators even if no data
             [
               'FATTURATO',
-              'INCASSATO',
+              'VERSAMENTI',
               'SALDO CC',
               'CREDITI PENDENTI',
               'CREDITI SCADUTI',
@@ -1419,7 +1419,7 @@ export const AnalisiFP: React.FC<AnalisiFPProps> = ({
                 );
               })
             : // Show all fields even if no data
-              ['INCASSATO', 'COSTI FISSI', 'COSTI VARIABILI', 'UTILE'].map(
+              ['VERSAMENTI', 'COSTI FISSI', 'COSTI VARIABILI', 'UTILE'].map(
                 label => (
                   <div
                     key={label}

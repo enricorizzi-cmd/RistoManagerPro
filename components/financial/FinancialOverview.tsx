@@ -688,10 +688,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
           </div>
         </div>
 
-        {/* Incassato Card */}
+        {/* Versamenti Card */}
         <div className="rounded-2xl bg-white p-5 shadow-sm min-w-[300px]">
           <p className="text-xs font-semibold uppercase text-gray-500 mb-3">
-            Incassato
+            Versamenti
           </p>
           <div className="space-y-2">
             {overviewTotals.prevYear3.incassato > 0 && (
@@ -1135,7 +1135,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               dataKey="incassato"
               stroke="#047857"
               strokeWidth={2}
-              name="Incassato"
+              name="Versamenti"
             />
             {/* Barre impilate per costi fissi e variabili */}
             <Bar
@@ -1222,7 +1222,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
               dataKey="incassatoReale"
               stroke="#059669"
               strokeWidth={2}
-              name="Incassato Reale"
+              name="Versamenti Reali"
               dot={false}
               connectNulls={false}
             />

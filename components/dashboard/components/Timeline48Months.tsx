@@ -72,7 +72,7 @@ export const Timeline48Months: React.FC<Timeline48MonthsProps> = ({ data }) => {
             dataKey="incassato"
             stroke="#10B981"
             strokeWidth={2}
-            name="Incassato Reale"
+            name="Versamenti Reali"
             dot={false}
           />
           <Bar

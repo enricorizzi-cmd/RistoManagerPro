@@ -245,7 +245,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
           monthIndex,
           monthName: monthNames[monthIndex],
           missingFields: [
-            incassato === 0 ? 'Incassato' : null,
+            incassato === 0 ? 'Versamenti' : null,
             costiFissi === 0 ? 'Costi Fissi' : null,
             costiVariabili === 0 ? 'Costi Variabili' : null,
             fatturato === 0 ? 'Fatturato' : null,
@@ -447,16 +447,16 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
 
       {/* Macro Categories Grid 2x2 */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Incassato Section */}
+        {/* Versamenti Section */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Incassato</h3>
+            <h3 className="text-xl font-bold text-gray-900">Versamenti</h3>
             <div className="w-3 h-3 rounded-full bg-green-100"></div>
           </div>
           <div className="grid gap-4 grid-cols-2">
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Incassato anno base
+                Versamenti anno base
               </label>
               <input
                 type="text"
@@ -469,7 +469,7 @@ export const BusinessPlanForm: React.FC<BusinessPlanFormProps> = ({
             </div>
             <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
               <label className="block text-sm font-semibold text-green-700 mb-2">
-                Incassato previsionale
+                Versamenti previsionale
               </label>
               <input
                 type="text"
