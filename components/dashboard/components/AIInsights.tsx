@@ -21,7 +21,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({
 
     const interval = setInterval(() => {
       setCurrentInsightIndex(prev => (prev + 1) % insights.length);
-    }, 5000);
+    }, 12000); // 12 secondi per dare tempo di leggere ogni insight
 
     return () => clearInterval(interval);
   }, [insights.length]);
@@ -53,7 +53,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.8 }}
               className="mb-6"
             >
               <div className="flex items-start justify-between mb-2">

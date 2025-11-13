@@ -3650,19 +3650,13 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
             }
           });
 
-          // Use calculated values if available
-          if (monthIncassato > 0) incassatoValue = monthIncassato;
-          if (monthCostiFissi > 0) costiFissiValue = monthCostiFissi;
-          if (monthCostiVariabili > 0)
-            costiVariabiliValue = monthCostiVariabili;
+          // Always use calculated values from consuntivoOverrides if we have causaliCatalog
+          // This means we attempted calculation, so use the results (even if 0)
+          incassatoValue = monthIncassato;
+          costiFissiValue = monthCostiFissi;
+          costiVariabiliValue = monthCostiVariabili;
           // Utile = Incassato - Costi Fissi - Costi Variabili
-          if (
-            monthIncassato > 0 ||
-            monthCostiFissi > 0 ||
-            monthCostiVariabili > 0
-          ) {
-            utileValue = monthIncassato - monthCostiFissi - monthCostiVariabili;
-          }
+          utileValue = monthIncassato - monthCostiFissi - monthCostiVariabili;
         }
       }
 
@@ -3949,9 +3943,10 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
           sparkline: [],
         },
         // Update utile with period value if calculated from financial plan
-        // For 'year' period, always use utilePeriod (YTD value) even if 0
+        // If incassatoPeriod was calculated (from consuntivoOverrides), always use utilePeriod
+        // This ensures we use the calculated value even if it's 0
         utile:
-          period === 'year' || utilePeriod > 0
+          period === 'year' || incassatoPeriod > 0
             ? {
                 current: utilePeriod,
                 previous: utilePrevious,
