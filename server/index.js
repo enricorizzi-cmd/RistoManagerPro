@@ -1660,6 +1660,36 @@ app.put(
         }
       }
 
+      // Convert dataInserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
+      // Note: data_inserimento is a DATE field (not timestamp), so we only keep the date part
+      let dataInserimentoISO = dataInserimento;
+      if (dataInserimento && typeof dataInserimento === 'string') {
+        // Check if it's in Italian format (DD/MM/YYYY HH:mm or DD/MM/YYYY)
+        const italianDateMatch = dataInserimento.match(
+          /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+        );
+        if (italianDateMatch) {
+          const [, day, month, year] = italianDateMatch;
+          // Convert to PostgreSQL date format: YYYY-MM-DD (date field doesn't accept time)
+          dataInserimentoISO = `${year}-${month}-${day}`;
+        } else {
+          // If already in ISO format or other format, try to parse and convert
+          try {
+            const parsedDate = new Date(dataInserimento);
+            if (!isNaN(parsedDate.getTime())) {
+              // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
+              const year = parsedDate.getFullYear();
+              const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+              const day = String(parsedDate.getDate()).padStart(2, '0');
+              dataInserimentoISO = `${year}-${month}-${day}`;
+            }
+          } catch (e) {
+            // If parsing fails, keep original value and let database handle error
+            console.warn('Could not parse dataInserimento:', dataInserimento);
+          }
+        }
+      }
+
       const db = getDatabase(locationId);
       const now = new Date().toISOString();
 
@@ -1673,7 +1703,7 @@ app.put(
       WHERE id = ? AND location_id = ?
     `,
         [
-          dataInserimento,
+          dataInserimentoISO,
           mese,
           anno,
           tipologiaCausale,
