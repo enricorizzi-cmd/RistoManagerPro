@@ -1564,8 +1564,26 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
       );
       if (italianDateMatch) {
         const [, day, month, year, hour = '00', minute = '00'] = italianDateMatch;
-        // Convert to ISO 8601: YYYY-MM-DDTHH:mm:ss
-        dataInserimentoISO = `${year}-${month}-${day}T${hour}:${minute}:00`;
+        // Convert to PostgreSQL timestamp format: YYYY-MM-DD HH:mm:ss
+        // PostgreSQL prefers space over T for timestamp without timezone
+        dataInserimentoISO = `${year}-${month}-${day} ${hour}:${minute}:00`;
+      } else {
+        // If already in ISO format or other format, try to parse and convert
+        try {
+          const parsedDate = new Date(dataInserimento);
+          if (!isNaN(parsedDate.getTime())) {
+            // Convert to PostgreSQL format: YYYY-MM-DD HH:mm:ss
+            const year = parsedDate.getFullYear();
+            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(parsedDate.getDate()).padStart(2, '0');
+            const hour = String(parsedDate.getHours()).padStart(2, '0');
+            const minute = String(parsedDate.getMinutes()).padStart(2, '0');
+            dataInserimentoISO = `${year}-${month}-${day} ${hour}:${minute}:00`;
+          }
+        } catch (e) {
+          // If parsing fails, keep original value and let database handle error
+          console.warn('Could not parse dataInserimento:', dataInserimento);
+        }
       }
     }
 
