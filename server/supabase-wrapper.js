@@ -987,72 +987,15 @@ function getLocationDb(locationId) {
 
         columns.forEach((col, index) => {
           if (placeholders[index] === '?' && params[index] !== undefined) {
-            // Handle null values - Supabase accepts null
-            const value = params[index];
-            // Only skip if value is explicitly undefined, null is allowed
-            if (value !== undefined) {
-              data[col] = value === null ? null : value;
-            }
-          } else if (placeholders[index] !== '?') {
-            // Handle non-parameterized values (literals)
-            const literalValue = placeholders[index].trim();
-            // Remove quotes if present
-            if (
-              (literalValue.startsWith("'") && literalValue.endsWith("'")) ||
-              (literalValue.startsWith('"') && literalValue.endsWith('"'))
-            ) {
-              data[col] = literalValue.slice(1, -1);
-            } else if (literalValue.toLowerCase() === 'null') {
-              data[col] = null;
-            } else if (!isNaN(literalValue)) {
-              data[col] = parseFloat(literalValue);
-            } else {
-              data[col] = literalValue;
-            }
-          }
-        });
-
-        // Clean data: remove undefined values, ensure proper types
-        const cleanData = {};
-        Object.keys(data).forEach(key => {
-          const value = data[key];
-          // Skip undefined values (Supabase doesn't accept them)
-          if (value !== undefined) {
-            // Convert empty strings to null for optional fields
-            // Keep null as null (Supabase accepts null)
-            if (value === '') {
-              cleanData[key] = null;
-            } else {
-              cleanData[key] = value;
-            }
+            data[col] = params[index];
           }
         });
 
         console.log(
           `[SUPABASE] INSERT into ${table}:`,
-          Object.keys(cleanData).join(', ')
+          Object.keys(data).join(', ')
         );
-        console.log(`[SUPABASE] INSERT data values:`, {
-          columns: columns,
-          paramsCount: params.length,
-          dataKeys: Object.keys(cleanData),
-          locationIdInColumns: hasLocationIdInColumns,
-          locationIdInData: 'location_id' in cleanData,
-          locationIdValue: cleanData.location_id,
-          sampleData: Object.fromEntries(
-            Object.entries(cleanData).slice(0, 5)
-          ), // First 5 entries for debugging
-        });
-
-        try {
-          return await supabaseCall('POST', table, { data: cleanData, upsert: false });
-        } catch (error) {
-          console.error(`[SUPABASE] INSERT error for table ${table}:`, error);
-          console.error(`[SUPABASE] INSERT data that failed:`, JSON.stringify(cleanData, null, 2));
-          console.error(`[SUPABASE] Original params:`, params);
-          console.error(`[SUPABASE] Original columns:`, columns);
-          throw error;
-        }
+        return await supabaseCall('POST', table, { data, upsert: false });
       }
 
       // UPDATE
