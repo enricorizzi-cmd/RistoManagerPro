@@ -1555,6 +1555,20 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
       }
     }
 
+    // Convert dataInserimento from Italian format (DD/MM/YYYY HH:mm) to ISO 8601
+    let dataInserimentoISO = dataInserimento;
+    if (dataInserimento && typeof dataInserimento === 'string') {
+      // Check if it's in Italian format (DD/MM/YYYY HH:mm or DD/MM/YYYY)
+      const italianDateMatch = dataInserimento.match(
+        /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+      );
+      if (italianDateMatch) {
+        const [, day, month, year, hour = '00', minute = '00'] = italianDateMatch;
+        // Convert to ISO 8601: YYYY-MM-DDTHH:mm:ss
+        dataInserimentoISO = `${year}-${month}-${day}T${hour}:${minute}:00`;
+      }
+    }
+
     const db = getDatabase(locationId);
     const entryId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -1571,7 +1585,7 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
       [
         entryId,
         locationId,
-        dataInserimento,
+        dataInserimentoISO,
         mese,
         anno,
         tipologiaCausale,
