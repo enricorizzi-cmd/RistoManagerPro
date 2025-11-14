@@ -987,7 +987,38 @@ function getLocationDb(locationId) {
 
         columns.forEach((col, index) => {
           if (placeholders[index] === '?' && params[index] !== undefined) {
-            data[col] = params[index];
+            let value = params[index];
+            
+            // Convert data_inserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
+            // The field is DATE type, so we only keep the date part (YYYY-MM-DD)
+            if (col === 'data_inserimento' && typeof value === 'string') {
+              // Check if it's in Italian format (DD/MM/YYYY HH:mm or DD/MM/YYYY)
+              const italianDateMatch = value.match(
+                /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+              );
+              if (italianDateMatch) {
+                const [, day, month, year] = italianDateMatch;
+                // Convert to PostgreSQL date format: YYYY-MM-DD (date field doesn't accept time)
+                value = `${year}-${month}-${day}`;
+              } else {
+                // If already in ISO format or other format, try to parse and convert
+                try {
+                  const parsedDate = new Date(value);
+                  if (!isNaN(parsedDate.getTime())) {
+                    // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
+                    const year = parsedDate.getFullYear();
+                    const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(parsedDate.getDate()).padStart(2, '0');
+                    value = `${year}-${month}-${day}`;
+                  }
+                } catch (e) {
+                  // If parsing fails, keep original value and let database handle error
+                  console.warn(`[SUPABASE] Could not parse data_inserimento:`, value);
+                }
+              }
+            }
+            
+            data[col] = value;
           }
         });
 
@@ -1015,7 +1046,38 @@ function getLocationDb(locationId) {
           const [col, val] = pair.split('=').map(s => s.trim());
           const cleanCol = col.replace(/^["']|["']$/g, ''); // Remove quotes from column names
           if (val === '?') {
-            data[cleanCol] = params[paramIndex++];
+            let value = params[paramIndex++];
+            
+            // Convert data_inserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
+            // The field is DATE type, so we only keep the date part (YYYY-MM-DD)
+            if (cleanCol === 'data_inserimento' && typeof value === 'string') {
+              // Check if it's in Italian format (DD/MM/YYYY HH:mm or DD/MM/YYYY)
+              const italianDateMatch = value.match(
+                /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+              );
+              if (italianDateMatch) {
+                const [, day, month, year] = italianDateMatch;
+                // Convert to PostgreSQL date format: YYYY-MM-DD (date field doesn't accept time)
+                value = `${year}-${month}-${day}`;
+              } else {
+                // If already in ISO format or other format, try to parse and convert
+                try {
+                  const parsedDate = new Date(value);
+                  if (!isNaN(parsedDate.getTime())) {
+                    // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
+                    const year = parsedDate.getFullYear();
+                    const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(parsedDate.getDate()).padStart(2, '0');
+                    value = `${year}-${month}-${day}`;
+                  }
+                } catch (e) {
+                  // If parsing fails, keep original value and let database handle error
+                  console.warn(`[SUPABASE] Could not parse data_inserimento:`, value);
+                }
+              }
+            }
+            
+            data[cleanCol] = value;
           }
         });
 
