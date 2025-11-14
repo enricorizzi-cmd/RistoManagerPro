@@ -988,7 +988,7 @@ function getLocationDb(locationId) {
         columns.forEach((col, index) => {
           if (placeholders[index] === '?' && params[index] !== undefined) {
             let value = params[index];
-            
+
             // Convert data_inserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
             // The field is DATE type, so we only keep the date part (YYYY-MM-DD)
             if (col === 'data_inserimento' && typeof value === 'string') {
@@ -1007,17 +1007,23 @@ function getLocationDb(locationId) {
                   if (!isNaN(parsedDate.getTime())) {
                     // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
                     const year = parsedDate.getFullYear();
-                    const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                    const month = String(parsedDate.getMonth() + 1).padStart(
+                      2,
+                      '0'
+                    );
                     const day = String(parsedDate.getDate()).padStart(2, '0');
                     value = `${year}-${month}-${day}`;
                   }
                 } catch (e) {
                   // If parsing fails, keep original value and let database handle error
-                  console.warn(`[SUPABASE] Could not parse data_inserimento:`, value);
+                  console.warn(
+                    `[SUPABASE] Could not parse data_inserimento:`,
+                    value
+                  );
                 }
               }
             }
-            
+
             data[col] = value;
           }
         });
@@ -1047,7 +1053,7 @@ function getLocationDb(locationId) {
           const cleanCol = col.replace(/^["']|["']$/g, ''); // Remove quotes from column names
           if (val === '?') {
             let value = params[paramIndex++];
-            
+
             // Convert data_inserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
             // The field is DATE type, so we only keep the date part (YYYY-MM-DD)
             if (cleanCol === 'data_inserimento' && typeof value === 'string') {
@@ -1066,17 +1072,23 @@ function getLocationDb(locationId) {
                   if (!isNaN(parsedDate.getTime())) {
                     // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
                     const year = parsedDate.getFullYear();
-                    const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                    const month = String(parsedDate.getMonth() + 1).padStart(
+                      2,
+                      '0'
+                    );
                     const day = String(parsedDate.getDate()).padStart(2, '0');
                     value = `${year}-${month}-${day}`;
                   }
                 } catch (e) {
                   // If parsing fails, keep original value and let database handle error
-                  console.warn(`[SUPABASE] Could not parse data_inserimento:`, value);
+                  console.warn(
+                    `[SUPABASE] Could not parse data_inserimento:`,
+                    value
+                  );
                 }
               }
             }
-            
+
             data[cleanCol] = value;
           }
         });
