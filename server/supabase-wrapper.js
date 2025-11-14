@@ -1012,24 +1012,45 @@ function getLocationDb(locationId) {
           }
         });
 
+        // Clean data: remove undefined values, ensure proper types
+        const cleanData = {};
+        Object.keys(data).forEach(key => {
+          const value = data[key];
+          // Skip undefined values (Supabase doesn't accept them)
+          if (value !== undefined) {
+            // Convert empty strings to null for optional fields
+            // Keep null as null (Supabase accepts null)
+            if (value === '') {
+              cleanData[key] = null;
+            } else {
+              cleanData[key] = value;
+            }
+          }
+        });
+
         console.log(
           `[SUPABASE] INSERT into ${table}:`,
-          Object.keys(data).join(', ')
+          Object.keys(cleanData).join(', ')
         );
         console.log(`[SUPABASE] INSERT data values:`, {
           columns: columns,
           paramsCount: params.length,
-          dataKeys: Object.keys(data),
+          dataKeys: Object.keys(cleanData),
           locationIdInColumns: hasLocationIdInColumns,
-          locationIdInData: 'location_id' in data,
-          locationIdValue: data.location_id,
+          locationIdInData: 'location_id' in cleanData,
+          locationIdValue: cleanData.location_id,
+          sampleData: Object.fromEntries(
+            Object.entries(cleanData).slice(0, 5)
+          ), // First 5 entries for debugging
         });
 
         try {
-          return await supabaseCall('POST', table, { data, upsert: false });
+          return await supabaseCall('POST', table, { data: cleanData, upsert: false });
         } catch (error) {
           console.error(`[SUPABASE] INSERT error for table ${table}:`, error);
-          console.error(`[SUPABASE] INSERT data that failed:`, JSON.stringify(data, null, 2));
+          console.error(`[SUPABASE] INSERT data that failed:`, JSON.stringify(cleanData, null, 2));
+          console.error(`[SUPABASE] Original params:`, params);
+          console.error(`[SUPABASE] Original columns:`, columns);
           throw error;
         }
       }
