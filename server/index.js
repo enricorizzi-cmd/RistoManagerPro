@@ -1555,7 +1555,8 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
       }
     }
 
-    // Convert dataInserimento from Italian format (DD/MM/YYYY HH:mm) to ISO 8601
+    // Convert dataInserimento from Italian format (DD/MM/YYYY HH:mm) to PostgreSQL date format
+    // Note: data_inserimento is a DATE field (not timestamp), so we only keep the date part
     let dataInserimentoISO = dataInserimento;
     if (dataInserimento && typeof dataInserimento === 'string') {
       // Check if it's in Italian format (DD/MM/YYYY HH:mm or DD/MM/YYYY)
@@ -1563,22 +1564,19 @@ app.post('/api/data-entries/:locationId', requireAuth, async (req, res) => {
         /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
       );
       if (italianDateMatch) {
-        const [, day, month, year, hour = '00', minute = '00'] = italianDateMatch;
-        // Convert to PostgreSQL timestamp format: YYYY-MM-DD HH:mm:ss
-        // PostgreSQL prefers space over T for timestamp without timezone
-        dataInserimentoISO = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        const [, day, month, year] = italianDateMatch;
+        // Convert to PostgreSQL date format: YYYY-MM-DD (date field doesn't accept time)
+        dataInserimentoISO = `${year}-${month}-${day}`;
       } else {
         // If already in ISO format or other format, try to parse and convert
         try {
           const parsedDate = new Date(dataInserimento);
           if (!isNaN(parsedDate.getTime())) {
-            // Convert to PostgreSQL format: YYYY-MM-DD HH:mm:ss
+            // Convert to PostgreSQL date format: YYYY-MM-DD (only date, no time)
             const year = parsedDate.getFullYear();
             const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
             const day = String(parsedDate.getDate()).padStart(2, '0');
-            const hour = String(parsedDate.getHours()).padStart(2, '0');
-            const minute = String(parsedDate.getMinutes()).padStart(2, '0');
-            dataInserimentoISO = `${year}-${month}-${day} ${hour}:${minute}:00`;
+            dataInserimentoISO = `${year}-${month}-${day}`;
           }
         } catch (e) {
           // If parsing fails, keep original value and let database handle error
