@@ -987,7 +987,28 @@ function getLocationDb(locationId) {
 
         columns.forEach((col, index) => {
           if (placeholders[index] === '?' && params[index] !== undefined) {
-            data[col] = params[index];
+            // Handle null values - Supabase accepts null
+            const value = params[index];
+            // Only skip if value is explicitly undefined, null is allowed
+            if (value !== undefined) {
+              data[col] = value === null ? null : value;
+            }
+          } else if (placeholders[index] !== '?') {
+            // Handle non-parameterized values (literals)
+            const literalValue = placeholders[index].trim();
+            // Remove quotes if present
+            if (
+              (literalValue.startsWith("'") && literalValue.endsWith("'")) ||
+              (literalValue.startsWith('"') && literalValue.endsWith('"'))
+            ) {
+              data[col] = literalValue.slice(1, -1);
+            } else if (literalValue.toLowerCase() === 'null') {
+              data[col] = null;
+            } else if (!isNaN(literalValue)) {
+              data[col] = parseFloat(literalValue);
+            } else {
+              data[col] = literalValue;
+            }
           }
         });
 
